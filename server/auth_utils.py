@@ -44,7 +44,7 @@ class AuthUtils:
         except jwt.InvalidTokenError:
             return None
     
-    async def verify_google_token(self, token: str, client_id: str) -> Optional[dict]:
+    def verify_google_token(self, token: str, client_id: str) -> Optional[dict]:
         """Verify Google OAuth token and return user info"""
         try:
             # Verify the token
