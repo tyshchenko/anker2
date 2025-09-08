@@ -5,9 +5,24 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  email: text("email").notNull().unique(),
+  username: text("username").unique(),
+  password_hash: text("password_hash"),
+  first_name: text("first_name"),
+  last_name: text("last_name"),
+  google_id: text("google_id").unique(),
+  profile_image_url: text("profile_image_url"),
   zarBalance: decimal("zar_balance", { precision: 20, scale: 2 }).default("0.00").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const sessions = pgTable("sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  session_token: text("session_token").notNull().unique(),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const trades = pgTable("trades", {
