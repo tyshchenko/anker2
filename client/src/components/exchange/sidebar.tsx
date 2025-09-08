@@ -24,14 +24,22 @@ const navigationItems = [
 ];
 
 const portfolioItems = [
-  { icon: "₿", label: "Bitcoin", amount: "0.0234", color: "text-orange-500" },
-  { icon: "Ξ", label: "Ethereum", amount: "1.247", color: "text-blue-400" },
+  { icon: "₿", label: "Bitcoin", amount: "0.0234", color: "text-orange-500", href: "/wallets/btc" },
+  { icon: "Ξ", label: "Ethereum", amount: "1.247", color: "text-blue-400", href: "/wallets/eth" },
+  { icon: "₮", label: "Tether", amount: "0", color: "text-green-500", href: "/wallets/usdt" },
+  { icon: "◉", label: "BNB", amount: "0", color: "text-yellow-500", href: "/wallets/bnb" },
+  { icon: "◎", label: "Solana", amount: "0", color: "text-purple-500", href: "/wallets/sol" },
+  { icon: "◈", label: "XRP", amount: "0", color: "text-blue-600", href: "/wallets/xrp" },
+  { icon: "◇", label: "Cardano", amount: "0", color: "text-blue-500", href: "/wallets/ada" },
+  { icon: "◆", label: "Avalanche", amount: "0", color: "text-red-500", href: "/wallets/avax" },
+  { icon: "◊", label: "Dogecoin", amount: "0", color: "text-yellow-600", href: "/wallets/doge" },
+  { icon: "⬟", label: "Polygon", amount: "0", color: "text-purple-600", href: "/wallets/matic" },
 ];
 
 const bottomItems = [
   { icon: Users, label: "Referrals" },
-  { icon: HelpCircle, label: "Help" },
-  { icon: User, label: "Profile" },
+  { icon: HelpCircle, label: "Help", href: "/help" },
+  { icon: User, label: "Profile", href: "/profile" },
 ];
 
 export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) {

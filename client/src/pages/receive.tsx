@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import QRCode from "qrcode";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -83,6 +84,7 @@ export default function ReceivePage() {
   const [requestAmount, setRequestAmount] = useState('');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = useState<string>("");
 
   const wallet = WALLETS.find(w => w.id === selectedWallet) || WALLETS[0];
 
@@ -110,6 +112,28 @@ export default function ReceivePage() {
     }
     return wallet.address;
   };
+
+  // Generate QR code whenever wallet, amount, or message changes
+  useEffect(() => {
+    const generateQRCode = async () => {
+      try {
+        const paymentData = generatePaymentLink();
+        const qrDataURL = await QRCode.toDataURL(paymentData, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
+        setQrCodeDataURL(qrDataURL);
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+    };
+
+    generateQRCode();
+  }, [selectedWallet, requestAmount, message]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -216,11 +240,20 @@ export default function ReceivePage() {
                   <div className="bg-muted rounded-lg p-4">
                     <div className="flex items-center justify-center mb-4">
                       <div className="w-32 h-32 bg-white rounded-lg flex items-center justify-center">
-                        <QrCode className="w-20 h-20 text-gray-800" />
+                        {qrCodeDataURL ? (
+                          <img 
+                            src={qrCodeDataURL} 
+                            alt="Payment QR Code" 
+                            className="w-full h-full rounded-lg"
+                            data-testid="qr-code-image"
+                          />
+                        ) : (
+                          <QrCode className="w-20 h-20 text-gray-800" />
+                        )}
                       </div>
                     </div>
                     <p className="text-center text-sm text-muted-foreground mb-2">
-                      Scan QR code to get address
+                      {qrCodeDataURL ? "Scan QR code to send payment" : "Generating QR code..."}
                     </p>
                   </div>
 

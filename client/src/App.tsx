@@ -15,6 +15,10 @@ import SendPage from "@/pages/send";
 import ReceivePage from "@/pages/receive";
 import ShitcoinsPage from "@/pages/shitcoins";
 import ActivityPage from "@/pages/activity";
+import HelpPage from "@/pages/help";
+import ProfilePage from "@/pages/profile";
+import SignInPage from "@/pages/signin";
+import CreateWalletPage from "@/pages/create-wallet";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -44,13 +48,18 @@ function Router() {
   return (
     <>
       <Switch>
-        <Route path="/" component={() => handleProtectedRoute(<ExchangePage />)} />
-        <Route path="/explore" component={() => handleProtectedRoute(<ExplorePage />)} />
+        <Route path="/" component={ExchangePage} />
+        <Route path="/explore" component={ExplorePage} />
         <Route path="/wallets" component={() => handleProtectedRoute(<WalletsPage />)} />
+        <Route path="/wallets/:symbol" component={() => handleProtectedRoute(<WalletsPage />)} />
         <Route path="/send" component={() => handleProtectedRoute(<SendPage />)} />
         <Route path="/receive" component={() => handleProtectedRoute(<ReceivePage />)} />
-        <Route path="/shitcoins" component={() => handleProtectedRoute(<ShitcoinsPage />)} />
+        <Route path="/shitcoins" component={ShitcoinsPage} />
         <Route path="/activity" component={() => handleProtectedRoute(<ActivityPage />)} />
+        <Route path="/help" component={HelpPage} />
+        <Route path="/profile" component={() => handleProtectedRoute(<ProfilePage />)} />
+        <Route path="/signin" component={SignInPage} />
+        <Route path="/create-wallet" component={() => handleProtectedRoute(<CreateWalletPage />)} />
         <Route component={NotFound} />
       </Switch>
 

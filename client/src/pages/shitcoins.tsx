@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, ExternalLink, TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle } from "lucide-react";
+import { Search, ExternalLink, TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Wallet, Link as LinkIcon, Globe, Shield, Flame, Zap, Sparkles } from "lucide-react";
 
 interface TokenResult {
   address: string;
@@ -21,6 +21,63 @@ interface TokenResult {
   marketCap?: number;
   verified?: boolean;
 }
+
+const POPULAR_WALLETS = [
+  {
+    name: "Phantom",
+    description: "The most popular Solana wallet",
+    icon: "👻",
+    color: "bg-purple-600",
+    url: "https://phantom.app/",
+    supported: ["SOL", "SPL"],
+    users: "7M+"
+  },
+  {
+    name: "MetaMask",
+    description: "Leading Ethereum wallet",
+    icon: "🦊",
+    color: "bg-orange-500",
+    url: "https://metamask.io/",
+    supported: ["ETH", "ERC-20"],
+    users: "30M+"
+  },
+  {
+    name: "Trust Wallet",
+    description: "Multi-chain mobile wallet",
+    icon: "🛡️",
+    color: "bg-blue-600",
+    url: "https://trustwallet.com/",
+    supported: ["Multi-chain"],
+    users: "25M+"
+  },
+  {
+    name: "Coinbase Wallet",
+    description: "Self-custody wallet by Coinbase",
+    icon: "💼",
+    color: "bg-blue-500",
+    url: "https://wallet.coinbase.com/",
+    supported: ["ETH", "SOL", "BTC"],
+    users: "10M+"
+  },
+  {
+    name: "Solflare",
+    description: "Native Solana wallet",
+    icon: "☀️",
+    color: "bg-yellow-500",
+    url: "https://solflare.com/",
+    supported: ["SOL", "SPL"],
+    users: "1M+"
+  },
+  {
+    name: "Rainbow",
+    description: "Ethereum wallet with NFT focus",
+    icon: "🌈",
+    color: "bg-gradient-to-r from-purple-500 to-pink-500",
+    url: "https://rainbow.me/",
+    supported: ["ETH", "ERC-20", "NFTs"],
+    users: "2M+"
+  }
+];
 
 // Mock search results for demonstration
 const MOCK_RESULTS: TokenResult[] = [
@@ -56,8 +113,94 @@ const MOCK_RESULTS: TokenResult[] = [
     volume24h: 8765432,
     marketCap: 456789012,
     verified: true
+  },
+  {
+    address: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+    symbol: "BONK",
+    name: "Bonk",
+    decimals: 5,
+    price: 0.0000234,
+    change24h: 45.67,
+    volume24h: 23456789,
+    marketCap: 1234567890,
+    verified: false
+  },
+  {
+    address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    symbol: "SAMO",
+    name: "Samoyedcoin",
+    decimals: 9,
+    price: 0.0234,
+    change24h: -12.34,
+    volume24h: 3456789,
+    marketCap: 234567890,
+    verified: false
   }
 ];
+
+interface WalletCardProps {
+  wallet: typeof POPULAR_WALLETS[0];
+  onConnect: (walletName: string) => void;
+  isConnected: boolean;
+}
+
+function WalletCard({ wallet, onConnect, isConnected }: WalletCardProps) {
+  return (
+    <Card className="p-4 hover:shadow-lg transition-all border-2 hover:border-primary/20">
+      <div className="flex items-center space-x-3 mb-3">
+        <div className={`w-12 h-12 rounded-full ${wallet.color} flex items-center justify-center text-xl`}>
+          {wallet.icon}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center space-x-2">
+            <h3 className="font-semibold">{wallet.name}</h3>
+            <Badge variant="outline" className="text-xs">
+              {wallet.users}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{wallet.description}</p>
+        </div>
+      </div>
+      
+      <div className="flex flex-wrap gap-1 mb-3">
+        {wallet.supported.map((chain) => (
+          <Badge key={chain} variant="secondary" className="text-xs">
+            {chain}
+          </Badge>
+        ))}
+      </div>
+      
+      <div className="flex space-x-2">
+        <Button
+          onClick={() => onConnect(wallet.name)}
+          disabled={isConnected}
+          className={`flex-1 ${isConnected ? 'bg-green-600 hover:bg-green-700' : ''}`}
+          data-testid={`connect-${wallet.name.toLowerCase()}`}
+        >
+          {isConnected ? (
+            <>
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Connected
+            </>
+          ) : (
+            <>
+              <Wallet className="w-4 h-4 mr-2" />
+              Connect
+            </>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => window.open(wallet.url, '_blank')}
+          data-testid={`visit-${wallet.name.toLowerCase()}`}
+        >
+          <ExternalLink className="w-4 h-4" />
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 interface TokenCardProps {
   token: TokenResult;
@@ -89,24 +232,42 @@ function TokenCard({ token, onTrade }: TokenCardProps) {
     window.open(jupiterUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const getPriceDisplay = () => {
+    if (!token.price) return 'N/A';
+    if (token.price < 0.01) return `$${token.price.toFixed(6)}`;
+    return `$${token.price.toFixed(2)}`;
+  };
+
   return (
-    <Card className="p-6 hover:shadow-lg transition-shadow">
+    <Card className="p-6 hover:shadow-lg transition-all border-2 hover:border-primary/20 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-primary/10 to-transparent rounded-bl-full" />
+      
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/40 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/40 rounded-full flex items-center justify-center relative">
             <span className="text-primary font-bold text-lg">
               {token.symbol?.charAt(0) || '?'}
             </span>
+            {!token.verified && (
+              <div className="absolute -top-1 -right-1">
+                <Flame className="w-4 h-4 text-orange-500" />
+              </div>
+            )}
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="font-semibold text-lg" data-testid={`token-symbol-${token.symbol}`}>
                 {token.symbol}
               </h3>
-              {token.verified && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="w-3 h-3 mr-1" />
+              {token.verified ? (
+                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                  <Shield className="w-3 h-3 mr-1" />
                   Verified
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="text-xs">
+                  <Flame className="w-3 h-3 mr-1" />
+                  DEGEN
                 </Badge>
               )}
             </div>
@@ -125,76 +286,65 @@ function TokenCard({ token, onTrade }: TokenCardProps) {
             ) : (
               <TrendingDown className="w-4 h-4" />
             )}
-            <span className="font-medium">
-              {token.change24h > 0 ? '+' : ''}{token.change24h.toFixed(2)}%
+            <span className="font-semibold">
+              {token.change24h >= 0 ? '+' : ''}{token.change24h.toFixed(2)}%
             </span>
           </div>
         )}
       </div>
 
-      <div className="space-y-3 mb-4">
-        {token.price !== undefined && (
-          <div>
-            <p className="text-sm text-muted-foreground">Price</p>
-            <p className="text-xl font-bold" data-testid={`token-price-${token.symbol}`}>
-              {formatNumber(token.price)}
-            </p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          {token.volume24h !== undefined && (
-            <div>
-              <p className="text-muted-foreground">24h Volume</p>
-              <p className="font-medium">{formatNumber(token.volume24h)}</p>
-            </div>
-          )}
-          {token.marketCap !== undefined && (
-            <div>
-              <p className="text-muted-foreground">Market Cap</p>
-              <p className="font-medium">{formatNumber(token.marketCap)}</p>
-            </div>
-          )}
-        </div>
-
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Contract Address</p>
-          <div className="flex items-center space-x-2">
-            <code className="flex-1 text-xs bg-muted px-2 py-1 rounded font-mono">
-              {`${token.address.slice(0, 8)}...${token.address.slice(-8)}`}
-            </code>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={copyAddress}
-              data-testid={`button-copy-${token.symbol}`}
-            >
-              {copied ? (
-                <CheckCircle className="w-4 h-4 text-green-600" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
+          <Label className="text-xs text-muted-foreground">Price</Label>
+          <p className="font-mono font-semibold" data-testid={`token-price-${token.symbol}`}>
+            {getPriceDisplay()}
+          </p>
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">Market Cap</Label>
+          <p className="font-semibold" data-testid={`token-mcap-${token.symbol}`}>
+            {token.marketCap ? formatNumber(token.marketCap) : 'N/A'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <Label className="text-xs text-muted-foreground">Contract Address</Label>
+        <div className="flex items-center space-x-2 mt-1">
+          <code className="flex-1 text-xs bg-muted px-2 py-1 rounded font-mono truncate">
+            {token.address}
+          </code>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyAddress}
+            className="shrink-0"
+            data-testid={`copy-address-${token.symbol}`}
+          >
+            {copied ? (
+              <CheckCircle className="w-3 h-3 text-green-600" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </Button>
         </div>
       </div>
 
       <div className="flex space-x-2">
-        <Button
-          variant="outline"
-          className="flex-1"
+        <Button 
           onClick={openJupiter}
-          data-testid={`button-jupiter-${token.symbol}`}
+          className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+          data-testid={`jupiter-trade-${token.symbol}`}
         >
-          <ExternalLink className="w-4 h-4 mr-2" />
+          <Sparkles className="w-4 h-4 mr-2" />
           Trade on Jupiter
         </Button>
         <Button
-          className="flex-1"
+          variant="outline"
           onClick={() => onTrade(token)}
-          data-testid={`button-trade-${token.symbol}`}
+          data-testid={`quick-trade-${token.symbol}`}
         >
-          Quick Trade
+          <Zap className="w-4 h-4" />
         </Button>
       </div>
     </Card>
@@ -203,47 +353,46 @@ function TokenCard({ token, onTrade }: TokenCardProps) {
 
 export default function ShitcoinsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<TokenResult[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [results, setResults] = useState<TokenResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
+  const [selectedToken, setSelectedToken] = useState<TokenResult | null>(null);
+  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+  const [showWallets, setShowWallets] = useState(true);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
-    setSearchError('');
     
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    // Simulate API call delay
+    setTimeout(() => {
+      const filtered = MOCK_RESULTS.filter(token =>
+        token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        token.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
       
-      // For demo purposes, filter mock results or show all if searching for common terms
-      if (searchQuery.toLowerCase().includes('sol') || 
-          searchQuery.toLowerCase().includes('usdc') || 
-          searchQuery.toLowerCase().includes('ray') ||
-          searchQuery.length > 30) { // Assume it's a contract address
-        setSearchResults(MOCK_RESULTS);
-      } else {
-        setSearchResults([]);
-        setSearchError('No tokens found for this search. Try a different contract address or token symbol.');
-      }
-    } catch (error) {
-      setSearchError('Failed to search tokens. Please try again.');
-    } finally {
+      setResults(filtered);
       setIsSearching(false);
-    }
+    }, 1000);
+  };
+
+  const handleConnectWallet = (walletName: string) => {
+    // Simulate wallet connection
+    setConnectedWallet(walletName);
+    console.log(`Connecting to ${walletName}...`);
+  };
+
+  const handleTrade = (token: TokenResult) => {
+    setSelectedToken(token);
+    console.log('Trading:', token);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
-  };
-
-  const handleTrade = (token: TokenResult) => {
-    // This would integrate with the trading panel
-    console.log('Trading token:', token);
   };
 
   return (
@@ -272,75 +421,107 @@ export default function ShitcoinsPage() {
           {/* Market Ticker */}
           <MarketTicker />
 
-          {/* Page Header */}
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/40 rounded-lg flex items-center justify-center">
-                <Search className="w-5 h-5 text-primary" />
+          {/* Hero Header */}
+          <div className="p-6 border-b border-border bg-gradient-to-r from-primary/5 to-primary/10">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/40 rounded-lg flex items-center justify-center">
+                <Flame className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Shitcoins</h1>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  DeFi Portal
+                </h1>
                 <p className="text-muted-foreground">
-                  Search and trade any Solana token via Jupiter
+                  Discover, trade, and manage tokens across multiple chains
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Search Section */}
-          <div className="p-6 border-b border-border">
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="search">Search Token</Label>
-                  <div className="flex space-x-3 mt-1">
-                    <Input
-                      id="search"
-                      type="text"
-                      placeholder="Enter contract address, symbol, or name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      className="flex-1"
-                      data-testid="input-search"
-                    />
-                    <Button
-                      onClick={handleSearch}
-                      disabled={isSearching || !searchQuery.trim()}
-                      data-testid="button-search"
-                    >
-                      {isSearching ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Search className="w-4 h-4" />
-                      )}
-                      {isSearching ? 'Searching...' : 'Search'}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Search by contract address for best results. Example: So11111111111111111111111111111111111111112
-                  </p>
-                </div>
-
-                {searchError && (
-                  <div className="flex items-center space-x-2 text-destructive">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="text-sm">{searchError}</span>
-                  </div>
-                )}
+            {/* Search Bar */}
+            <div className="flex space-x-3 max-w-2xl">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by token symbol, name, or contract address..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="pl-10 h-12 text-base"
+                  data-testid="token-search"
+                />
               </div>
-            </Card>
+              <Button 
+                onClick={handleSearch}
+                disabled={isSearching || !searchQuery.trim()}
+                className="h-12 px-6"
+                data-testid="search-button"
+              >
+                {isSearching ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4 mr-2" />
+                    Search
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
-          {/* Search Results */}
+          {/* Content */}
           <div className="flex-1 p-6">
-            {searchResults.length > 0 ? (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">
-                  Search Results ({searchResults.length})
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {searchResults.map((token) => (
+            {/* Wallet Connection Section */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Wallet className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Connect Your Wallet</h2>
+                  {connectedWallet && (
+                    <Badge className="bg-green-100 text-green-700">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      {connectedWallet} Connected
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowWallets(!showWallets)}
+                  data-testid="toggle-wallets"
+                >
+                  {showWallets ? 'Hide' : 'Show'} Wallets
+                </Button>
+              </div>
+              
+              {showWallets && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {POPULAR_WALLETS.map((wallet) => (
+                    <WalletCard
+                      key={wallet.name}
+                      wallet={wallet}
+                      onConnect={handleConnectWallet}
+                      isConnected={connectedWallet === wallet.name}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Search Results */}
+            {results.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Search className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Search Results</h2>
+                  <Badge variant="secondary">{results.length} tokens found</Badge>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {results.map((token) => (
                     <TokenCard
                       key={token.address}
                       token={token}
@@ -349,20 +530,41 @@ export default function ShitcoinsPage() {
                   ))}
                 </div>
               </div>
-            ) : !isSearching && !searchError && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Find Any Solana Token</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Search for any token on Solana by contract address, symbol, or name. 
-                  Connect directly to Jupiter for seamless trading.
-                </p>
-              </div>
             )}
-          </div>
 
+            {/* Trending Tokens */}
+            <div>
+              <div className="flex items-center space-x-2 mb-4">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold">Trending Tokens</h2>
+                <Badge variant="secondary">🔥 Hot</Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {MOCK_RESULTS.map((token) => (
+                  <TokenCard
+                    key={token.address}
+                    token={token}
+                    onTrade={handleTrade}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* DeFi Notice */}
+            <div className="mt-8 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-800">DeFi Trading Notice</h3>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Trading unverified tokens carries high risk. Always DYOR (Do Your Own Research) before investing. 
+                    Never invest more than you can afford to lose. This is not financial advice.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

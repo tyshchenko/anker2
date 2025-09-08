@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useParams } from "wouter";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -64,6 +64,83 @@ const WALLETS = [
     address: 'USD-WALLET-001',
     color: 'bg-green-600',
     textColor: 'text-green-700'
+  },
+  {
+    id: 'bnb-wallet',
+    name: 'BNB Wallet',
+    symbol: 'BNB',
+    icon: '◉',
+    balance: 0,
+    balanceZAR: 0,
+    address: '0xbnb1234567890abcdef1234567890abcdef12345678',
+    color: 'bg-yellow-500',
+    textColor: 'text-yellow-600'
+  },
+  {
+    id: 'sol-wallet',
+    name: 'Solana Wallet',
+    symbol: 'SOL',
+    icon: '◎',
+    balance: 0,
+    balanceZAR: 0,
+    address: 'Sol1234567890abcdef1234567890abcdef1234567890ab',
+    color: 'bg-purple-500',
+    textColor: 'text-purple-600'
+  },
+  {
+    id: 'xrp-wallet',
+    name: 'XRP Wallet',
+    symbol: 'XRP',
+    icon: '◈',
+    balance: 0,
+    balanceZAR: 0,
+    address: 'rXRP1234567890abcdef1234567890abcdef1234567890',
+    color: 'bg-blue-600',
+    textColor: 'text-blue-700'
+  },
+  {
+    id: 'ada-wallet',
+    name: 'Cardano Wallet',
+    symbol: 'ADA',
+    icon: '◇',
+    balance: 0,
+    balanceZAR: 0,
+    address: 'addr1ada1234567890abcdef1234567890abcdef123456789',
+    color: 'bg-blue-500',
+    textColor: 'text-blue-600'
+  },
+  {
+    id: 'avax-wallet',
+    name: 'Avalanche Wallet',
+    symbol: 'AVAX',
+    icon: '◆',
+    balance: 0,
+    balanceZAR: 0,
+    address: '0xavax1234567890abcdef1234567890abcdef12345678',
+    color: 'bg-red-500',
+    textColor: 'text-red-600'
+  },
+  {
+    id: 'doge-wallet',
+    name: 'Dogecoin Wallet',
+    symbol: 'DOGE',
+    icon: '◊',
+    balance: 0,
+    balanceZAR: 0,
+    address: 'DDoge1234567890abcdef1234567890abcdef1234567890',
+    color: 'bg-yellow-600',
+    textColor: 'text-yellow-700'
+  },
+  {
+    id: 'matic-wallet',
+    name: 'Polygon Wallet',
+    symbol: 'MATIC',
+    icon: '⬟',
+    balance: 0,
+    balanceZAR: 0,
+    address: '0xmatic1234567890abcdef1234567890abcdef12345678',
+    color: 'bg-purple-600',
+    textColor: 'text-purple-700'
   }
 ];
 
@@ -152,6 +229,12 @@ function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
 export default function WalletsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+  const params = useParams();
+  
+  // Filter wallets if a specific symbol is provided
+  const displayWallets = params.symbol 
+    ? WALLETS.filter(wallet => wallet.symbol.toLowerCase() === params.symbol?.toLowerCase())
+    : WALLETS;
 
   const totalBalanceZAR = WALLETS.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
 
@@ -189,9 +272,14 @@ export default function WalletsPage() {
                   <Wallet className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold">My Wallets</h1>
+                  <h1 className="text-2xl font-bold">
+                    {params.symbol ? `${params.symbol?.toUpperCase()} Wallet` : 'My Wallets'}
+                  </h1>
                   <p className="text-muted-foreground">
-                    Manage your cryptocurrency and fiat wallets
+                    {params.symbol 
+                      ? `Manage your ${params.symbol?.toUpperCase()} wallet and transactions`
+                      : 'Manage your cryptocurrency and fiat wallets'
+                    }
                   </p>
                 </div>
               </div>
@@ -215,49 +303,61 @@ export default function WalletsPage() {
                     </>
                   )}
                 </Button>
-                <Button data-testid="button-add-wallet">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Wallet
-                </Button>
+                <Link href="/create-wallet">
+                  <Button data-testid="button-add-wallet">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Wallet
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
 
           {/* Portfolio Summary */}
-          <div className="p-6 border-b border-border">
-            <Card className="p-6">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
-                <p className="text-4xl font-bold mb-4" data-testid="total-portfolio-value">
-                  {isBalanceVisible ? `R${totalBalanceZAR.toLocaleString()}` : '••••••••'}
-                </p>
-                <div className="flex justify-center space-x-6 text-sm">
-                  <div className="text-center">
-                    <p className="text-muted-foreground">Wallets</p>
-                    <p className="font-semibold">{WALLETS.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-muted-foreground">Assets</p>
-                    <p className="font-semibold">{WALLETS.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-muted-foreground">24h Change</p>
-                    <p className="font-semibold text-green-600">+2.34%</p>
+          {!params.symbol && (
+            <div className="p-6 border-b border-border">
+              <Card className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
+                  <p className="text-4xl font-bold mb-4" data-testid="total-portfolio-value">
+                    {isBalanceVisible ? `R${totalBalanceZAR.toLocaleString()}` : '••••••••'}
+                  </p>
+                  <div className="flex justify-center space-x-6 text-sm">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Wallets</p>
+                      <p className="font-semibold">{WALLETS.length}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Assets</p>
+                      <p className="font-semibold">{WALLETS.length}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-muted-foreground">24h Change</p>
+                      <p className="font-semibold text-green-600">+2.34%</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          </div>
+              </Card>
+            </div>
+          )}
 
           {/* Wallets Grid */}
           <div className="flex-1 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {WALLETS.map((wallet) => (
-                <WalletCard
+            <div className={`${
+              params.symbol 
+                ? "flex justify-center items-center min-h-[60vh]" 
+                : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+            }`}>
+              {displayWallets.map((wallet) => (
+                <div 
                   key={wallet.id}
-                  wallet={wallet}
-                  isBalanceVisible={isBalanceVisible}
-                />
+                  className={params.symbol ? "w-full max-w-md" : ""}
+                >
+                  <WalletCard
+                    wallet={wallet}
+                    isBalanceVisible={isBalanceVisible}
+                  />
+                </div>
               ))}
             </div>
           </div>
