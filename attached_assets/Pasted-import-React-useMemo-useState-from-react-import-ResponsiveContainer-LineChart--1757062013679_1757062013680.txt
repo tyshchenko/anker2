@@ -1,0 +1,439 @@
+import React, { useMemo, useState } from "react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  AreaChart,
+  Area,
+} from "recharts";
+
+/**
+ * ExchangePage.jsx
+ * A single-file React front end for a simple, Kraken-inspired exchange layout.
+ * - Left: navigation sidebar
+ * - Center: basic price chart + pair header
+ * - Right: Buy / Sell / Convert ticket with currency selectors (includes ZAR)
+ *
+ * Styling uses Tailwind classes. If Tailwind isn't set up yet, this will still render
+ * but without the intended visual style. See notes in your Chat tab for setup tips.
+ */
+
+// --- Demo market data + helpers (no backend required) ---
+const FIAT = ["ZAR", "USD", "EUR", "GBP"] as const;
+const CRYPTO = ["BTC", "ETH", "USDT"] as const;
+const ALL_ASSETS = [...FIAT, ...CRYPTO] as const;
+
+const FX_ZAR_PER = {
+  USD: 18.5,
+  EUR: 20.0,
+  GBP: 23.0,
+};
+
+const USD_PRICES = {
+  BTC: 65000,
+  ETH: 3500,
+  USDT: 1,
+};
+
+function isFiat(a: string) {
+  return FIAT.includes(a as (typeof FIAT)[number]);
+}
+function isCrypto(a: string) {
+  return CRYPTO.includes(a as (typeof CRYPTO)[number]);
+}
+
+function priceInZAR(asset: string) {
+  if (asset === "ZAR") return 1;
+  if (isFiat(asset)) return FX_ZAR_PER[asset as keyof typeof FX_ZAR_PER] ?? 1;
+  // crypto priced in USD then converted to ZAR
+  const usd = USD_PRICES[asset as keyof typeof USD_PRICES] ?? 0;
+  return usd * FX_ZAR_PER.USD;
+}
+
+function formatAmount(asset: string, n: number) {
+  if (!Number.isFinite(n)) return "–";
+  if (isFiat(asset)) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (asset === "BTC") return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  if (asset === "ETH") return n.toLocaleString(undefined, { maximumFractionDigits: 5 });
+  return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+const FEE_RATE = 0.001; // 0.10% demo fee
+
+function quote(from: string, to: string, amountFrom: number) {
+  const pFrom = priceInZAR(from);
+  const pTo = priceInZAR(to);
+  if (!pFrom || !pTo || !Number.isFinite(amountFrom) || amountFrom <= 0) return { amountTo: 0, rate: 0, fee: 0 };
+  const grossTo = (amountFrom * pFrom) / pTo;
+  const fee = grossTo * FEE_RATE;
+  const netTo = Math.max(grossTo - fee, 0);
+  const rate = pFrom / pTo; // to per from
+  return { amountTo: netTo, rate, fee };
+}
+
+function useDisplayAsset(action: ActionTab, from: string, to: string) {
+  return useMemo(() => {
+    if (action === "buy") return isCrypto(to) ? to : "BTC";
+    if (action === "sell") return isCrypto(from) ? from : "BTC";
+    // convert: prefer any crypto among from/to
+    if (isCrypto(from)) return from;
+    if (isCrypto(to)) return to;
+    return "BTC";
+  }, [action, from, to]);
+}
+
+function makeChartSeries(seedPriceZAR: number, points = 60) {
+  // simple random walk around the seed price
+  const data: { t: string; p: number }[] = [];
+  let p = seedPriceZAR;
+  for (let i = points - 1; i >= 0; i--) {
+    const change = (Math.random() - 0.5) * (seedPriceZAR * 0.003); // ~±0.3%
+    p = Math.max(0, p + change);
+    const minutesAgo = i * 5;
+    const t = new Date(Date.now() - minutesAgo * 60_000).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    data.push({ t, p: +p.toFixed(2) });
+  }
+  return data;
+}
+
+// --- Right panel: Order ticket ---
+
+type ActionTab = "buy" | "sell" | "convert";
+
+function Select({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: string[]; label: string }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-slate-300">{label}</span>
+      <select
+        className="w-full rounded-xl bg-slate-800 px-3 py-2 outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function AmountInput({ value, onChange, label, placeholder = "0.00" }: { value: string; onChange: (v: string) => void; label: string; placeholder?: string }) {
+  return (
+    <label className="flex flex-col gap-1 text-sm">
+      <span className="text-slate-300">{label}</span>
+      <input
+        inputMode="decimal"
+        className="w-full rounded-xl bg-slate-800 px-3 py-2 outline-none ring-1 ring-slate-700 focus:ring-indigo-500"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function OrderTicket() {
+  const [tab, setTab] = useState<ActionTab>("buy");
+
+  const [fromBuy, setFromBuy] = useState("ZAR");
+  const [toBuy, setToBuy] = useState("BTC");
+  const [amtBuy, setAmtBuy] = useState("");
+
+  const [fromSell, setFromSell] = useState("BTC");
+  const [toSell, setToSell] = useState("ZAR");
+  const [amtSell, setAmtSell] = useState("");
+
+  const [fromCvt, setFromCvt] = useState("BTC");
+  const [toCvt, setToCvt] = useState("ETH");
+  const [amtCvt, setAmtCvt] = useState("");
+
+  const buy = quote(fromBuy, toBuy, parseFloat(amtBuy));
+  const sell = quote(fromSell, toSell, parseFloat(amtSell));
+  const cvt = quote(fromCvt, toCvt, parseFloat(amtCvt));
+
+  const tabBtn = (key: ActionTab, label: string) => (
+    <button
+      key={key}
+      onClick={() => setTab(key)}
+      className={
+        "flex-1 rounded-xl px-3 py-2 text-sm font-medium transition " +
+        (tab === key
+          ? "bg-indigo-600 text-white shadow"
+          : "bg-slate-800 text-slate-200 hover:bg-slate-700")
+      }
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <aside className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+      <div className="mb-4 grid grid-cols-3 gap-2">{[tabBtn("buy", "Buy"), tabBtn("sell", "Sell"), tabBtn("convert", "Convert")]}</div>
+
+      {tab === "buy" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromBuy} onChange={setFromBuy} options={[...FIAT]} label="Pay with" />
+          <Select value={toBuy} onChange={setToBuy} options={[...CRYPTO]} label="Buy" />
+          <AmountInput value={amtBuy} onChange={setAmtBuy} label={`Amount (${fromBuy})`} />
+
+          <div className="rounded-xl bg-slate-800 p-3 text-sm">
+            <div className="flex justify-between"><span>Rate</span><span>1 {fromBuy} = {formatAmount(toBuy, buy.rate)} {toBuy}</span></div>
+            <div className="flex justify-between"><span>Fee (0.10%)</span><span>{formatAmount(toBuy, buy.fee)} {toBuy}</span></div>
+            <div className="mt-2 flex justify-between font-semibold"><span>You receive</span><span>{formatAmount(toBuy, buy.amountTo)} {toBuy}</span></div>
+          </div>
+
+          <button className="mt-2 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={!amtBuy || !Number.isFinite(parseFloat(amtBuy)) || parseFloat(amtBuy) <= 0}>
+            Preview Buy
+          </button>
+        </div>
+      )}
+
+      {tab === "sell" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromSell} onChange={setFromSell} options={[...CRYPTO]} label="Sell" />
+          <Select value={toSell} onChange={setToSell} options={[...FIAT]} label="For" />
+          <AmountInput value={amtSell} onChange={setAmtSell} label={`Amount (${fromSell})`} />
+
+          <div className="rounded-xl bg-slate-800 p-3 text-sm">
+            <div className="flex justify-between"><span>Rate</span><span>1 {fromSell} = {formatAmount(toSell, quote(fromSell, toSell, 1).amountTo)} {toSell}</span></div>
+            <div className="flex justify-between"><span>Fee (0.10%)</span><span>{formatAmount(toSell, sell.fee)} {toSell}</span></div>
+            <div className="mt-2 flex justify-between font-semibold"><span>You receive</span><span>{formatAmount(toSell, sell.amountTo)} {toSell}</span></div>
+          </div>
+
+          <button className="mt-2 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={!amtSell || !Number.isFinite(parseFloat(amtSell)) || parseFloat(amtSell) <= 0}>
+            Preview Sell
+          </button>
+        </div>
+      )}
+
+      {tab === "convert" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromCvt} onChange={(v) => { setFromCvt(v); if (v === toCvt) setToCvt(v === "BTC" ? "ETH" : "BTC"); }} options={[...ALL_ASSETS]} label="From" />
+          <Select value={toCvt} onChange={setToCvt} options={[...ALL_ASSETS.filter((a) => a !== fromCvt)]} label="To" />
+          <AmountInput value={amtCvt} onChange={setAmtCvt} label={`Amount (${fromCvt})`} />
+
+          <div className="rounded-xl bg-slate-800 p-3 text-sm">
+            <div className="flex justify-between"><span>Rate</span><span>1 {fromCvt} = {formatAmount(toCvt, quote(fromCvt, toCvt, 1).amountTo)} {toCvt}</span></div>
+            <div className="flex justify-between"><span>Fee (0.10%)</span><span>{formatAmount(toCvt, cvt.fee)} {toCvt}</span></div>
+            <div className="mt-2 flex justify-between font-semibold"><span>You receive</span><span>{formatAmount(toCvt, cvt.amountTo)} {toCvt}</span></div>
+          </div>
+
+          <button className="mt-2 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={!amtCvt || !Number.isFinite(parseFloat(amtCvt)) || parseFloat(amtCvt) <= 0}>
+            Preview Convert
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+// --- Left sidebar ---
+function Sidebar() {
+  const NavItem = ({ label, active = false }: { label: string; active?: boolean }) => (
+    <button
+      className={
+        "w-full rounded-xl px-3 py-2 text-left capitalize transition " +
+        (active ? "bg-slate-800 text-white" : "text-slate-300 hover:bg-slate-800/70")
+      }
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <aside className="flex h-full flex-col justify-between rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+      <div className="flex flex-col gap-2">
+        <NavItem label="home" active />
+        <NavItem label="explore" />
+        <NavItem label="search" />
+        <NavItem label="activity" />
+
+        <div className="my-2 h-px w-full bg-slate-800" />
+
+        <div className="px-2 pb-1 text-xs uppercase tracking-wider text-slate-400">Your coins</div>
+        <NavItem label="bitcoin" />
+        <NavItem label="ethereum" />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="my-2 h-px w-full bg-slate-800" />
+        {/* Keeping user's original spelling for "referels" as requested */}
+        <NavItem label="referels" />
+        <NavItem label="help" />
+        <NavItem label="username" />
+      </div>
+    </aside>
+  );
+}
+
+// --- Center: Chart panel ---
+function ChartPanel({ action, from, to }: { action: ActionTab; from: string; to: string }) {
+  const asset = useDisplayAsset(action, from, to);
+  const seed = priceInZAR(asset);
+  const data = useMemo(() => makeChartSeries(seed, 72), [seed]);
+
+  const last = data[data.length - 1]?.p ?? seed;
+  const first = data[0]?.p ?? seed;
+  const change = last - first;
+  const pct = (change / first) * 100;
+
+  return (
+    <section className="flex h-full flex-col gap-4">
+      <header className="flex items-end justify-between">
+        <div>
+          <div className="text-sm text-slate-400">Pair</div>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            {asset}/ZAR
+          </h2>
+        </div>
+        <div className="text-right">
+          <div className="text-3xl font-semibold">ZAR {last.toLocaleString()}</div>
+          <div className={"text-sm " + (pct >= 0 ? "text-emerald-400" : "text-rose-400")}>
+            {pct >= 0 ? "+" : ""}{pct.toFixed(2)}% today
+          </div>
+        </div>
+      </header>
+
+      <div className="h-[420px] w-full rounded-2xl bg-slate-900 p-3 ring-1 ring-slate-800">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ left: 12, right: 12, top: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="fillColor" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366F1" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeOpacity={0.08} vertical={false} />
+            <XAxis dataKey="t" tick={{ fill: "#94a3b8" }} tickLine={false} axisLine={false} minTickGap={32} />
+            <YAxis tick={{ fill: "#94a3b8" }} tickLine={false} axisLine={false} width={70} domain={["dataMin", "dataMax"]} />
+            <Tooltip
+              contentStyle={{ background: "#0f172a", border: "1px solid #1f2937", borderRadius: 12, color: "white" }}
+              labelStyle={{ color: "#94a3b8" }}
+              formatter={(value) => ["ZAR " + (value as number).toLocaleString(), "Price"]}
+            />
+            <Area type="monotone" dataKey="p" stroke="#6366F1" fill="url(#fillColor)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
+}
+
+// --- Main layout ---
+export default function ExchangePage() {
+  // Share current order selections with the chart so the pair header updates nicely
+  const [action, setAction] = useState<ActionTab>("buy");
+  const [from, setFrom] = useState("ZAR");
+  const [to, setTo] = useState("BTC");
+
+  // Bridge state from the OrderTicket via simple callbacks (to keep this file single-component friendly)
+  // For simplicity, we render a second OrderTicket internally that owns its own state and we mirror its edge selections via synthetic events.
+  // To avoid complexity, we expose lightweight setters on a wrapped ticket.
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      {/* Page container */}
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 md:grid-cols-[260px_minmax(0,1fr)_380px]">
+        <Sidebar />
+
+        {/* Center + Right columns */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_380px]">
+          {/* Center */}
+          <ChartPanel action={action} from={from} to={to} />
+
+          {/* Right: order ticket (wrapped to mirror top-level selections) */}
+          <div className="[&_*::-webkit-scrollbar]:hidden">
+            <MirroredOrderTicket
+              onMirror={(m) => {
+                setAction(m.tab);
+                setFrom(m.from);
+                setTo(m.to);
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A tiny wrapper that exposes the current selections for the parent to mirror into the chart panel header
+function MirroredOrderTicket({ onMirror }: { onMirror: (m: { tab: ActionTab; from: string; to: string }) => void }) {
+  const [tab, setTab] = useState<ActionTab>("buy");
+
+  const [fromBuy, setFromBuy] = useState("ZAR");
+  const [toBuy, setToBuy] = useState("BTC");
+
+  const [fromSell, setFromSell] = useState("BTC");
+  const [toSell, setToSell] = useState("ZAR");
+
+  const [fromCvt, setFromCvt] = useState("BTC");
+  const [toCvt, setToCvt] = useState("ETH");
+
+  // Mirror upstream whenever a relevant piece changes
+  useMemo(() => {
+    if (tab === "buy") onMirror({ tab, from: fromBuy, to: toBuy });
+    else if (tab === "sell") onMirror({ tab, from: fromSell, to: toSell });
+    else onMirror({ tab, from: fromCvt, to: toCvt });
+  }, [tab, fromBuy, toBuy, fromSell, toSell, fromCvt, toCvt]);
+
+  return (
+    <aside className="rounded-2xl bg-slate-900 p-4 ring-1 ring-slate-800">
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <button
+          onClick={() => setTab("buy")}
+          className={"rounded-xl px-3 py-2 text-sm font-medium " + (tab === "buy" ? "bg-indigo-600" : "bg-slate-800 hover:bg-slate-700")}
+        >
+          Buy
+        </button>
+        <button
+          onClick={() => setTab("sell")}
+          className={"rounded-xl px-3 py-2 text-sm font-medium " + (tab === "sell" ? "bg-indigo-600" : "bg-slate-800 hover:bg-slate-700")}
+        >
+          Sell
+        </button>
+        <button
+          onClick={() => setTab("convert")}
+          className={"rounded-xl px-3 py-2 text-sm font-medium " + (tab === "convert" ? "bg-indigo-600" : "bg-slate-800 hover:bg-slate-700")}
+        >
+          Convert
+        </button>
+      </div>
+
+      {tab === "buy" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromBuy} onChange={(v) => setFromBuy(v)} options={[...FIAT]} label="Pay with" />
+          <Select value={toBuy} onChange={(v) => setToBuy(v)} options={[...CRYPTO]} label="Buy" />
+          <AmountInput value={""} onChange={() => {}} label={`Amount (${fromBuy})`} />
+          <button className="mt-1 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500">Preview Buy</button>
+        </div>
+      )}
+
+      {tab === "sell" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromSell} onChange={(v) => setFromSell(v)} options={[...CRYPTO]} label="Sell" />
+          <Select value={toSell} onChange={(v) => setToSell(v)} options={[...FIAT]} label="For" />
+          <AmountInput value={""} onChange={() => {}} label={`Amount (${fromSell})`} />
+          <button className="mt-1 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500">Preview Sell</button>
+        </div>
+      )}
+
+      {tab === "convert" && (
+        <div className="flex flex-col gap-3">
+          <Select value={fromCvt} onChange={(v) => { setFromCvt(v); if (v === toCvt) setToCvt(v === "BTC" ? "ETH" : "BTC"); }} options={[...ALL_ASSETS]} label="From" />
+          <Select value={toCvt} onChange={(v) => setToCvt(v)} options={[...ALL_ASSETS.filter((a) => a !== fromCvt)]} label="To" />
+          <AmountInput value={""} onChange={() => {}} label={`Amount (${fromCvt})`} />
+          <button className="mt-1 w-full rounded-xl bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500">Preview Convert</button>
+        </div>
+      )}
+    </aside>
+  );
+}
