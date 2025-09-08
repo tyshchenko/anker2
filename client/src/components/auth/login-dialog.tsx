@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,11 +24,19 @@ interface LoginDialogProps {
   onSwitchToRegister: () => void;
 }
 
+// Declare google object for TypeScript
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDialogProps) {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const {
     register,
@@ -38,6 +46,17 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    // Load Google Identity Services script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
 
   const onSubmit = async (data: LoginForm) => {
     try {
@@ -57,6 +76,53 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsGoogleLoading(true);
+      
+      if (!window.google) {
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Initialize Google Sign-In
+      window.google.accounts.id.initialize({
+        client_id: "YOUR_GOOGLE_CLIENT_ID", // This should come from environment
+        callback: async (response: any) => {
+          try {
+            await loginWithGoogle(response.credential);
+            toast({
+              title: "Success",
+              description: "You have been logged in with Google!",
+            });
+            onOpenChange(false);
+          } catch (error: any) {
+            toast({
+              title: "Google Login Failed",
+              description: error.message || "An error occurred during Google login",
+              variant: "destructive",
+            });
+          }
+        },
+      });
+
+      // Prompt for Google Sign-In
+      window.google.accounts.id.prompt();
+    } catch (error: any) {
+      toast({
+        title: "Google Login Error",
+        description: "Failed to initialize Google Sign-In",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -138,7 +204,13 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
             </div>
           </div>
 
-          <Button variant="outline" className="w-full" data-testid="button-google-login">
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={handleGoogleLogin}
+            disabled={isGoogleLoading}
+            data-testid="button-google-login"
+          >
             <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
               <path
                 fill="currentColor"

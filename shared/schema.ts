@@ -49,8 +49,11 @@ export const marketData = pgTable("market_data", {
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
+  email: true,
   username: true,
-  password: true,
+  password_hash: true,
+  first_name: true,
+  last_name: true,
 });
 
 export const insertTradeSchema = createInsertSchema(trades).omit({

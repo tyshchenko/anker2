@@ -18,9 +18,7 @@ from typing import Optional, Set
 from pydantic import ValidationError
 from datetime import datetime, timedelta
 from pathlib import Path
-import telebot
-
-import pymysqlpool #pymysql-pool
+import pymysql
 from tornado.options import define, options
 
 from auth_utils import auth_utils
@@ -30,12 +28,11 @@ from storage import storage
 
 class DataBase(object):
     def __init__(self, database):
-        config={'host':'127.0.0.1', 'user':'moya', 'password':'moya', 'database':database, 'autocommit':True}
-        self.pool0 = pymysqlpool.ConnectionPool(size=2, maxsize=7, pre_create_num=2, name='pool0', **config)
+        self.config = {'host':'127.0.0.1', 'user':'moya', 'password':'moya', 'database':database, 'autocommit':True}
         
     def query(self, sqlquery):
         try:
-            con1 = self.pool0.get_connection()
+            con1 = pymysql.connect(**self.config)
             cur = con1.cursor()
             cur.execute(sqlquery)
             rows = cur.fetchall()
@@ -44,38 +41,40 @@ class DataBase(object):
             return rows
         except Exception as e:
             print(e)
-
             print('-reconnecting and trying again...')
             return self.query(sqlquery)        
         
     
     def execute(self, sqlquery, vals=None, return_id=False):
         try:
-          con1 = self.pool0.get_connection()
-          cur = con1.cursor()
-          if not vals:
-              cur.execute(sqlquery)
-          else:
-              cur.execute(sqlquery, vals)
-          con1.commit()
-          cur.close()
-          con1.close()
-          if return_id:
-              return True, cur.lastrowid
-          return True
+            con1 = pymysql.connect(**self.config)
+            cur = con1.cursor()
+            if not vals:
+                cur.execute(sqlquery)
+            else:
+                cur.execute(sqlquery, vals)
+            con1.commit()
+            if return_id:
+                last_id = cur.lastrowid
+                cur.close()
+                con1.close()
+                return True, last_id
+            cur.close()
+            con1.close()
+            return True
         except Exception as e:
-          print(e)
-          print('reconnecting and trying again...')
-          self.execute(sqlquery, vals, return_id)        
+            print(e)
+            print('reconnecting and trying again...')
+            return self.execute(sqlquery, vals, return_id)        
 
 class DateTimeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        elif isinstance(obj, (int, float)):
-            return str(obj)
+    def default(self, o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        elif isinstance(o, (int, float)):
+            return str(o)
         else:
-            return super().default(obj)
+            return super().default(o)
       
 class Application(tornado.web.Application):
     coins = {}
@@ -105,11 +104,10 @@ class Application(tornado.web.Application):
             (r'/.*', NotFoundHandler)
         ]
     
-        settings = dict(
-            template_path=os.path.join(os.path.dirname(__file__), "templates"),
-            cookie_secret="sdfg54dfg54dh454hf654",
-            debug=True,
-        )
+        settings = {
+            "cookie_secret": "sdfg54dfg54dh454hf654",
+            "debug": True
+        }
         super(Application, self).__init__(handlers, **settings)
 
     def wathcher(self):
@@ -130,17 +128,15 @@ class BaseHandler(tornado.web.RequestHandler):
 
     def write_error(self, status_code, **kwargs):
         if status_code == 404:
-            self.response(status_code,
-                          'Resource not found. Check the URL.')
+            self.write({"error": "Resource not found. Check the URL."})
         elif status_code == 405:
-            self.response(status_code, 
-                          'Method not allowed in this resource.')
+            self.write({"error": "Method not allowed in this resource."})
         else:
             if "error_message" in kwargs:
                 message = kwargs["error_message"]
             else:
                 message = "Internal Server Error"
-            self.response(status_code,  message)
+            self.write({"error": message})
 
     def write(self, chunk):
         if isinstance(chunk, dict):
@@ -155,8 +151,6 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_status(204)
         self.finish()
 
-    def get_auth_headers(self):
-        return self.application.get_auth_headers()
 
     def get_time(self, btc):
         ms = int(time.time())
@@ -477,9 +471,8 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             data = json.loads(message)
             if data.get("type") == "subscribe" and data.get("pair"):
                 print(f"Client subscribed to {data['pair']}")
-        except json.JSONDecodeError:
-            print(e)
-            print("Invalid WebSocket message received")
+        except json.JSONDecodeError as e:
+            print(f"Invalid WebSocket message received: {e}")
     
     def on_close(self):
         self.clients.discard(self)
@@ -504,7 +497,8 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 def main():
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(5875, address='127.0.0.1')
+    app.listen(5875, address='0.0.0.0')
+    print("Server started on 0.0.0.0:5875")
     #logging.getLogger('tornado.access').disabled = True
     tornado.ioloop.IOLoop.current().start()
 
