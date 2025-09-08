@@ -1,0 +1,263 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Building2, Plus, X } from "lucide-react";
+
+interface WithdrawModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface BankAccount {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolderName: string;
+  isVerified: boolean;
+}
+
+// Mock bank accounts for demo
+const mockBankAccounts: BankAccount[] = [
+  {
+    id: "1",
+    bankName: "First National Bank",
+    accountNumber: "****1234",
+    accountHolderName: "John Doe",
+    isVerified: true
+  }
+];
+
+export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
+  const [step, setStep] = useState<"amount" | "bank" | "add-bank">("amount");
+  const [amount, setAmount] = useState("");
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [showAddBankForm, setShowAddBankForm] = useState(false);
+  const [newBankData, setNewBankData] = useState({
+    bankName: "",
+    accountNumber: "",
+    accountHolderName: ""
+  });
+
+  const handleClose = () => {
+    setStep("amount");
+    setAmount("");
+    setSelectedBank(null);
+    setShowAddBankForm(false);
+    setNewBankData({ bankName: "", accountNumber: "", accountHolderName: "" });
+    onClose();
+  };
+
+  const handleAmountNext = () => {
+    if (amount && parseFloat(amount) > 0) {
+      setStep("bank");
+    }
+  };
+
+  const handleAddBank = () => {
+    // In a real app, this would add the bank account to the backend
+    console.log("Adding bank account:", newBankData);
+    setShowAddBankForm(false);
+    setStep("bank");
+  };
+
+  const handleWithdraw = () => {
+    // In a real app, this would initiate the withdrawal
+    console.log("Withdrawing", amount, "to bank account", selectedBank);
+    handleClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center">
+            <Building2 className="w-5 h-5 mr-2" />
+            Withdraw ZAR
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "amount" && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="withdraw-amount">Withdrawal Amount</Label>
+              <div className="mt-1">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    R
+                  </span>
+                  <Input
+                    id="withdraw-amount"
+                    type="number"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="pl-8"
+                    data-testid="input-withdraw-amount"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p>• Minimum withdrawal: R50</p>
+              <p>• Processing time: 1-3 business days</p>
+              <p>• No withdrawal fees</p>
+            </div>
+
+            <Button 
+              onClick={handleAmountNext} 
+              className="w-full"
+              disabled={!amount || parseFloat(amount) < 50}
+              data-testid="button-next-withdraw"
+            >
+              Next
+            </Button>
+          </div>
+        )}
+
+        {step === "bank" && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Select Bank Account</h3>
+              
+              {mockBankAccounts.map((account) => (
+                <Card 
+                  key={account.id}
+                  className={`p-4 cursor-pointer transition-colors ${
+                    selectedBank === account.id ? "border-primary bg-primary/5" : "border-border"
+                  }`}
+                  onClick={() => setSelectedBank(account.id)}
+                  data-testid={`bank-account-${account.id}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{account.bankName}</p>
+                      <p className="text-sm text-muted-foreground">{account.accountNumber}</p>
+                      <p className="text-xs text-muted-foreground">{account.accountHolderName}</p>
+                    </div>
+                    {account.isVerified && (
+                      <Badge variant="secondary" className="text-green-600 bg-green-50">
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+              ))}
+
+              <Button
+                variant="outline"
+                className="w-full mt-3"
+                onClick={() => setShowAddBankForm(true)}
+                data-testid="button-add-bank"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Bank Account
+              </Button>
+            </div>
+
+            {showAddBankForm && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Add Bank Account</h4>
+                  <div>
+                    <Label htmlFor="bank-name">Bank Name</Label>
+                    <Input
+                      id="bank-name"
+                      value={newBankData.bankName}
+                      onChange={(e) => setNewBankData(prev => ({ ...prev, bankName: e.target.value }))}
+                      placeholder="e.g., First National Bank"
+                      data-testid="input-bank-name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="account-number">Account Number</Label>
+                    <Input
+                      id="account-number"
+                      value={newBankData.accountNumber}
+                      onChange={(e) => setNewBankData(prev => ({ ...prev, accountNumber: e.target.value }))}
+                      placeholder="Account number"
+                      data-testid="input-account-number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="account-holder">Account Holder Name</Label>
+                    <Input
+                      id="account-holder"
+                      value={newBankData.accountHolderName}
+                      onChange={(e) => setNewBankData(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                      placeholder="Full name as on bank account"
+                      data-testid="input-account-holder"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAddBankForm(false)}
+                      className="flex-1"
+                      data-testid="button-cancel-add-bank"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddBank}
+                      className="flex-1"
+                      disabled={!newBankData.bankName || !newBankData.accountNumber || !newBankData.accountHolderName}
+                      data-testid="button-save-bank"
+                    >
+                      Add Account
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {!showAddBankForm && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Amount</span>
+                    <span>R{parseFloat(amount || "0").toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Fee</span>
+                    <span className="text-green-600">Free</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>R{parseFloat(amount || "0").toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep("amount")}
+                    className="flex-1"
+                    data-testid="button-back-withdraw"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleWithdraw}
+                    className="flex-1"
+                    disabled={!selectedBank}
+                    data-testid="button-confirm-withdraw"
+                  >
+                    Withdraw
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

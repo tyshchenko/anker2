@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
+import { BalanceDisplay } from "@/components/exchange/balance-display";
+import { DepositModal } from "@/components/exchange/deposit-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -337,6 +339,11 @@ function TradingPanel({ selectedToken }: TradingPanelProps) {
 export default function ExplorePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedToken, setSelectedToken] = useState<typeof TOP_TOKENS[0] | null>(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+
+  const handleDepositClick = () => {
+    setShowDepositModal(true);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -361,6 +368,13 @@ export default function ExplorePage() {
             <MobileHeader
               isMobileMenuOpen={isMobileMenuOpen}
               setIsMobileMenuOpen={setIsMobileMenuOpen}
+              onDepositClick={handleDepositClick}
+            />
+
+            {/* Desktop Balance Display */}
+            <BalanceDisplay 
+              variant="desktop" 
+              onDepositClick={handleDepositClick}
             />
 
             {/* Market Ticker */}
@@ -392,6 +406,12 @@ export default function ExplorePage() {
           {/* Trading Panel */}
           <TradingPanel selectedToken={selectedToken} />
         </div>
+        
+        {/* Deposit Modal */}
+        <DepositModal 
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+        />
       </div>
     </div>
   );

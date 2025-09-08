@@ -4,11 +4,14 @@ import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
 import { ChartPanel } from "@/components/exchange/chart-panel";
 import { TradingPanel } from "@/components/exchange/trading-panel";
+import { BalanceDisplay } from "@/components/exchange/balance-display";
+import { DepositModal } from "@/components/exchange/deposit-modal";
 
 export default function ExchangePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentPair, setCurrentPair] = useState("BTC/ZAR");
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -77,6 +80,10 @@ export default function ExchangePage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const handleDepositClick = () => {
+    setShowDepositModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex min-h-screen">
@@ -100,6 +107,13 @@ export default function ExchangePage() {
             <MobileHeader
               isMobileMenuOpen={isMobileMenuOpen}
               setIsMobileMenuOpen={setIsMobileMenuOpen}
+              onDepositClick={handleDepositClick}
+            />
+
+            {/* Desktop Balance Display */}
+            <BalanceDisplay 
+              variant="desktop" 
+              onDepositClick={handleDepositClick}
             />
 
             {/* Market Ticker */}
@@ -112,6 +126,12 @@ export default function ExchangePage() {
           {/* Trading Panel */}
           <TradingPanel onPairChange={handlePairChange} />
         </div>
+        
+        {/* Deposit Modal */}
+        <DepositModal 
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+        />
       </div>
     </div>
   );

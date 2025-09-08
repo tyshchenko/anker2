@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, ExternalLink, TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Wallet, Link as LinkIcon, Globe, Shield, Flame, Zap, Sparkles } from "lucide-react";
+import { Search, ExternalLink, TrendingUp, TrendingDown, Copy, CheckCircle, AlertTriangle, Wallet, Link as LinkIcon, Globe, Shield, Flame, Zap, Sparkles, LogOut } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { ethers } from "ethers";
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 interface TokenResult {
   address: string;
@@ -141,10 +144,19 @@ const MOCK_RESULTS: TokenResult[] = [
 interface WalletCardProps {
   wallet: typeof POPULAR_WALLETS[0];
   onConnect: (walletName: string) => void;
+  onDisconnect?: () => void;
   isConnected: boolean;
+  walletInfo?: {
+    address?: string | null;
+    balance?: string | null;
+    isConnecting?: boolean;
+  };
 }
 
-function WalletCard({ wallet, onConnect, isConnected }: WalletCardProps) {
+function WalletCard({ wallet, onConnect, onDisconnect, isConnected, walletInfo }: WalletCardProps) {
+  const isMetaMask = wallet.name === "MetaMask";
+  const isConnecting = walletInfo?.isConnecting || false;
+
   return (
     <Card className="p-4 hover:shadow-lg transition-all border-2 hover:border-primary/20">
       <div className="flex items-center space-x-3 mb-3">
@@ -159,6 +171,31 @@ function WalletCard({ wallet, onConnect, isConnected }: WalletCardProps) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{wallet.description}</p>
+          
+          {/* Show wallet address and balance for connected MetaMask */}
+          {isConnected && isMetaMask && walletInfo?.address && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-muted-foreground">Address:</span>
+                <code className="text-xs bg-muted px-1 rounded">
+                  {walletInfo.address.slice(0, 6)}...{walletInfo.address.slice(-4)}
+                </code>
+              </div>
+              {walletInfo.balance && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-muted-foreground">Balance:</span>
+                  <span className="text-xs font-mono">
+                    {parseFloat(walletInfo.balance).toFixed(4)} {
+                      (wallet.name === 'MetaMask' || 
+                       wallet.name === 'Coinbase Wallet' || 
+                       wallet.name === 'Trust Wallet' || 
+                       wallet.name === 'Rainbow') ? 'ETH' : 'SOL'
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       
@@ -171,24 +208,41 @@ function WalletCard({ wallet, onConnect, isConnected }: WalletCardProps) {
       </div>
       
       <div className="flex space-x-2">
-        <Button
-          onClick={() => onConnect(wallet.name)}
-          disabled={isConnected}
-          className={`flex-1 ${isConnected ? 'bg-green-600 hover:bg-green-700' : ''}`}
-          data-testid={`connect-${wallet.name.toLowerCase()}`}
-        >
-          {isConnected ? (
-            <>
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Connected
-            </>
-          ) : (
-            <>
-              <Wallet className="w-4 h-4 mr-2" />
-              Connect
-            </>
-          )}
-        </Button>
+        {isConnected && isMetaMask ? (
+          <Button
+            onClick={onDisconnect}
+            variant="outline"
+            className="flex-1"
+            data-testid={`disconnect-${wallet.name.toLowerCase()}`}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Disconnect
+          </Button>
+        ) : (
+          <Button
+            onClick={() => onConnect(wallet.name)}
+            disabled={isConnected || isConnecting}
+            className={`flex-1 ${isConnected ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            data-testid={`connect-${wallet.name.toLowerCase()}`}
+          >
+            {isConnecting ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-transparent border-t-current" />
+                Connecting...
+              </>
+            ) : isConnected ? (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Connected
+              </>
+            ) : (
+              <>
+                <Wallet className="w-4 h-4 mr-2" />
+                Connect
+              </>
+            )}
+          </Button>
+        )}
         <Button
           variant="outline"
           size="icon"
@@ -351,14 +405,143 @@ function TokenCard({ token, onTrade }: TokenCardProps) {
   );
 }
 
+// Wallet types
+declare global {
+  interface Window {
+    ethereum?: any;
+    solana?: any;
+    coinbaseWalletExtension?: any;
+    trustwallet?: any;
+    solflare?: any;
+    rainbow?: any;
+  }
+}
+
+// Wallet detection utilities
+const detectWalletAvailability = () => {
+  return {
+    metamask: typeof window !== 'undefined' && !!window.ethereum && !!window.ethereum.isMetaMask,
+    phantom: typeof window !== 'undefined' && !!window.solana && !!window.solana.isPhantom,
+    coinbase: typeof window !== 'undefined' && (
+      !!window.coinbaseWalletExtension || 
+      (!!window.ethereum && !!window.ethereum.isCoinbaseWallet)
+    ),
+    trustwallet: typeof window !== 'undefined' && (
+      !!window.trustwallet || 
+      (!!window.ethereum && !!window.ethereum.isTrust)
+    ),
+    solflare: typeof window !== 'undefined' && !!window.solflare && !!window.solflare.isSolflare,
+    rainbow: typeof window !== 'undefined' && (
+      !!window.rainbow || 
+      (!!window.ethereum && !!window.ethereum.isRainbow)
+    ),
+  };
+};
+
+interface WalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  chainId: string | null;
+  isConnecting: boolean;
+  walletType: string | null;
+}
+
+interface PhantomWalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  isConnecting: boolean;
+}
+
+interface CoinbaseWalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  isConnecting: boolean;
+}
+
+interface TrustWalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  isConnecting: boolean;
+}
+
+interface SolflareWalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  isConnecting: boolean;
+}
+
+interface RainbowWalletState {
+  isConnected: boolean;
+  address: string | null;
+  balance: string | null;
+  isConnecting: boolean;
+}
+
 export default function ShitcoinsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<TokenResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedToken, setSelectedToken] = useState<TokenResult | null>(null);
-  const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+  const [connectedWallet, setConnectedWallet] = useState<string | null>(() => {
+    // Load connected wallet from localStorage on initialization
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('connectedWallet');
+    }
+    return null;
+  });
   const [showWallets, setShowWallets] = useState(true);
+  const [walletState, setWalletState] = useState<WalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    chainId: null,
+    isConnecting: false,
+    walletType: null,
+  });
+  const [phantomState, setPhantomState] = useState<PhantomWalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    isConnecting: false,
+  });
+  const [coinbaseState, setCoinbaseState] = useState<CoinbaseWalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    isConnecting: false,
+  });
+  const [trustWalletState, setTrustWalletState] = useState<TrustWalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    isConnecting: false,
+  });
+  const [solflareState, setSolflareState] = useState<SolflareWalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    isConnecting: false,
+  });
+  const [rainbowState, setRainbowState] = useState<RainbowWalletState>({
+    isConnected: false,
+    address: null,
+    balance: null,
+    isConnecting: false,
+  });
+  const { toast } = useToast();
+
+  // Sync connected wallet to localStorage whenever it changes
+  useEffect(() => {
+    if (connectedWallet) {
+      localStorage.setItem('connectedWallet', connectedWallet);
+    }
+  }, [connectedWallet]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -378,11 +561,607 @@ export default function ShitcoinsPage() {
     }, 1000);
   };
 
-  const handleConnectWallet = (walletName: string) => {
-    // Simulate wallet connection
-    setConnectedWallet(walletName);
-    console.log(`Connecting to ${walletName}...`);
+  // MetaMask connection functions
+  const connectMetaMask = async () => {
+    if (!window.ethereum) {
+      toast({
+        title: "MetaMask Not Found",
+        description: "Please install MetaMask to connect your wallet",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setWalletState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(address);
+      const network = await provider.getNetwork();
+
+      setWalletState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        chainId: network.chainId.toString(),
+        isConnecting: false,
+        walletType: "MetaMask",
+      });
+
+      setConnectedWallet("MetaMask");
+
+      toast({
+        title: "Wallet Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("MetaMask connection error:", error);
+      setWalletState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to MetaMask",
+        variant: "destructive",
+      });
+    }
   };
+
+  // Phantom connection functions
+  const connectPhantom = async () => {
+    if (!window.solana || !window.solana.isPhantom) {
+      toast({
+        title: "Phantom Not Found",
+        description: "Please install Phantom wallet to connect",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPhantomState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const response = await window.solana.connect();
+      const address = response.publicKey.toString();
+
+      // Get real SOL balance using Solana Web3.js
+      const connection = new Connection("https://api.mainnet-beta.solana.com");
+      const publicKey = new PublicKey(address);
+      const balance = await connection.getBalance(publicKey);
+      const solBalance = (balance / LAMPORTS_PER_SOL).toFixed(4);
+
+      setPhantomState({
+        isConnected: true,
+        address,
+        balance: solBalance,
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Phantom");
+
+      toast({
+        title: "Phantom Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Phantom connection error:", error);
+      setPhantomState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Phantom",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Coinbase Wallet connection functions
+  const connectCoinbase = async () => {
+    // Check for Coinbase Wallet extension first
+    if (window.coinbaseWalletExtension) {
+      return connectCoinbaseExtension();
+    }
+
+    // Check if Coinbase Wallet is available through ethereum provider
+    if (window.ethereum && window.ethereum.isCoinbaseWallet) {
+      return connectCoinbaseEthereum();
+    }
+
+    // If neither is available, show install message
+    toast({
+      title: "Coinbase Wallet Not Found",
+      description: "Please install Coinbase Wallet to connect",
+      variant: "destructive",
+    });
+  };
+
+  const connectCoinbaseExtension = async () => {
+    setCoinbaseState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.coinbaseWalletExtension.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.coinbaseWalletExtension);
+      const balance = await provider.getBalance(address);
+
+      setCoinbaseState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Coinbase Wallet");
+
+      toast({
+        title: "Coinbase Wallet Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Coinbase Wallet connection error:", error);
+      setCoinbaseState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Coinbase Wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const connectCoinbaseEthereum = async () => {
+    setCoinbaseState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(address);
+
+      setCoinbaseState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Coinbase Wallet");
+
+      toast({
+        title: "Coinbase Wallet Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Coinbase Wallet connection error:", error);
+      setCoinbaseState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Coinbase Wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Trust Wallet connection functions
+  const connectTrustWallet = async () => {
+    // Check if Trust Wallet is available through ethereum provider
+    if (window.ethereum && window.ethereum.isTrust) {
+      return connectTrustWalletEthereum();
+    }
+
+    // Check for Trust Wallet extension
+    if (window.trustwallet) {
+      return connectTrustWalletExtension();
+    }
+
+    toast({
+      title: "Trust Wallet Not Found",
+      description: "Please install Trust Wallet to connect",
+      variant: "destructive",
+    });
+  };
+
+  const connectTrustWalletEthereum = async () => {
+    setTrustWalletState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(address);
+
+      setTrustWalletState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Trust Wallet");
+
+      toast({
+        title: "Trust Wallet Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Trust Wallet connection error:", error);
+      setTrustWalletState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Trust Wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const connectTrustWalletExtension = async () => {
+    setTrustWalletState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.trustwallet.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.trustwallet);
+      const balance = await provider.getBalance(address);
+
+      setTrustWalletState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Trust Wallet");
+
+      toast({
+        title: "Trust Wallet Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Trust Wallet connection error:", error);
+      setTrustWalletState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Trust Wallet",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Solflare connection functions
+  const connectSolflare = async () => {
+    if (!window.solflare || !window.solflare.isSolflare) {
+      toast({
+        title: "Solflare Not Found",
+        description: "Please install Solflare wallet to connect",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSolflareState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const response = await window.solflare.connect();
+      const address = response.publicKey.toString();
+
+      // Get real SOL balance using Solana Web3.js
+      const connection = new Connection("https://api.mainnet-beta.solana.com");
+      const publicKey = new PublicKey(address);
+      const balance = await connection.getBalance(publicKey);
+      const solBalance = (balance / LAMPORTS_PER_SOL).toFixed(4);
+
+      setSolflareState({
+        isConnected: true,
+        address,
+        balance: solBalance,
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Solflare");
+
+      toast({
+        title: "Solflare Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Solflare connection error:", error);
+      setSolflareState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Solflare",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Rainbow Wallet connection functions
+  const connectRainbow = async () => {
+    // Check if Rainbow is available through ethereum provider
+    if (window.ethereum && window.ethereum.isRainbow) {
+      return connectRainbowEthereum();
+    }
+
+    // Check for Rainbow extension
+    if (window.rainbow) {
+      return connectRainbowExtension();
+    }
+
+    toast({
+      title: "Rainbow Not Found",
+      description: "Please install Rainbow wallet to connect",
+      variant: "destructive",
+    });
+  };
+
+  const connectRainbowEthereum = async () => {
+    setRainbowState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(address);
+
+      setRainbowState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Rainbow");
+
+      toast({
+        title: "Rainbow Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Rainbow connection error:", error);
+      setRainbowState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Rainbow",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const connectRainbowExtension = async () => {
+    setRainbowState(prev => ({ ...prev, isConnecting: true }));
+
+    try {
+      const accounts = await window.rainbow.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      const address = accounts[0];
+      const provider = new ethers.BrowserProvider(window.rainbow);
+      const balance = await provider.getBalance(address);
+
+      setRainbowState({
+        isConnected: true,
+        address,
+        balance: ethers.formatEther(balance),
+        isConnecting: false,
+      });
+
+      setConnectedWallet("Rainbow");
+
+      toast({
+        title: "Rainbow Connected",
+        description: `Connected to ${address.slice(0, 6)}...${address.slice(-4)}`,
+      });
+
+    } catch (error: any) {
+      console.error("Rainbow connection error:", error);
+      setRainbowState(prev => ({ ...prev, isConnecting: false }));
+      
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to Rainbow",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Disconnect only the currently connected wallet
+  const disconnectCurrentWallet = () => {
+    if (!connectedWallet) return;
+
+    switch (connectedWallet) {
+      case "MetaMask":
+        setWalletState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          chainId: null,
+          isConnecting: false,
+          walletType: null,
+        });
+        break;
+      case "Phantom":
+        setPhantomState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          isConnecting: false,
+        });
+        if (window.solana && window.solana.isConnected) {
+          window.solana.disconnect();
+        }
+        break;
+      case "Coinbase Wallet":
+        setCoinbaseState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          isConnecting: false,
+        });
+        break;
+      case "Trust Wallet":
+        setTrustWalletState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          isConnecting: false,
+        });
+        break;
+      case "Solflare":
+        setSolflareState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          isConnecting: false,
+        });
+        if (window.solflare && window.solflare.isConnected) {
+          window.solflare.disconnect();
+        }
+        break;
+      case "Rainbow":
+        setRainbowState({
+          isConnected: false,
+          address: null,
+          balance: null,
+          isConnecting: false,
+        });
+        break;
+    }
+
+    setConnectedWallet(null);
+    // Clear from localStorage
+    localStorage.removeItem('connectedWallet');
+  };
+
+  // Disconnect all wallets (used for manual disconnect button)
+  const disconnectWallet = () => {
+    disconnectCurrentWallet();
+    
+    toast({
+      title: "Wallet Disconnected",
+      description: "Your wallet has been disconnected",
+    });
+  };
+
+  const handleConnectWallet = (walletName: string) => {
+    // If another wallet is already connected, disconnect it first
+    if (connectedWallet && connectedWallet !== walletName) {
+      disconnectCurrentWallet();
+    }
+
+    if (walletName === "MetaMask") {
+      connectMetaMask();
+    } else if (walletName === "Phantom") {
+      connectPhantom();
+    } else if (walletName === "Coinbase Wallet") {
+      connectCoinbase();
+    } else if (walletName === "Trust Wallet") {
+      connectTrustWallet();
+    } else if (walletName === "Solflare") {
+      connectSolflare();
+    } else if (walletName === "Rainbow") {
+      connectRainbow();
+    } else {
+      // For other wallets, use the original mock behavior
+      setConnectedWallet(walletName);
+      toast({
+        title: `${walletName} Connected`,
+        description: `Successfully connected to ${walletName} (demo mode)`,
+      });
+    }
+  };
+
+  // Only set up event listeners (no auto-connection on page load)
+
+  // Listen for MetaMask account changes
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          disconnectWallet();
+        } else if (accounts[0] !== walletState.address) {
+          // Re-connect with new account
+          connectMetaMask();
+        }
+      };
+
+      const handleChainChanged = () => {
+        // Refresh connection when chain changes
+        if (walletState.isConnected) {
+          connectMetaMask();
+        }
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        if (window.ethereum.removeListener) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      };
+    }
+  }, [walletState.address, walletState.isConnected]);
 
   const handleTrade = (token: TokenResult) => {
     setSelectedToken(token);
@@ -499,14 +1278,65 @@ export default function ShitcoinsPage() {
               
               {showWallets && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {POPULAR_WALLETS.map((wallet) => (
-                    <WalletCard
-                      key={wallet.name}
-                      wallet={wallet}
-                      onConnect={handleConnectWallet}
-                      isConnected={connectedWallet === wallet.name}
-                    />
-                  ))}
+                  {POPULAR_WALLETS.map((wallet) => {
+                    const isMetaMask = wallet.name === "MetaMask";
+                    const isPhantom = wallet.name === "Phantom";
+                    const isCoinbase = wallet.name === "Coinbase Wallet";
+                    const isTrustWallet = wallet.name === "Trust Wallet";
+                    const isSolflare = wallet.name === "Solflare";
+                    const isRainbow = wallet.name === "Rainbow";
+                    const isConnected = connectedWallet === wallet.name;
+                    
+                    let walletInfo = undefined;
+                    if (isMetaMask && walletState.isConnected) {
+                      walletInfo = {
+                        address: walletState.address,
+                        balance: walletState.balance,
+                        isConnecting: walletState.isConnecting,
+                      };
+                    } else if (isPhantom && phantomState.isConnected) {
+                      walletInfo = {
+                        address: phantomState.address,
+                        balance: phantomState.balance,
+                        isConnecting: phantomState.isConnecting,
+                      };
+                    } else if (isCoinbase && coinbaseState.isConnected) {
+                      walletInfo = {
+                        address: coinbaseState.address,
+                        balance: coinbaseState.balance,
+                        isConnecting: coinbaseState.isConnecting,
+                      };
+                    } else if (isTrustWallet && trustWalletState.isConnected) {
+                      walletInfo = {
+                        address: trustWalletState.address,
+                        balance: trustWalletState.balance,
+                        isConnecting: trustWalletState.isConnecting,
+                      };
+                    } else if (isSolflare && solflareState.isConnected) {
+                      walletInfo = {
+                        address: solflareState.address,
+                        balance: solflareState.balance,
+                        isConnecting: solflareState.isConnecting,
+                      };
+                    } else if (isRainbow && rainbowState.isConnected) {
+                      walletInfo = {
+                        address: rainbowState.address,
+                        balance: rainbowState.balance,
+                        isConnecting: rainbowState.isConnecting,
+                      };
+                    }
+
+                    return (
+                      <WalletCard
+                        key={wallet.name}
+                        wallet={wallet}
+                        onConnect={handleConnectWallet}
+                        onDisconnect={(isMetaMask || isPhantom || isCoinbase || isTrustWallet || isSolflare || isRainbow) ? disconnectWallet : undefined}
+                        isConnected={isConnected}
+                        walletInfo={walletInfo}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>

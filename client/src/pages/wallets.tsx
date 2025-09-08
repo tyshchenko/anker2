@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
+import { DepositModal } from "@/components/exchange/deposit-modal";
+import { WithdrawModal } from "@/components/exchange/withdraw-modal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Plus, Send, Download, Eye, EyeOff } from "lucide-react";
+import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine } from "lucide-react";
 
 // Mock wallet data
 const WALLETS = [
@@ -226,15 +229,50 @@ function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
   );
 }
 
+// Demo user ID for development
+const DEMO_USER_ID = "demo-user-123";
+
 export default function WalletsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const params = useParams();
   
-  // Filter wallets if a specific symbol is provided
+  // Fetch user balance data
+  const { data: user } = useQuery({
+    queryKey: ['/api/users', DEMO_USER_ID],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${DEMO_USER_ID}`);
+      if (!response.ok) {
+        // Create demo user if not exists
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'demo-user', password: 'demo-password' })
+        });
+        if (createResponse.ok) {
+          const createData = await createResponse.json();
+          return createData;
+        }
+        throw new Error('Failed to fetch or create user');
+      }
+      return response.json();
+    }
+  });
+
+  const handleDepositClick = () => {
+    setShowDepositModal(true);
+  };
+
+  const handleWithdrawClick = () => {
+    setShowWithdrawModal(true);
+  };
+  
+  // Filter wallets if a specific symbol is provided, and exclude ZAR wallet from regular grid
   const displayWallets = params.symbol 
     ? WALLETS.filter(wallet => wallet.symbol.toLowerCase() === params.symbol?.toLowerCase())
-    : WALLETS;
+    : WALLETS.filter(wallet => wallet.symbol !== 'ZAR');
 
   const totalBalanceZAR = WALLETS.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
 
@@ -341,6 +379,86 @@ export default function WalletsPage() {
             </div>
           )}
 
+          {/* Prominent ZAR Wallet Section */}
+          {!params.symbol && (
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">ZAR Wallet</h2>
+              <Card className="p-8 border-primary/20 bg-card/50 backdrop-blur-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {/* Balance Section */}
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-primary-foreground text-2xl font-bold">R</span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Available Balance</p>
+                      <p className="text-3xl font-bold font-mono" data-testid="zar-wallet-balance">
+                        {isBalanceVisible 
+                          ? `R${user?.zarBalance ? parseFloat(user.zarBalance).toFixed(2) : '0.00'}`
+                          : '••••••••'
+                        }
+                      </p>
+                      <p className="text-sm text-primary/80">South African Rand</p>
+                    </div>
+                  </div>
+
+                  {/* Stats Section */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Recent Activity</p>
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="w-4 h-4 text-green-600" />
+                        <span className="text-lg font-semibold text-green-600">+0.00%</span>
+                        <span className="text-sm text-muted-foreground">24h</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Type</p>
+                      <Badge variant="secondary" className="text-primary bg-primary/10">
+                        Primary Account
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Actions Section */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        className="w-full bg-primary hover:bg-primary/90" 
+                        size="sm"
+                        onClick={handleDepositClick}
+                        data-testid="button-deposit-zar"
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Deposit
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full border-border hover:bg-accent"
+                        onClick={handleWithdrawClick}
+                        data-testid="button-withdraw-zar"
+                      >
+                        <ArrowDownToLine className="w-4 h-4 mr-2" />
+                        Withdraw
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Bank account transfers • Secure & verified
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Crypto Wallets Section */}
+          {!params.symbol && (
+            <div className="px-6 pb-2">
+              <h2 className="text-xl font-bold">Cryptocurrency Wallets</h2>
+            </div>
+          )}
+
           {/* Wallets Grid */}
           <div className="flex-1 p-6">
             <div className={`${
@@ -362,6 +480,18 @@ export default function WalletsPage() {
             </div>
           </div>
         </div>
+        
+        {/* Deposit Modal */}
+        <DepositModal 
+          isOpen={showDepositModal}
+          onClose={() => setShowDepositModal(false)}
+        />
+        
+        {/* Withdraw Modal */}
+        <WithdrawModal 
+          isOpen={showWithdrawModal}
+          onClose={() => setShowWithdrawModal(false)}
+        />
       </div>
     </div>
   );

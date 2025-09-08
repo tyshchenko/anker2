@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  zarBalance: decimal("zar_balance", { precision: 20, scale: 2 }).default("0.00").notNull(),
 });
 
 export const trades = pgTable("trades", {
