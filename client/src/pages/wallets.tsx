@@ -150,9 +150,10 @@ const WALLETS = [
 interface WalletCardProps {
   wallet: typeof WALLETS[0];
   isBalanceVisible: boolean;
+  isComingSoon?: boolean;
 }
 
-function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
+function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCardProps) {
   const formatBalance = (amount: number, symbol: string) => {
     if (!isBalanceVisible) return '••••••';
     
@@ -168,7 +169,20 @@ function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
   };
 
   return (
-    <Card className="p-6">
+    <Card className={`p-6 relative ${isComingSoon ? 'overflow-hidden' : ''}`}>
+      {isComingSoon && (
+        <div className="absolute inset-0 bg-muted/80 backdrop-blur-sm flex items-center justify-center z-10">
+          <div className="text-center">
+            <div className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-lg mb-2">
+              Coming Soon
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Support for {wallet.symbol} coming soon
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
           <div className={`w-12 h-12 rounded-full ${wallet.color} flex items-center justify-center`}>
@@ -184,7 +198,7 @@ function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
           </div>
         </div>
         <Badge variant="secondary" className={wallet.textColor}>
-          Active
+          {isComingSoon ? 'Coming Soon' : 'Active'}
         </Badge>
       </div>
 
@@ -212,14 +226,26 @@ function WalletCard({ wallet, isBalanceVisible }: WalletCardProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Link href="/send">
-          <Button variant="outline" size="sm" className="w-full" data-testid={`button-send-${wallet.id}`}>
+        <Link href={`/send?wallet=${wallet.symbol.toLowerCase()}`}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full" 
+            data-testid={`button-send-${wallet.id}`}
+            disabled={isComingSoon}
+          >
             <Send className="w-4 h-4 mr-2" />
             Send
           </Button>
         </Link>
-        <Link href="/receive">
-          <Button variant="outline" size="sm" className="w-full" data-testid={`button-receive-${wallet.id}`}>
+        <Link href={`/receive?wallet=${wallet.symbol.toLowerCase()}`}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full" 
+            data-testid={`button-receive-${wallet.id}`}
+            disabled={isComingSoon}
+          >
             <Download className="w-4 h-4 mr-2" />
             Receive
           </Button>
@@ -269,10 +295,17 @@ export default function WalletsPage() {
     setShowWithdrawModal(true);
   };
   
+  // Available wallets (BTC, ETH, USDT)
+  const availableWallets = ['BTC', 'ETH', 'USDT'];
+  
   // Filter wallets if a specific symbol is provided, and exclude ZAR wallet from regular grid
   const displayWallets = params.symbol 
     ? WALLETS.filter(wallet => wallet.symbol.toLowerCase() === params.symbol?.toLowerCase())
     : WALLETS.filter(wallet => wallet.symbol !== 'ZAR');
+    
+  // Separate available and coming soon wallets
+  const availableDisplayWallets = displayWallets.filter(wallet => availableWallets.includes(wallet.symbol));
+  const comingSoonWallets = displayWallets.filter(wallet => !availableWallets.includes(wallet.symbol));
 
   const totalBalanceZAR = WALLETS.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
 
@@ -466,7 +499,8 @@ export default function WalletsPage() {
                 ? "flex justify-center items-center min-h-[60vh]" 
                 : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
             }`}>
-              {displayWallets.map((wallet) => (
+              {/* Available Wallets */}
+              {availableDisplayWallets.map((wallet) => (
                 <div 
                   key={wallet.id}
                   className={params.symbol ? "w-full max-w-md" : ""}
@@ -474,6 +508,18 @@ export default function WalletsPage() {
                   <WalletCard
                     wallet={wallet}
                     isBalanceVisible={isBalanceVisible}
+                    isComingSoon={false}
+                  />
+                </div>
+              ))}
+              
+              {/* Coming Soon Wallets */}
+              {!params.symbol && comingSoonWallets.map((wallet) => (
+                <div key={wallet.id}>
+                  <WalletCard
+                    wallet={wallet}
+                    isBalanceVisible={isBalanceVisible}
+                    isComingSoon={true}
                   />
                 </div>
               ))}

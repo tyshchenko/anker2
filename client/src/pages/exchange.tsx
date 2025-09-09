@@ -116,6 +116,7 @@ export default function ExchangePage() {
               onDepositClick={handleDepositClick}
             />
 
+
             {/* Market Ticker */}
             <MarketTicker />
 

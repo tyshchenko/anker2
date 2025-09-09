@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Wallet, Plus } from "lucide-react";
+import { Wallet, Plus, Shield, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { VerificationModal } from "@/components/verification/verification-modal";
 
 // Demo user ID for development
 const DEMO_USER_ID = "demo-user-123";
@@ -17,6 +19,9 @@ export function BalanceDisplay({
   variant = "desktop",
   onDepositClick 
 }: BalanceDisplayProps) {
+  const { user: authUser } = useAuth();
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  
   const { data: user, isLoading } = useQuery({
     queryKey: ['/api/users', DEMO_USER_ID],
     queryFn: async () => {
@@ -60,6 +65,24 @@ export function BalanceDisplay({
             {isLoading ? "..." : formattedBalance}
           </span>
         </div>
+        {/* Verification Status/Button */}
+        {authUser?.verificationStatus === "approved" ? (
+          <div className="flex items-center space-x-1 text-green-600">
+            <CheckCircle className="h-3 w-3" />
+            <span className="text-xs font-medium">Verified</span>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVerificationModal(true)}
+            className="h-6 px-2"
+            data-testid="button-verification-mobile"
+          >
+            <Shield className="h-3 w-3" />
+          </Button>
+        )}
+
         {showDepositButton && (
           <Button
             variant="outline"
@@ -71,6 +94,10 @@ export function BalanceDisplay({
             <Plus className="h-3 w-3" />
           </Button>
         )}
+        <VerificationModal
+          open={showVerificationModal}
+          onOpenChange={setShowVerificationModal}
+        />
       </div>
     );
   }
@@ -92,18 +119,48 @@ export function BalanceDisplay({
         </div>
       </div>
       
-      {showDepositButton && (
-        <Button
-          variant="default"
-          size="sm"
-          onClick={onDepositClick}
-          className="flex items-center space-x-2"
-          data-testid="button-deposit-desktop"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Deposit</span>
-        </Button>
-      )}
+      <div className="flex items-center space-x-2">
+        {/* Verification Status/Button */}
+        {authUser?.verificationStatus === "approved" ? (
+          <div className="flex items-center space-x-2 text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            <span className="text-sm font-medium">Verification Complete</span>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVerificationModal(true)}
+            className="flex items-center space-x-2"
+            data-testid="button-verification"
+          >
+            <Shield className="h-4 w-4" />
+            <span>
+              {authUser?.verificationStatus === "submitted" ? "Verifying..." : 
+               authUser?.verificationStatus === "rejected" ? "Resubmit" : 
+               "Verify Account"}
+            </span>
+          </Button>
+        )}
+
+        {showDepositButton && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onDepositClick}
+            className="flex items-center space-x-2"
+            data-testid="button-deposit-desktop"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Deposit</span>
+          </Button>
+        )}
+      </div>
+
+      <VerificationModal
+        open={showVerificationModal}
+        onOpenChange={setShowVerificationModal}
+      />
     </div>
   );
 }

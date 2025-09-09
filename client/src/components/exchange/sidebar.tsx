@@ -62,7 +62,7 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
   }) => {
     const [location] = useLocation();
     const active = href && location === href;
-    
+
     const content = (
       <>
         {typeof Icon === "string" ? (
@@ -122,25 +122,25 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
         </div>
         <span className="text-lg font-semibold" data-testid="text-brand">Exchange</span>
       </div>
-      
+
       <nav className="flex-1 p-4 space-y-1">
         {navigationItems.map((item) => (
           <NavItem key={item.label} {...item} />
         ))}
-        
+
         <div className="py-2">
           <div className="h-px bg-border" />
         </div>
-        
+
         <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Your Portfolio
         </div>
-        
+
         {portfolioItems.map((item) => (
           <NavItem key={item.label} {...item} />
         ))}
       </nav>
-      
+
       <div className="border-t border-border p-4 space-y-1">
         {isAuthenticated ? (
           <>
@@ -237,7 +237,7 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
             data-testid="mobile-overlay"
           />
         )}
-        
+
         {/* Mobile Sidebar */}
         <aside
           className={cn(

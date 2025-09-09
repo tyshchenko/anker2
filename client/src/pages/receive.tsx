@@ -81,6 +81,18 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  
+  // Check if wallet parameter was passed in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const walletParam = urlParams.get('wallet');
+  const preSelectedWallet = walletParam ? WALLETS.find(w => w.symbol.toLowerCase() === walletParam) : null;
+  
+  // Set the selected wallet if coming from a specific wallet
+  useEffect(() => {
+    if (preSelectedWallet) {
+      setSelectedWallet(preSelectedWallet.id);
+    }
+  }, [preSelectedWallet]);
   const [requestAmount, setRequestAmount] = useState('');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
@@ -194,27 +206,41 @@ export default function ReceivePage() {
                 <h3 className="text-lg font-semibold mb-4">Receive To</h3>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="wallet">Select Wallet</Label>
-                    <Select value={selectedWallet} onValueChange={setSelectedWallet}>
-                      <SelectTrigger data-testid="select-wallet">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {WALLETS.map((wallet) => (
-                          <SelectItem key={wallet.id} value={wallet.id}>
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-6 h-6 rounded-full ${wallet.color} flex items-center justify-center`}>
-                                <span className="text-white text-xs font-bold">{wallet.icon}</span>
+                    <Label htmlFor="wallet">
+                      {preSelectedWallet ? `Receive to ${preSelectedWallet.name}` : 'Select Wallet'}
+                    </Label>
+                    {preSelectedWallet ? (
+                      <div className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/50">
+                        <div className={`w-6 h-6 rounded-full ${preSelectedWallet.color} flex items-center justify-center`}>
+                          <span className="text-white text-xs font-bold">{preSelectedWallet.icon}</span>
+                        </div>
+                        <span className="font-medium">{preSelectedWallet.name}</span>
+                        <span className="text-muted-foreground">
+                          {formatBalance(preSelectedWallet.balance, preSelectedWallet.symbol)} {preSelectedWallet.symbol}
+                        </span>
+                      </div>
+                    ) : (
+                      <Select value={selectedWallet} onValueChange={setSelectedWallet}>
+                        <SelectTrigger data-testid="select-wallet">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WALLETS.map((wallet) => (
+                            <SelectItem key={wallet.id} value={wallet.id}>
+                              <div className="flex items-center space-x-3">
+                                <div className={`w-6 h-6 rounded-full ${wallet.color} flex items-center justify-center`}>
+                                  <span className="text-white text-xs font-bold">{wallet.icon}</span>
+                                </div>
+                                <span>{wallet.name}</span>
+                                <span className="text-muted-foreground">
+                                  {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                                </span>
                               </div>
-                              <span>{wallet.name}</span>
-                              <span className="text-muted-foreground">
-                                {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
 
                   <div className="bg-muted rounded-lg p-4">
