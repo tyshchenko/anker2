@@ -5,12 +5,14 @@ import { ChartPanel } from "@/components/exchange/chart-panel";
 import { TradingPanel } from "@/components/exchange/trading-panel";
 import { BalanceDisplay } from "@/components/exchange/balance-display";
 import { DepositModal } from "@/components/exchange/deposit-modal";
+import { useAuth } from "@/lib/auth";
 
 export default function ExchangePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentPair, setCurrentPair] = useState("BTC/ZAR");
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -109,11 +111,16 @@ export default function ExchangePage() {
               onDepositClick={handleDepositClick}
             />
 
-            {/* Desktop Balance Display */}
-            <BalanceDisplay 
-              variant="desktop" 
-              onDepositClick={handleDepositClick}
-            />
+            {isAuthenticated ? (
+              <>
+                <BalanceDisplay 
+                  variant="desktop" 
+                  onDepositClick={handleDepositClick}
+                />
+              </>
+            ):(
+              <></>
+            )}
 
 
             {/* Chart Section */}
