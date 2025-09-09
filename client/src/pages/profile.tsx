@@ -33,6 +33,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
 
 interface UserProfile {
   firstName: string;
@@ -50,25 +51,9 @@ interface UserProfile {
   securityAlerts: boolean;
 }
 
-const MOCK_PROFILE: UserProfile = {
-  firstName: 'John',
-  lastName: 'Smith',
-  email: 'john.smith@example.com',
-  phone: '+27 82 123 4567',
-  country: 'South Africa',
-  language: 'English',
-  timezone: 'Africa/Johannesburg',
-  verificationLevel: 'basic',
-  twoFactorEnabled: true,
-  emailNotifications: true,
-  smsNotifications: false,
-  tradingNotifications: true,
-  securityAlerts: true
-};
-
 export default function ProfilePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profile, setProfile] = useState<UserProfile>(MOCK_PROFILE);
+  const { profile, updateProfile, isLoading, isError, userData } = useProfile();
   const [activeTab, setActiveTab] = useState('personal');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -79,7 +64,7 @@ export default function ProfilePage() {
   });
 
   const handleProfileUpdate = (field: keyof UserProfile, value: any) => {
-    setProfile(prev => ({ ...prev, [field]: value }));
+    updateProfile(field, value);
   };
 
   const getVerificationBadge = (level: string) => {
@@ -166,85 +151,121 @@ export default function ProfilePage() {
 
               {/* Profile Summary */}
               <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6 text-primary" />
+                {isLoading ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-muted rounded-full animate-pulse"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-24 bg-muted rounded animate-pulse"></div>
+                      <div className="h-3 w-32 bg-muted rounded animate-pulse"></div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{profile.firstName} {profile.lastName}</p>
-                    <p className="text-sm text-muted-foreground">{profile.email}</p>
+                ) : isError ? (
+                  <div className="text-sm text-red-500">Failed to load profile</div>
+                ) : profile ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{profile.firstName} {profile.lastName}</p>
+                      <p className="text-sm text-muted-foreground">{profile.email}</p>
+                    </div>
                   </div>
-                </div>
-                {getVerificationBadge(profile.verificationLevel)}
+                ) : (
+                  <div className="text-sm text-muted-foreground">No profile data</div>
+                )}
+                {profile && getVerificationBadge(profile.verificationLevel)}
               </div>
             </div>
 
             {/* Content Area */}
             <div className="flex-1 p-6">
-              {activeTab === 'personal' && (
+              {isLoading ? (
                 <div className="max-w-2xl space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-                    <Card className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="firstName">First Name</Label>
-                          <Input
-                            id="firstName"
-                            value={profile.firstName}
-                            onChange={(e) => handleProfileUpdate('firstName', e.target.value)}
-                            data-testid="input-firstName"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lastName">Last Name</Label>
-                          <Input
-                            id="lastName"
-                            value={profile.lastName}
-                            onChange={(e) => handleProfileUpdate('lastName', e.target.value)}
-                            data-testid="input-lastName"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={profile.email}
-                            onChange={(e) => handleProfileUpdate('email', e.target.value)}
-                            data-testid="input-email"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="phone">Phone Number</Label>
-                          <Input
-                            id="phone"
-                            value={profile.phone}
-                            onChange={(e) => handleProfileUpdate('phone', e.target.value)}
-                            data-testid="input-phone"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="country">Country</Label>
-                          <Select value={profile.country} onValueChange={(value) => handleProfileUpdate('country', value)}>
-                            <SelectTrigger data-testid="select-country">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="South Africa">South Africa</SelectItem>
-                              <SelectItem value="United States">United States</SelectItem>
-                              <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                              <SelectItem value="Canada">Canada</SelectItem>
-                              <SelectItem value="Australia">Australia</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="mt-6">
-                        <Button data-testid="button-save-personal">Save Changes</Button>
-                      </div>
-                    </Card>
+                  <div className="space-y-3">
+                    <div className="h-6 w-48 bg-muted rounded animate-pulse"></div>
+                    <div className="h-32 bg-muted rounded animate-pulse"></div>
                   </div>
+                </div>
+              ) : isError ? (
+                <div className="max-w-2xl">
+                  <Card className="p-6">
+                    <div className="text-center">
+                      <p className="text-red-500 mb-4">Failed to load profile data</p>
+                      <Button onClick={() => window.location.reload()}>Retry</Button>
+                    </div>
+                  </Card>
+                </div>
+              ) : profile ? (
+                <>
+                  {activeTab === 'personal' && (
+                    <div className="max-w-2xl space-y-6">
+                      <div>
+                        <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
+                        <Card className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="firstName">First Name</Label>
+                              <Input
+                                id="firstName"
+                                value={profile.firstName}
+                                onChange={(e) => handleProfileUpdate('firstName', e.target.value)}
+                                data-testid="input-firstName"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="lastName">Last Name</Label>
+                              <Input
+                                id="lastName"
+                                value={profile.lastName}
+                                onChange={(e) => handleProfileUpdate('lastName', e.target.value)}
+                                data-testid="input-lastName"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="email">Email Address</Label>
+                              <Input
+                                id="email"
+                                type="email"
+                                value={profile.email}
+                                onChange={(e) => handleProfileUpdate('email', e.target.value)}
+                                data-testid="input-email"
+                                disabled={true}
+                                className="bg-muted"
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                            </div>
+                            <div>
+                              <Label htmlFor="phone">Phone Number</Label>
+                              <Input
+                                id="phone"
+                                value={profile.phone}
+                                onChange={(e) => handleProfileUpdate('phone', e.target.value)}
+                                data-testid="input-phone"
+                                placeholder="Not provided"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="country">Country</Label>
+                              <Select value={profile.country} onValueChange={(value) => handleProfileUpdate('country', value)}>
+                                <SelectTrigger data-testid="select-country">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="South Africa">South Africa</SelectItem>
+                                  <SelectItem value="United States">United States</SelectItem>
+                                  <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                                  <SelectItem value="Canada">Canada</SelectItem>
+                                  <SelectItem value="Australia">Australia</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="mt-6">
+                            <Button data-testid="button-save-personal">Save Changes</Button>
+                          </div>
+                        </Card>
+                      </div>
 
                   {/* Verification Status */}
                   <div>
@@ -526,6 +547,16 @@ export default function ProfilePage() {
                       </div>
                     </Card>
                   </div>
+                </div>
+              )}
+                </>
+              ) : (
+                <div className="max-w-2xl">
+                  <Card className="p-6">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">No profile data available</p>
+                    </div>
+                  </Card>
                 </div>
               )}
             </div>

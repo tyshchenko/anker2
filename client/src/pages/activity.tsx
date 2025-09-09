@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -25,6 +26,7 @@ import {
   ArrowDownLeft,
   Clock
 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 interface Transaction {
   id: string;
@@ -40,99 +42,61 @@ interface Transaction {
   toAsset?: string;
 }
 
-// Mock transaction data
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx_001',
-    type: 'buy',
-    pair: 'BTC/ZAR',
-    amount: 0.025,
-    price: 1196000,
-    total: 29900,
-    fee: 29.90,
-    status: 'completed',
-    timestamp: '2025-09-05T14:30:00Z'
-  },
-  {
-    id: 'tx_002',
-    type: 'sell',
-    pair: 'ETH/ZAR',
-    amount: 0.5,
-    price: 64000,
-    total: 32000,
-    fee: 32.00,
-    status: 'completed',
-    timestamp: '2025-09-05T13:15:00Z'
-  },
-  {
-    id: 'tx_003',
-    type: 'convert',
-    pair: 'USDT/ZAR',
-    amount: 1000,
-    price: 18.40,
-    total: 18400,
-    fee: 18.40,
-    status: 'completed',
-    timestamp: '2025-09-05T12:45:00Z',
-    fromAsset: 'USDT',
-    toAsset: 'ZAR'
-  },
-  {
-    id: 'tx_004',
-    type: 'buy',
-    pair: 'ETH/ZAR',
-    amount: 1.2,
-    price: 63800,
-    total: 76560,
-    fee: 76.56,
-    status: 'pending',
-    timestamp: '2025-09-05T11:20:00Z'
-  },
-  {
-    id: 'tx_005',
-    type: 'sell',
-    pair: 'BTC/ZAR',
-    amount: 0.01,
-    price: 1195000,
-    total: 11950,
-    fee: 11.95,
-    status: 'failed',
-    timestamp: '2025-09-05T10:10:00Z'
-  },
-  {
-    id: 'tx_006',
-    type: 'send',
-    pair: 'BTC',
-    amount: 0.005,
-    price: 1194000,
-    total: 5970,
-    fee: 0.001,
-    status: 'completed',
-    timestamp: '2025-09-04T18:30:00Z'
-  },
-  {
-    id: 'tx_007',
-    type: 'receive',
-    pair: 'USDT',
-    amount: 500,
-    price: 18.35,
-    total: 9175,
-    fee: 0,
-    status: 'completed',
-    timestamp: '2025-09-04T16:45:00Z'
-  },
-  {
-    id: 'tx_008',
-    type: 'buy',
-    pair: 'SOL/ZAR',
-    amount: 10,
-    price: 2650,
-    total: 26500,
-    fee: 26.50,
-    status: 'completed',
-    timestamp: '2025-09-04T14:20:00Z'
-  }
-];
+// Trade interface from server
+interface Trade {
+  id: string;
+  userId: string;
+  pair: string;
+  type: 'buy' | 'sell';
+  amount: number;
+  price: number;
+  total: number;
+  fee: number;
+  status: 'pending' | 'completed' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Convert server trade data to frontend transaction format
+const mapTradeToTransaction = (trade: Trade): Transaction => {
+  return {
+    id: trade.id,
+    type: trade.type,
+    pair: trade.pair,
+    amount: trade.amount,
+    price: trade.price,
+    total: trade.total,
+    fee: trade.fee,
+    status: trade.status === 'cancelled' ? 'failed' : trade.status,
+    timestamp: trade.createdAt
+  };
+};
+
+// Hook to fetch user transactions
+const useUserTransactions = (userId: string | null) => {
+  return useQuery({
+    queryKey: ['/api/trades', userId],
+    queryFn: async (): Promise<Transaction[]> => {
+      if (!userId) {
+        throw new Error('User ID not available');
+      }
+      
+      const response = await fetch(`/api/trades/${userId}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      
+      const data = await response.json();
+      return data.data ? data.data.map(mapTradeToTransaction) : [];
+    },
+    enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -238,11 +202,14 @@ function TransactionRow({ transaction }: TransactionRowProps) {
 
 export default function ActivityPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  
+  const { user } = useAuth();
+  const { data: transactionsData, isLoading, isError } = useUserTransactions(user?.id?.toString() || null);
+  const transactions = transactionsData || [];
 
   const filteredTransactions = transactions
     .filter(tx => {
@@ -476,7 +443,45 @@ export default function ActivityPage() {
 
           {/* Transaction List */}
           <div className="flex-1">
-            {filteredTransactions.length > 0 ? (
+            {isLoading ? (
+              <div>
+                <div className="p-4 border-b border-border bg-muted/50">
+                  <div className="h-4 w-48 bg-muted rounded animate-pulse"></div>
+                </div>
+                <div className="max-h-[600px] overflow-y-auto">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="p-4 border-b border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-muted rounded-full animate-pulse"></div>
+                          <div className="space-y-1">
+                            <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
+                            <div className="h-3 w-16 bg-muted rounded animate-pulse"></div>
+                          </div>
+                        </div>
+                        <div className="space-y-1 text-right">
+                          <div className="h-4 w-16 bg-muted rounded animate-pulse"></div>
+                          <div className="h-3 w-12 bg-muted rounded animate-pulse"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : isError ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-8 h-8 text-red-500" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-red-600">Failed to Load Transactions</h3>
+                <p className="text-muted-foreground max-w-md mx-auto mb-4">
+                  There was an error loading your transaction history. Please try again.
+                </p>
+                <Button onClick={() => window.location.reload()} variant="outline">
+                  Retry
+                </Button>
+              </div>
+            ) : filteredTransactions.length > 0 ? (
               <div>
                 <div className="p-4 border-b border-border bg-muted/50">
                   <p className="text-sm text-muted-foreground">
