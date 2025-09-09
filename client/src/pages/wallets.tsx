@@ -10,6 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine } from "lucide-react";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
 // Mock wallet data
 const WALLETS = [
@@ -18,6 +27,7 @@ const WALLETS = [
     name: 'Bitcoin Wallet',
     symbol: 'BTC',
     icon: '₿',
+    logoUrl: btcLogo,
     balance: 0.0234567,
     balanceZAR: 28125.45,
     address: '1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S',
@@ -29,6 +39,7 @@ const WALLETS = [
     name: 'Ethereum Wallet',
     symbol: 'ETH',
     icon: 'Ξ',
+    logoUrl: ethLogo,
     balance: 1.247891,
     balanceZAR: 80423.12,
     address: '0x1234567890abcdef1234567890abcdef12345678',
@@ -40,6 +51,7 @@ const WALLETS = [
     name: 'Tether Wallet',
     symbol: 'USDT',
     icon: '₮',
+    logoUrl: usdtLogo,
     balance: 2500.00,
     balanceZAR: 46250.00,
     address: '0xabcdef1234567890abcdef1234567890abcdef12',
@@ -73,6 +85,7 @@ const WALLETS = [
     name: 'BNB Wallet',
     symbol: 'BNB',
     icon: '◉',
+    logoUrl: bnbLogo,
     balance: 0,
     balanceZAR: 0,
     address: '0xbnb1234567890abcdef1234567890abcdef12345678',
@@ -84,6 +97,7 @@ const WALLETS = [
     name: 'Solana Wallet',
     symbol: 'SOL',
     icon: '◎',
+    logoUrl: solLogo,
     balance: 0,
     balanceZAR: 0,
     address: 'Sol1234567890abcdef1234567890abcdef1234567890ab',
@@ -95,6 +109,7 @@ const WALLETS = [
     name: 'XRP Wallet',
     symbol: 'XRP',
     icon: '◈',
+    logoUrl: xrpLogo,
     balance: 0,
     balanceZAR: 0,
     address: 'rXRP1234567890abcdef1234567890abcdef1234567890',
@@ -106,6 +121,7 @@ const WALLETS = [
     name: 'Cardano Wallet',
     symbol: 'ADA',
     icon: '◇',
+    logoUrl: cardanoLogo,
     balance: 0,
     balanceZAR: 0,
     address: 'addr1ada1234567890abcdef1234567890abcdef123456789',
@@ -128,6 +144,7 @@ const WALLETS = [
     name: 'Dogecoin Wallet',
     symbol: 'DOGE',
     icon: '◊',
+    logoUrl: dogeLogo,
     balance: 0,
     balanceZAR: 0,
     address: 'DDoge1234567890abcdef1234567890abcdef1234567890',
@@ -139,6 +156,7 @@ const WALLETS = [
     name: 'Polygon Wallet',
     symbol: 'MATIC',
     icon: '⬟',
+    logoUrl: polygonLogo,
     balance: 0,
     balanceZAR: 0,
     address: '0xmatic1234567890abcdef1234567890abcdef12345678',
@@ -185,8 +203,18 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
       
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className={`w-12 h-12 rounded-full ${wallet.color} flex items-center justify-center`}>
-            <span className="text-white text-lg font-bold">{wallet.icon}</span>
+          <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center p-1">
+            {wallet.logoUrl ? (
+              <img 
+                src={wallet.logoUrl} 
+                alt={`${wallet.symbol} logo`} 
+                className="w-full h-full rounded-full object-contain"
+              />
+            ) : (
+              <div className={`w-full h-full rounded-full ${wallet.color} flex items-center justify-center`}>
+                <span className="text-white text-lg font-bold">{wallet.icon}</span>
+              </div>
+            )}
           </div>
           <div>
             <h3 className="font-semibold text-lg" data-testid={`wallet-name-${wallet.id}`}>
@@ -514,8 +542,11 @@ export default function WalletsPage() {
               ))}
               
               {/* Coming Soon Wallets */}
-              {!params.symbol && comingSoonWallets.map((wallet) => (
-                <div key={wallet.id}>
+              {comingSoonWallets.map((wallet) => (
+                <div 
+                  key={wallet.id}
+                  className={params.symbol ? "w-full max-w-md" : ""}
+                >
                   <WalletCard
                     wallet={wallet}
                     isBalanceVisible={isBalanceVisible}

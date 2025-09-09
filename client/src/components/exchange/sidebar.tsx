@@ -7,6 +7,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { RegisterDialog } from "@/components/auth/register-dialog";
+import ankerPayLogo from "@assets/AnkerPay Logo PNG 300x300 1_1757407958939.png";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
 interface SidebarProps {
   className?: string;
@@ -19,21 +29,21 @@ const navigationItems = [
   { icon: Home, label: "Home", href: "/" },
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Wallet, label: "Wallets", href: "/wallets" },
-  { icon: Zap, label: "Shitcoins", href: "/shitcoins" },
+  { icon: Zap, label: "Shitcoins", href: "/shitcoins", comingSoon: true },
   { icon: BarChart3, label: "Activity", href: "/activity" },
 ];
 
 const portfolioItems = [
-  { icon: "₿", label: "Bitcoin", amount: "0.0234", color: "text-orange-500", href: "/wallets/btc" },
-  { icon: "Ξ", label: "Ethereum", amount: "1.247", color: "text-blue-400", href: "/wallets/eth" },
-  { icon: "₮", label: "Tether", amount: "0", color: "text-green-500", href: "/wallets/usdt" },
-  { icon: "◉", label: "BNB", amount: "0", color: "text-yellow-500", href: "/wallets/bnb" },
-  { icon: "◎", label: "Solana", amount: "0", color: "text-purple-500", href: "/wallets/sol" },
-  { icon: "◈", label: "XRP", amount: "0", color: "text-blue-600", href: "/wallets/xrp" },
-  { icon: "◇", label: "Cardano", amount: "0", color: "text-blue-500", href: "/wallets/ada" },
+  { icon: "₿", label: "Bitcoin", amount: "0.0234", color: "text-orange-500", href: "/wallets/btc", logoUrl: btcLogo },
+  { icon: "Ξ", label: "Ethereum", amount: "1.247", color: "text-blue-400", href: "/wallets/eth", logoUrl: ethLogo },
+  { icon: "₮", label: "Tether", amount: "0", color: "text-green-500", href: "/wallets/usdt", logoUrl: usdtLogo },
+  { icon: "◉", label: "BNB", amount: "0", color: "text-yellow-500", href: "/wallets/bnb", logoUrl: bnbLogo },
+  { icon: "◎", label: "Solana", amount: "0", color: "text-purple-500", href: "/wallets/sol", logoUrl: solLogo },
+  { icon: "◈", label: "XRP", amount: "0", color: "text-blue-600", href: "/wallets/xrp", logoUrl: xrpLogo },
+  { icon: "◇", label: "Cardano", amount: "0", color: "text-blue-500", href: "/wallets/ada", logoUrl: cardanoLogo },
   { icon: "◆", label: "Avalanche", amount: "0", color: "text-red-500", href: "/wallets/avax" },
-  { icon: "◊", label: "Dogecoin", amount: "0", color: "text-yellow-600", href: "/wallets/doge" },
-  { icon: "⬟", label: "Polygon", amount: "0", color: "text-purple-600", href: "/wallets/matic" },
+  { icon: "◊", label: "Dogecoin", amount: "0", color: "text-yellow-600", href: "/wallets/doge", logoUrl: dogeLogo },
+  { icon: "⬟", label: "Polygon", amount: "0", color: "text-purple-600", href: "/wallets/matic", logoUrl: polygonLogo },
 ];
 
 const bottomItems = [
@@ -52,13 +62,17 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
     label, 
     href,
     amount, 
-    color 
+    color,
+    comingSoon,
+    logoUrl
   }: { 
     icon: any; 
     label: string; 
     href?: string;
     amount?: string; 
     color?: string; 
+    comingSoon?: boolean;
+    logoUrl?: string;
   }) => {
     const [location] = useLocation();
     const active = href && location === href;
@@ -66,7 +80,17 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
     const content = (
       <>
         {typeof Icon === "string" ? (
-          <span className={cn("w-5 text-center font-mono", color)}>{Icon}</span>
+          logoUrl ? (
+            <div className="w-5 h-5 flex items-center justify-center">
+              <img 
+                src={logoUrl} 
+                alt={`${label} logo`} 
+                className="w-4 h-4 rounded-full object-contain"
+              />
+            </div>
+          ) : (
+            <span className={cn("w-5 text-center font-mono", color)}>{Icon}</span>
+          )
         ) : (
           <Icon className="w-5 h-5" />
         )}
@@ -76,10 +100,15 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
             {amount}
           </span>
         )}
+        {comingSoon && (
+          <span className="ml-auto bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
+            Coming Soon
+          </span>
+        )}
       </>
     );
 
-    if (href) {
+    if (href && !comingSoon) {
       return (
         <Link href={href}>
           <div
@@ -99,28 +128,30 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
     }
 
     return (
-      <button
+      <div
         className={cn(
           "flex items-center space-x-3 px-3 py-2.5 rounded-lg text-left w-full transition-colors",
-          "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+          comingSoon 
+            ? "text-muted-foreground cursor-not-allowed opacity-75" 
+            : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground cursor-pointer"
         )}
-        onClick={isMobile ? onClose : undefined}
+        onClick={!comingSoon ? (isMobile ? onClose : undefined) : undefined}
         data-testid={`nav-${label.toLowerCase()}`}
       >
         {content}
-      </button>
+      </div>
     );
   };
 
   const content = (
     <div className="flex h-full flex-col">
       <div className="flex items-center space-x-2 p-6 border-b border-border">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-          </svg>
-        </div>
-        <span className="text-lg font-semibold" data-testid="text-brand">Exchange</span>
+        <img 
+          src={ankerPayLogo} 
+          alt="AnkerPay Logo" 
+          className="w-8 h-8 rounded-lg"
+        />
+        <span className="text-lg font-semibold" data-testid="text-brand">AnkerPay</span>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
@@ -131,7 +162,7 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
         <div className="py-2">
           <div className="h-px bg-border" />
         </div>
-        
+
         {isAuthenticated ? (
           <>
             <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">

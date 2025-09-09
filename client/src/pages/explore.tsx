@@ -14,22 +14,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
 // Top 20 tokens data
 const TOP_TOKENS = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', price: 65000, change: 2.34, marketCap: '1.2T', icon: '₿' },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', price: 3500, change: -1.25, marketCap: '420B', icon: 'Ξ' },
-  { id: 'tether', symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.01, marketCap: '95B', icon: '₮' },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', price: 620, change: 3.45, marketCap: '95B', icon: 'B' },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', price: 155, change: 5.67, marketCap: '70B', icon: 'S' },
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', price: 65000, change: 2.34, marketCap: '1.2T', icon: '₿', logoUrl: btcLogo },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', price: 3500, change: -1.25, marketCap: '420B', icon: 'Ξ', logoUrl: ethLogo },
+  { id: 'tether', symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.01, marketCap: '95B', icon: '₮', logoUrl: usdtLogo },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', price: 620, change: 3.45, marketCap: '95B', icon: 'B', logoUrl: bnbLogo },
+  { id: 'solana', symbol: 'SOL', name: 'Solana', price: 155, change: 5.67, marketCap: '70B', icon: 'S', logoUrl: solLogo },
   { id: 'usd-coin', symbol: 'USDC', name: 'USD Coin', price: 1.00, change: 0.02, marketCap: '32B', icon: 'C' },
-  { id: 'xrp', symbol: 'XRP', name: 'XRP', price: 0.62, change: -2.15, marketCap: '35B', icon: 'X' },
-  { id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin', price: 0.38, change: 8.92, marketCap: '55B', icon: 'D' },
-  { id: 'cardano', symbol: 'ADA', name: 'Cardano', price: 1.25, change: 1.84, marketCap: '44B', icon: 'A' },
+  { id: 'xrp', symbol: 'XRP', name: 'XRP', price: 0.62, change: -2.15, marketCap: '35B', icon: 'X', logoUrl: xrpLogo },
+  { id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin', price: 0.38, change: 8.92, marketCap: '55B', icon: 'D', logoUrl: dogeLogo },
+  { id: 'cardano', symbol: 'ADA', name: 'Cardano', price: 1.25, change: 1.84, marketCap: '44B', icon: 'A', logoUrl: cardanoLogo },
   { id: 'avalanche-2', symbol: 'AVAX', name: 'Avalanche', price: 42, change: -0.85, marketCap: '16B', icon: 'V' },
   { id: 'chainlink', symbol: 'LINK', name: 'Chainlink', price: 14.5, change: 4.23, marketCap: '8.5B', icon: 'L' },
   { id: 'polkadot', symbol: 'DOT', name: 'Polkadot', price: 7.8, change: -3.12, marketCap: '11B', icon: 'P' },
-  { id: 'polygon', symbol: 'MATIC', name: 'Polygon', price: 1.15, change: 2.67, marketCap: '11B', icon: 'M' },
+  { id: 'polygon', symbol: 'MATIC', name: 'Polygon', price: 1.15, change: 2.67, marketCap: '11B', icon: 'M', logoUrl: polygonLogo },
   { id: 'uniswap', symbol: 'UNI', name: 'Uniswap', price: 9.2, change: -1.44, marketCap: '5.5B', icon: 'U' },
   { id: 'litecoin', symbol: 'LTC', name: 'Litecoin', price: 95, change: 0.78, marketCap: '7B', icon: 'Ł' },
   { id: 'near', symbol: 'NEAR', name: 'NEAR Protocol', price: 5.4, change: 6.21, marketCap: '5.9B', icon: 'N' },
@@ -49,26 +58,62 @@ interface TokenCardProps {
 
 function TokenCard({ token, isSelected, onClick }: TokenCardProps) {
   const priceInZAR = token.price * 18.5; // Convert USD to ZAR
+  const isAvailable = ['bitcoin', 'ethereum', 'tether'].includes(token.id);
   
   return (
     <div
       className={`
-        p-4 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md
-        ${isSelected 
-          ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20' 
-          : 'border-border bg-card hover:border-primary/30'
+        relative p-4 rounded-lg border transition-all duration-200 overflow-hidden
+        ${isAvailable 
+          ? `cursor-pointer hover:shadow-md ${isSelected 
+              ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20' 
+              : 'border-border bg-card hover:border-primary/30'
+            }`
+          : 'border-border bg-card/50 cursor-not-allowed'
         }
       `}
-      onClick={onClick}
+      onClick={isAvailable ? onClick : undefined}
       data-testid={`token-card-${token.id}`}
     >
+      {/* Coming Soon Overlay */}
+      {!isAvailable && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-2">
+              <span className="text-2xl">🚀</span>
+            </div>
+            <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium">
+              Coming Soon
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-lg font-bold text-primary">{token.icon}</span>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            isAvailable 
+              ? 'bg-white' 
+              : 'bg-muted/50'
+          }`}>
+            {token.logoUrl && isAvailable ? (
+              <img 
+                src={token.logoUrl} 
+                alt={`${token.symbol} logo`} 
+                className="w-8 h-8 rounded-full object-contain"
+              />
+            ) : (
+              <span className={`text-lg font-bold ${
+                isAvailable 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground'
+              }`}>{token.icon}</span>
+            )}
           </div>
           <div>
-            <h3 className="font-semibold text-sm" data-testid={`text-name-${token.id}`}>
+            <h3 className={`font-semibold text-sm ${
+              isAvailable ? '' : 'text-muted-foreground'
+            }`} data-testid={`text-name-${token.id}`}>
               {token.name}
             </h3>
             <p className="text-xs text-muted-foreground" data-testid={`text-symbol-${token.id}`}>
@@ -76,36 +121,44 @@ function TokenCard({ token, isSelected, onClick }: TokenCardProps) {
             </p>
           </div>
         </div>
-        <div 
-          className={`
-            text-xs font-medium px-2 py-1 rounded-full
-            ${token.change >= 0 
-              ? 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30' 
-              : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
-            }
-          `}
-          data-testid={`text-change-${token.id}`}
-        >
-          {token.change >= 0 ? '+' : ''}{token.change.toFixed(2)}%
-        </div>
+        {isAvailable && (
+          <div 
+            className={`
+              text-xs font-medium px-2 py-1 rounded-full
+              ${token.change >= 0 
+                ? 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/30' 
+                : 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
+              }
+            `}
+            data-testid={`text-change-${token.id}`}
+          >
+            {token.change >= 0 ? '+' : ''}{token.change.toFixed(2)}%
+          </div>
+        )}
       </div>
       
       <div className="space-y-2">
         <div>
           <p className="text-xs text-muted-foreground">Price (ZAR)</p>
-          <p className="font-mono text-sm font-semibold" data-testid={`text-price-zar-${token.id}`}>
+          <p className={`font-mono text-sm font-semibold ${
+            isAvailable ? '' : 'text-muted-foreground'
+          }`} data-testid={`text-price-zar-${token.id}`}>
             R{priceInZAR.toLocaleString()}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Price (USD)</p>
-          <p className="font-mono text-xs" data-testid={`text-price-usd-${token.id}`}>
+          <p className={`font-mono text-xs ${
+            isAvailable ? '' : 'text-muted-foreground'
+          }`} data-testid={`text-price-usd-${token.id}`}>
             ${token.price.toLocaleString()}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Market Cap</p>
-          <p className="text-xs font-medium" data-testid={`text-marketcap-${token.id}`}>
+          <p className={`text-xs font-medium ${
+            isAvailable ? '' : 'text-muted-foreground'
+          }`} data-testid={`text-marketcap-${token.id}`}>
             {token.marketCap}
           </p>
         </div>
@@ -177,8 +230,16 @@ function TradingPanel({ selectedToken }: TradingPanelProps) {
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">{selectedToken.icon}</span>
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+              {selectedToken.logoUrl ? (
+                <img 
+                  src={selectedToken.logoUrl} 
+                  alt={`${selectedToken.symbol} logo`} 
+                  className="w-6 h-6 rounded-full object-contain"
+                />
+              ) : (
+                <span className="text-sm font-bold text-primary">{selectedToken.icon}</span>
+              )}
             </div>
             <div>
               <h3 className="font-semibold">{selectedToken.name}</h3>
@@ -382,10 +443,54 @@ export default function ExplorePage() {
 
             {/* Page Header */}
             <div className="p-6 border-b border-border">
-              <h1 className="text-2xl font-bold mb-2">Explore Tokens</h1>
-              <p className="text-muted-foreground">
-                Discover and trade the top 20 cryptocurrencies
-              </p>
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">🌟</span>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold">Explore Cryptocurrencies</h1>
+                  <p className="text-muted-foreground">
+                    Discover and trade the top cryptocurrencies with ZAR pairs
+                  </p>
+                </div>
+              </div>
+              
+              {/* Status Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                      3 Available Now
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    BTC, ETH, USDT ready to trade
+                  </p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      17 Coming Soon
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    More tokens launching shortly
+                  </p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      ZAR Trading
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                    All prices in South African Rand
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Token Grid */}

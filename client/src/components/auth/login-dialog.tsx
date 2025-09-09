@@ -82,7 +82,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const handleGoogleLogin = async () => {
     try {
       setIsGoogleLoading(true);
-      
+
       if (!window.google) {
         toast({
           title: "Error",
@@ -135,7 +135,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
             Sign in to your account to continue
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">

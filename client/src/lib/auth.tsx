@@ -20,7 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
-  loginWithGoogle: (token: string) => Promise<void>;
+  loginWithGoogle: (googleData: { token: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -72,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const googleAuthMutation = useMutation({
-    mutationFn: async (token: string) => {
-      const response = await apiRequest("POST", "/api/auth/google", { token });
+    mutationFn: async (googleData: { token: string; email: string; name: string; picture?: string }) => {
+      const response = await apiRequest("POST", "/api/auth/google", googleData);
       return response.json();
     },
     onSuccess: () => {
@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const loginWithGoogle = async (token: string) => {
-    await googleAuthMutation.mutateAsync(token);
+  const loginWithGoogle = async (googleData: { token: string; email: string; name: string; picture?: string }) => {
+    await googleAuthMutation.mutateAsync(googleData);
   };
 
   const logout = async () => {

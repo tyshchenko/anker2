@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +16,10 @@ export default function SignInPage() {
     password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  
+  const { login, loginWithGoogle } = useAuth();
+  const { toast } = useToast();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -23,16 +29,66 @@ export default function SignInPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await login(formData.email, formData.password);
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+    } catch (error) {
+      toast({
+        title: "Sign in failed",
+        description: "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      console.log('Email sign in:', formData);
-    }, 1500);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    console.log("Google sign-in button clicked!");
+    setGoogleLoading(true);
+    
+    try {
+      // For demo purposes, create a mock Google auth response
+      // In production, you would use the Google OAuth API
+      const mockGoogleData = {
+        token: 'mock-google-token',
+        email: 'user@gmail.com',
+        name: 'Demo User',
+        picture: 'https://via.placeholder.com/150'
+      };
+      
+      console.log("Attempting Google login with:", mockGoogleData);
+      await loginWithGoogle(mockGoogleData);
+      
+      console.log("Google login successful!");
+      toast({
+        title: "Welcome!",
+        description: "You have successfully signed in with Google.",
+      });
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+      toast({
+        title: "Google sign in failed", 
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSocialSignIn = (provider: string) => {
-    console.log(`Sign in with ${provider}`);
-    // Here you would implement OAuth flow for each provider
+    if (provider === 'Google') {
+      handleGoogleSignIn();
+    } else {
+      toast({
+        title: "Coming Soon",
+        description: `${provider} sign-in will be available soon.`,
+      });
+    }
   };
 
   return (
@@ -68,6 +124,7 @@ export default function SignInPage() {
                 variant="outline"
                 className="w-full h-11"
                 onClick={() => handleSocialSignIn('Google')}
+                disabled={googleLoading}
                 data-testid="button-google-signin"
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -76,7 +133,14 @@ export default function SignInPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                Continue with Google
+                {googleLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Continue with Google'
+                )}
               </Button>
 
               <Button

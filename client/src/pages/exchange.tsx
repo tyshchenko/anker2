@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
-import { MarketTicker } from "@/components/exchange/market-ticker";
 import { ChartPanel } from "@/components/exchange/chart-panel";
 import { TradingPanel } from "@/components/exchange/trading-panel";
 import { BalanceDisplay } from "@/components/exchange/balance-display";
@@ -116,9 +115,6 @@ export default function ExchangePage() {
               onDepositClick={handleDepositClick}
             />
 
-
-            {/* Market Ticker */}
-            <MarketTicker />
 
             {/* Chart Section */}
             <ChartPanel currentPair={currentPair} />
