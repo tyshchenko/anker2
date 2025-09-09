@@ -131,14 +131,19 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
         <div className="py-2">
           <div className="h-px bg-border" />
         </div>
+        
+        {isAuthenticated ? (
+          <>
 
-        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Your Portfolio
-        </div>
+            <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Your Portfolio
+            </div>
 
-        {portfolioItems.map((item) => (
-          <NavItem key={item.label} {...item} />
-        ))}
+            {portfolioItems.map((item) => (
+              <NavItem key={item.label} {...item} />
+            ))}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-border p-4 space-y-1">
