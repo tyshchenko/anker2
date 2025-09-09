@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine } from "lucide-react";
+import { useWallets } from "@/hooks/useWallets";
+import { useAuth } from "@/lib/auth";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
@@ -283,37 +285,16 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
   );
 }
 
-// Demo user ID for development
-const DEMO_USER_ID = "demo-user-123";
-
 export default function WalletsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const params = useParams();
+  const { user } = useAuth();
   
-  // Fetch user balance data
-  const { data: user } = useQuery({
-    queryKey: ['/api/users', DEMO_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEMO_USER_ID}`);
-      if (!response.ok) {
-        // Create demo user if not exists
-        const createResponse = await fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'demo-user', password: 'demo-password' })
-        });
-        if (createResponse.ok) {
-          const createData = await createResponse.json();
-          return createData;
-        }
-        throw new Error('Failed to fetch or create user');
-      }
-      return response.json();
-    }
-  });
+  // Fetch user wallets data
+  const { data: walletsData, isLoading: walletsLoading } = useWallets();
 
   const handleDepositClick = () => {
     setShowDepositModal(true);
@@ -323,19 +304,40 @@ export default function WalletsPage() {
     setShowWithdrawModal(true);
   };
   
-  // Available wallets (BTC, ETH, USDT)
-  const availableWallets = ['BTC', 'ETH', 'USDT'];
+  // Real wallets from the server
+  const realWallets = walletsData?.wallets || [];
   
-  // Filter wallets if a specific symbol is provided, and exclude ZAR wallet from regular grid
-  const displayWallets = params.symbol 
-    ? WALLETS.filter(wallet => wallet.symbol.toLowerCase() === params.symbol?.toLowerCase())
-    : WALLETS.filter(wallet => wallet.symbol !== 'ZAR');
+  // Convert server wallet data to display format and merge with static UI data
+  const displayWallets = realWallets.map(wallet => {
+    // Find matching static UI data for this coin
+    const staticWallet = WALLETS.find(w => w.symbol === wallet.coin);
     
-  // Separate available and coming soon wallets
-  const availableDisplayWallets = displayWallets.filter(wallet => availableWallets.includes(wallet.symbol));
-  const comingSoonWallets = displayWallets.filter(wallet => !availableWallets.includes(wallet.symbol));
+    return {
+      id: wallet.id,
+      name: staticWallet?.name || `${wallet.coin} Wallet`,
+      symbol: wallet.coin,
+      icon: staticWallet?.icon || wallet.coin[0],
+      logoUrl: staticWallet?.logoUrl,
+      balance: parseFloat(wallet.balance),
+      balanceZAR: parseFloat(wallet.balance), // For now, assume 1:1 - could be enhanced with exchange rates
+      address: wallet.address,
+      color: staticWallet?.color || 'bg-gray-500',
+      textColor: staticWallet?.textColor || 'text-gray-600',
+      is_active: wallet.is_active
+    };
+  }).filter(wallet => {
+    // Filter by symbol if specified, exclude ZAR from regular grid
+    if (params.symbol) {
+      return wallet.symbol.toLowerCase() === params.symbol?.toLowerCase();
+    }
+    return wallet.symbol !== 'ZAR';
+  });
 
-  const totalBalanceZAR = WALLETS.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
+  // Calculate total balance from real wallets
+  const totalBalanceZAR = realWallets.reduce((sum, wallet) => sum + parseFloat(wallet.balance), 0);
+  
+  // Find ZAR wallet for the prominent section
+  const zarWallet = realWallets.find(wallet => wallet.coin === 'ZAR');
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -424,11 +426,11 @@ export default function WalletsPage() {
                   <div className="flex justify-center space-x-6 text-sm">
                     <div className="text-center">
                       <p className="text-muted-foreground">Wallets</p>
-                      <p className="font-semibold">{WALLETS.length}</p>
+                      <p className="font-semibold">{realWallets.length}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-muted-foreground">Assets</p>
-                      <p className="font-semibold">{WALLETS.length}</p>
+                      <p className="font-semibold">{realWallets.length}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-muted-foreground">24h Change</p>
@@ -455,7 +457,7 @@ export default function WalletsPage() {
                       <p className="text-sm text-muted-foreground">Available Balance</p>
                       <p className="text-3xl font-bold font-mono" data-testid="zar-wallet-balance">
                         {isBalanceVisible 
-                          ? `R${user?.zarBalance ? parseFloat(user.zarBalance).toFixed(2) : '0.00'}`
+                          ? `R${zarWallet ? parseFloat(zarWallet.balance).toFixed(2) : '0.00'}`
                           : '••••••••'
                         }
                       </p>
@@ -527,33 +529,29 @@ export default function WalletsPage() {
                 ? "flex justify-center items-center min-h-[60vh]" 
                 : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
             }`}>
-              {/* Available Wallets */}
-              {availableDisplayWallets.map((wallet) => (
-                <div 
-                  key={wallet.id}
-                  className={params.symbol ? "w-full max-w-md" : ""}
-                >
-                  <WalletCard
-                    wallet={wallet}
-                    isBalanceVisible={isBalanceVisible}
-                    isComingSoon={false}
-                  />
+              {/* Display actual user wallets */}
+              {walletsLoading ? (
+                <div className="col-span-full text-center text-muted-foreground">
+                  Loading wallets...
                 </div>
-              ))}
-              
-              {/* Coming Soon Wallets */}
-              {comingSoonWallets.map((wallet) => (
-                <div 
-                  key={wallet.id}
-                  className={params.symbol ? "w-full max-w-md" : ""}
-                >
-                  <WalletCard
-                    wallet={wallet}
-                    isBalanceVisible={isBalanceVisible}
-                    isComingSoon={true}
-                  />
+              ) : displayWallets.length === 0 ? (
+                <div className="col-span-full text-center text-muted-foreground">
+                  {user ? 'No wallets found.' : 'Please log in to view your wallets.'}
                 </div>
-              ))}
+              ) : (
+                displayWallets.map((wallet) => (
+                  <div 
+                    key={wallet.id}
+                    className={params.symbol ? "w-full max-w-md" : ""}
+                  >
+                    <WalletCard
+                      wallet={wallet}
+                      isBalanceVisible={isBalanceVisible}
+                      isComingSoon={!wallet.is_active}
+                    />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

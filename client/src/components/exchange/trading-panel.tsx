@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,67 +15,123 @@ interface TradingPanelProps {
   onPairChange: (from: string, to: string, action: "buy" | "sell" | "convert") => void;
 }
 
-const FIAT = ["ZAR", "USD", "EUR", "GBP"] as const;
-const CRYPTO = ["BTC", "ETH", "USDT"] as const;
-const ALL_ASSETS = [...FIAT, ...CRYPTO] as const;
-
-const FX_ZAR_PER = {
-  USD: 18.5,
-  EUR: 20.0,
-  GBP: 23.0,
-};
-
-const USD_PRICES = {
-  BTC: 65000,
-  ETH: 3500,
-  USDT: 1,
-};
-
 const FEE_RATE = 0.001; // 0.10%
+
+interface MarketData {
+  pair: string;
+  price: string;
+  change_24h: string;
+  volume_24h: string;
+  timestamp: string;
+}
+
+// Fetch market data from server
+const useMarketData = () => {
+  return useQuery({
+    queryKey: ['/api/market'],
+    queryFn: async (): Promise<MarketData[]> => {
+      const response = await fetch('/api/market');
+      if (!response.ok) throw new Error('Failed to fetch market data');
+      return response.json();
+    },
+    refetchInterval: 10000, // Refetch every 10 seconds
+  });
+};
 
 type ActionTab = "buy" | "sell" | "convert";
 
-function isFiat(asset: string): boolean {
-  return FIAT.includes(asset as any);
+// Extract unique assets from market pairs
+function getAvailableAssets(marketData: MarketData[]) {
+  if (!marketData || marketData.length === 0) {
+    return {
+      cryptos: ["BTC", "ETH", "USDT"], // Default fallback
+      fiats: ["ZAR", "USD", "EUR"], // Default fallback
+      all: ["BTC", "ETH", "USDT", "ZAR", "USD", "EUR"]
+    };
+  }
+  
+  const cryptos = new Set<string>();
+  const fiats = new Set<string>();
+  
+  marketData.forEach(data => {
+    const [crypto, fiat] = data.pair.split('/');
+    if (crypto && fiat) {
+      cryptos.add(crypto);
+      fiats.add(fiat);
+    }
+  });
+  
+  return {
+    cryptos: [...cryptos],
+    fiats: [...fiats], 
+    all: [...new Set([...cryptos, ...fiats])]
+  };
 }
 
-function isCrypto(asset: string): boolean {
-  return CRYPTO.includes(asset as any);
+// Get exchange rate between two assets using server data
+function getExchangeRate(from: string, to: string, marketData: MarketData[]): number {
+  if (from === to) return 1;
+  if (!marketData || marketData.length === 0) return 0;
+  
+  // Direct pair (CRYPTO/FIAT)
+  const directPair = marketData.find(data => data.pair === `${from}/${to}`);
+  if (directPair && parseFloat(directPair.price) > 0) {
+    return parseFloat(directPair.price);
+  }
+  
+  // Reverse pair (FIAT/CRYPTO)
+  const reversePair = marketData.find(data => data.pair === `${to}/${from}`);
+  if (reversePair && parseFloat(reversePair.price) > 0) {
+    return 1 / parseFloat(reversePair.price);
+  }
+  
+  // Cross-rate through ZAR
+  if (from !== 'ZAR' && to !== 'ZAR') {
+    const fromToZAR = getExchangeRate(from, 'ZAR', marketData);
+    const toToZAR = getExchangeRate(to, 'ZAR', marketData);
+    if (fromToZAR > 0 && toToZAR > 0) {
+      return fromToZAR / toToZAR;
+    }
+  }
+  
+  return 0; // No rate available
 }
 
-function priceInZAR(asset: string): number {
-  if (asset === "ZAR") return 1;
-  if (isFiat(asset)) return FX_ZAR_PER[asset as keyof typeof FX_ZAR_PER] ?? 1;
-  const usd = USD_PRICES[asset as keyof typeof USD_PRICES] ?? 0;
-  return usd * FX_ZAR_PER.USD;
+// Check if a trading pair is available
+function isPairAvailable(from: string, to: string, marketData: MarketData[]): boolean {
+  return getExchangeRate(from, to, marketData) > 0;
 }
 
 function formatAmount(asset: string, amount: number): string {
   if (!Number.isFinite(amount)) return "–";
-  if (isFiat(asset)) return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  // Basic formatting - could be enhanced based on asset type
   if (asset === "BTC") return amount.toLocaleString(undefined, { maximumFractionDigits: 6 });
   if (asset === "ETH") return amount.toLocaleString(undefined, { maximumFractionDigits: 5 });
+  if (["USDT", "USD", "EUR", "GBP", "ZAR"].includes(asset)) {
+    return amount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
   return amount.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
-function calculateQuote(from: string, to: string, fromAmount: number) {
-  const fromPrice = priceInZAR(from);
-  const toPrice = priceInZAR(to);
+function calculateQuote(from: string, to: string, fromAmount: number, marketData: MarketData[]) {
+  const rate = getExchangeRate(from, to, marketData);
   
-  if (!fromPrice || !toPrice || !Number.isFinite(fromAmount) || fromAmount <= 0) {
+  if (!rate || !Number.isFinite(fromAmount) || fromAmount <= 0) {
     return { toAmount: 0, rate: 0, fee: 0 };
   }
   
-  const grossTo = (fromAmount * fromPrice) / toPrice;
+  const grossTo = fromAmount * rate;
   const fee = grossTo * FEE_RATE;
   const netTo = Math.max(grossTo - fee, 0);
-  const rate = fromPrice / toPrice;
   
   return { toAmount: netTo, rate, fee };
 }
 
 export function TradingPanel({ onPairChange }: TradingPanelProps) {
+  const { data: marketData = [], isLoading, error } = useMarketData();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
+  
+  const availableAssets = useMemo(() => getAvailableAssets(marketData), [marketData]);
   
   // Buy state
   const [fromBuy, setFromBuy] = useState("ZAR");
@@ -91,20 +148,20 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const [toConvert, setToConvert] = useState("ETH");
   const [amountConvert, setAmountConvert] = useState("");
 
-  // Calculate quotes
+  // Calculate quotes using real market data
   const buyQuote = useMemo(() => 
-    calculateQuote(fromBuy, toBuy, parseFloat(amountBuy) || 0), 
-    [fromBuy, toBuy, amountBuy]
+    calculateQuote(fromBuy, toBuy, parseFloat(amountBuy) || 0, marketData), 
+    [fromBuy, toBuy, amountBuy, marketData]
   );
   
   const sellQuote = useMemo(() => 
-    calculateQuote(fromSell, toSell, parseFloat(amountSell) || 0), 
-    [fromSell, toSell, amountSell]
+    calculateQuote(fromSell, toSell, parseFloat(amountSell) || 0, marketData), 
+    [fromSell, toSell, amountSell, marketData]
   );
   
   const convertQuote = useMemo(() => 
-    calculateQuote(fromConvert, toConvert, parseFloat(amountConvert) || 0), 
-    [fromConvert, toConvert, amountConvert]
+    calculateQuote(fromConvert, toConvert, parseFloat(amountConvert) || 0, marketData), 
+    [fromConvert, toConvert, amountConvert, marketData]
   );
 
   // Update parent component when pairs change
@@ -208,13 +265,20 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {FIAT.map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency} - {currency === "ZAR" ? "South African Rand" : 
-                                    currency === "USD" ? "US Dollar" :
-                                    currency === "EUR" ? "Euro" : "British Pound"}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.fiats.map((currency) => {
+                      const hasAvailablePairs = availableAssets.cryptos.some(crypto => 
+                        isPairAvailable(currency, crypto, marketData)
+                      );
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!hasAvailablePairs}
+                        >
+                          {currency} {!hasAvailablePairs ? '(No pairs available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -226,12 +290,18 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CRYPTO.map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency} - {currency === "BTC" ? "Bitcoin" : 
-                                      currency === "ETH" ? "Ethereum" : "Tether"}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.cryptos.map((currency) => {
+                      const isAvailable = isPairAvailable(fromBuy, currency, marketData);
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!isAvailable}
+                        >
+                          {currency} {!isAvailable ? '(Not available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -273,12 +343,20 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CRYPTO.map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency} - {currency === "BTC" ? "Bitcoin" : 
-                                      currency === "ETH" ? "Ethereum" : "Tether"}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.cryptos.map((currency) => {
+                      const hasAvailablePairs = availableAssets.fiats.some(fiat => 
+                        isPairAvailable(currency, fiat, marketData)
+                      );
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!hasAvailablePairs}
+                        >
+                          {currency} {!hasAvailablePairs ? '(No pairs available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -290,13 +368,18 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {FIAT.map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency} - {currency === "ZAR" ? "South African Rand" : 
-                                    currency === "USD" ? "US Dollar" :
-                                    currency === "EUR" ? "Euro" : "British Pound"}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.fiats.map((currency) => {
+                      const isAvailable = isPairAvailable(fromSell, currency, marketData);
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!isAvailable}
+                        >
+                          {currency} {!isAvailable ? '(Not available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -345,11 +428,20 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_ASSETS.map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.all.map((currency) => {
+                      const hasAvailablePairs = availableAssets.all.some(other => 
+                        other !== currency && isPairAvailable(currency, other, marketData)
+                      );
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!hasAvailablePairs}
+                        >
+                          {currency} {!hasAvailablePairs ? '(No pairs available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -361,11 +453,18 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_ASSETS.filter(a => a !== fromConvert).map((currency) => (
-                      <SelectItem key={currency} value={currency}>
-                        {currency}
-                      </SelectItem>
-                    ))}
+                    {availableAssets.all.filter(a => a !== fromConvert).map((currency) => {
+                      const isAvailable = isPairAvailable(fromConvert, currency, marketData);
+                      return (
+                        <SelectItem 
+                          key={currency} 
+                          value={currency}
+                          disabled={!isAvailable}
+                        >
+                          {currency} {!isAvailable ? '(Not available)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

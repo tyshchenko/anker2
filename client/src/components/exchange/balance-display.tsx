@@ -3,10 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Wallet, Plus, Shield, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { useWallets } from "@/hooks/useWallets";
 import { VerificationModal } from "@/components/verification/verification-modal";
-
-// Demo user ID for development
-const DEMO_USER_ID = "demo-user-123";
 
 interface BalanceDisplayProps {
   showDepositButton?: boolean;
@@ -22,33 +20,12 @@ export function BalanceDisplay({
   const { user: authUser } = useAuth();
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['/api/users', DEMO_USER_ID],
-    queryFn: async () => {
-      const response = await fetch(`/api/users/${DEMO_USER_ID}`);
-      if (!response.ok) {
-        // If user doesn't exist, create a demo user
-        if (response.status === 404) {
-          const createResponse = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              username: 'demo-user',
-              password: 'demo-password'
-            })
-          });
-          if (createResponse.ok) {
-            return createResponse.json();
-          }
-        }
-        throw new Error('Failed to fetch user');
-      }
-      return response.json();
-    },
-    refetchInterval: 30000, // Refresh every 30 seconds
-  });
-
-  const balance = user?.zarBalance || "0.00";
+  // Fetch user wallets
+  const { data: walletsData, isLoading } = useWallets();
+  
+  // Find ZAR wallet balance
+  const zarWallet = walletsData?.wallets.find(wallet => wallet.coin === 'ZAR');
+  const balance = zarWallet?.balance || "0.00";
   const formattedBalance = parseFloat(balance).toLocaleString('en-ZA', {
     style: 'currency',
     currency: 'ZAR',

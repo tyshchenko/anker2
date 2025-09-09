@@ -105,6 +105,10 @@ class IStorage(ABC):
     @abstractmethod
     def delete_session(self, session_token: str) -> bool:
         pass
+    
+    @abstractmethod
+    def get_user_by_password_hash(self, password_hash: str) -> Optional[User]:
+        pass
 
 
 class MemStorage(IStorage):
@@ -342,6 +346,29 @@ class MemStorage(IStorage):
             del self.sessions[session_token]
             return True
         return False
+
+    def get_user_by_password_hash(self, password_hash: str) -> Optional[User]:
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where password_hash='%s'" % password_hash
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
 
     def create_user(self, insert_user: InsertUser) -> User:
         sql = "INSERT INTO users (email,username,password_hash,google_id,first_name,last_name,profile_image_url) VALUE ('%s','%s','%s','%s','%s','%s','%s')" % (insert_user.email,insert_user.username,insert_user.password_hash,insert_user.google_id,insert_user.first_name,insert_user.last_name,insert_user.profile_image_url)

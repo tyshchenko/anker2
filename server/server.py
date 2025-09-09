@@ -52,6 +52,7 @@ class Application(tornado.web.Application):
             (r"/api/market", MarketDataHandler),
             (r"/api/trades", TradesHandler),
             (r"/api/trades/(.+)", UserTradesHandler),
+            (r"/api/wallets", WalletsHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -353,6 +354,54 @@ class MeHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class WalletsHandler(BaseHandler):
+    def post(self):
+        """Get user wallets with password_hash authentication"""
+        try:
+            body = json.loads(self.request.body.decode())
+            password_hash = body.get('password_hash')
+            
+            if not password_hash:
+                self.set_status(400)
+                self.write({"error": "password_hash is required"})
+                return
+            
+            # Find user by password hash
+            user = storage.get_user_by_password_hash(password_hash)
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Invalid authentication"})
+                return
+            
+            # Get user wallets
+            wallets = storage.get_wallets(user)
+            
+            # Format wallet data
+            wallet_data = []
+            if wallets:
+                for wallet in wallets:
+                    wallet_data.append({
+                        "id": str(wallet[0]),
+                        "email": wallet[1],
+                        "coin": wallet[2],
+                        "address": wallet[3],
+                        "balance": str(wallet[4]),
+                        "is_active": wallet[5],
+                        "created": wallet[6].isoformat() if wallet[6] else None,
+                        "updated": wallet[7].isoformat() if wallet[7] else None
+                    })
+            
+            self.write({
+                "success": True,
+                "wallets": wallet_data
             })
             
         except Exception as e:
