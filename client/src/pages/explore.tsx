@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -24,41 +25,74 @@ import solLogo from "@assets/SOL_1757408614598.png";
 import polygonLogo from "@assets/Polygon_1757409292577.png";
 import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
-// Top 20 tokens data
-const TOP_TOKENS = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', price: 65000, change: 2.34, marketCap: '1.2T', icon: '₿', logoUrl: btcLogo },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', price: 3500, change: -1.25, marketCap: '420B', icon: 'Ξ', logoUrl: ethLogo },
-  { id: 'tether', symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.01, marketCap: '95B', icon: '₮', logoUrl: usdtLogo },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', price: 620, change: 3.45, marketCap: '95B', icon: 'B', logoUrl: bnbLogo },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', price: 155, change: 5.67, marketCap: '70B', icon: 'S', logoUrl: solLogo },
-  { id: 'usd-coin', symbol: 'USDC', name: 'USD Coin', price: 1.00, change: 0.02, marketCap: '32B', icon: 'C' },
-  { id: 'xrp', symbol: 'XRP', name: 'XRP', price: 0.62, change: -2.15, marketCap: '35B', icon: 'X', logoUrl: xrpLogo },
-  { id: 'dogecoin', symbol: 'DOGE', name: 'Dogecoin', price: 0.38, change: 8.92, marketCap: '55B', icon: 'D', logoUrl: dogeLogo },
-  { id: 'cardano', symbol: 'ADA', name: 'Cardano', price: 1.25, change: 1.84, marketCap: '44B', icon: 'A', logoUrl: cardanoLogo },
-  { id: 'avalanche-2', symbol: 'AVAX', name: 'Avalanche', price: 42, change: -0.85, marketCap: '16B', icon: 'V' },
-  { id: 'chainlink', symbol: 'LINK', name: 'Chainlink', price: 14.5, change: 4.23, marketCap: '8.5B', icon: 'L' },
-  { id: 'polkadot', symbol: 'DOT', name: 'Polkadot', price: 7.8, change: -3.12, marketCap: '11B', icon: 'P' },
-  { id: 'polygon', symbol: 'MATIC', name: 'Polygon', price: 1.15, change: 2.67, marketCap: '11B', icon: 'M', logoUrl: polygonLogo },
-  { id: 'uniswap', symbol: 'UNI', name: 'Uniswap', price: 9.2, change: -1.44, marketCap: '5.5B', icon: 'U' },
-  { id: 'litecoin', symbol: 'LTC', name: 'Litecoin', price: 95, change: 0.78, marketCap: '7B', icon: 'Ł' },
-  { id: 'near', symbol: 'NEAR', name: 'NEAR Protocol', price: 5.4, change: 6.21, marketCap: '5.9B', icon: 'N' },
-  { id: 'arbitrum', symbol: 'ARB', name: 'Arbitrum', price: 2.1, change: -2.33, marketCap: '2.8B', icon: 'R' },
-  { id: 'optimism', symbol: 'OP', name: 'Optimism', price: 3.8, change: 1.95, marketCap: '3.2B', icon: 'O' },
-  { id: 'cosmos', symbol: 'ATOM', name: 'Cosmos', price: 12.5, change: -0.56, marketCap: '4.9B', icon: 'T' },
-  { id: 'aptos', symbol: 'APT', name: 'Aptos', price: 11.8, change: 4.12, marketCap: '4.1B', icon: 'PT' }
-];
+// Market data interface
+interface MarketData {
+  pair: string;
+  price: string;
+  change_24h: string;
+  volume_24h: string;
+  timestamp: string;
+}
+
+interface TokenData {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  marketCap: string;
+  icon: string;
+  logoUrl?: string;
+}
+
+// Static token metadata (logos, names, icons)
+const TOKEN_METADATA: Record<string, { name: string; icon: string; logoUrl?: string }> = {
+  'BTC': { name: 'Bitcoin', icon: '₿', logoUrl: btcLogo },
+  'ETH': { name: 'Ethereum', icon: 'Ξ', logoUrl: ethLogo },
+  'USDT': { name: 'Tether', icon: '₮', logoUrl: usdtLogo },
+  'BNB': { name: 'BNB', icon: 'B', logoUrl: bnbLogo },
+  'SOL': { name: 'Solana', icon: 'S', logoUrl: solLogo },
+  'USDC': { name: 'USD Coin', icon: 'C' },
+  'XRP': { name: 'XRP', icon: 'X', logoUrl: xrpLogo },
+  'DOGE': { name: 'Dogecoin', icon: 'D', logoUrl: dogeLogo },
+  'ADA': { name: 'Cardano', icon: 'A', logoUrl: cardanoLogo },
+  'AVAX': { name: 'Avalanche', icon: 'V' },
+  'LINK': { name: 'Chainlink', icon: 'L' },
+  'DOT': { name: 'Polkadot', icon: 'P' },
+  'MATIC': { name: 'Polygon', icon: 'M', logoUrl: polygonLogo },
+  'UNI': { name: 'Uniswap', icon: 'U' },
+  'LTC': { name: 'Litecoin', icon: 'Ł' },
+  'NEAR': { name: 'NEAR Protocol', icon: 'N' },
+  'ARB': { name: 'Arbitrum', icon: 'R' },
+  'OP': { name: 'Optimism', icon: 'O' },
+  'ATOM': { name: 'Cosmos', icon: 'T' },
+  'APT': { name: 'Aptos', icon: 'PT' }
+};
 
 const FIAT_CURRENCIES = ["ZAR", "USD", "EUR", "GBP"];
 
+// Fetch market data from server
+const useMarketData = () => {
+  return useQuery({
+    queryKey: ['/api/market'],
+    queryFn: async (): Promise<MarketData[]> => {
+      const response = await fetch('/api/market');
+      if (!response.ok) throw new Error('Failed to fetch market data');
+      return response.json();
+    },
+    refetchInterval: 10000, // Refetch every 10 seconds
+  });
+};
+
 interface TokenCardProps {
-  token: typeof TOP_TOKENS[0];
+  token: TokenData;
   isSelected: boolean;
   onClick: () => void;
+  isAvailable: boolean;
+  priceInZAR: number;
 }
 
-function TokenCard({ token, isSelected, onClick }: TokenCardProps) {
-  const priceInZAR = token.price * 18.5; // Convert USD to ZAR
-  const isAvailable = ['bitcoin', 'ethereum', 'tether'].includes(token.id);
+function TokenCard({ token, isSelected, onClick, isAvailable, priceInZAR }: TokenCardProps) {
   
   return (
     <div
@@ -155,10 +189,10 @@ function TokenCard({ token, isSelected, onClick }: TokenCardProps) {
           </p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Market Cap</p>
+          <p className="text-xs text-muted-foreground">Volume (24h)</p>
           <p className={`text-xs font-medium ${
             isAvailable ? '' : 'text-muted-foreground'
-          }`} data-testid={`text-marketcap-${token.id}`}>
+          }`} data-testid={`text-volume-${token.id}`}>
             {token.marketCap}
           </p>
         </div>
@@ -170,10 +204,11 @@ function TokenCard({ token, isSelected, onClick }: TokenCardProps) {
 type ActionTab = "buy" | "sell" | "convert";
 
 interface TradingPanelProps {
-  selectedToken: typeof TOP_TOKENS[0] | null;
+  selectedToken: TokenData | null;
+  tokenPriceInZAR: number;
 }
 
-function TradingPanel({ selectedToken }: TradingPanelProps) {
+function TradingPanel({ selectedToken, tokenPriceInZAR }: TradingPanelProps) {
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [fromCurrency, setFromCurrency] = useState("ZAR");
   const [toCurrency, setToCurrency] = useState("USD");
@@ -213,11 +248,9 @@ function TradingPanel({ selectedToken }: TradingPanelProps) {
     
     if (activeTab === "buy") {
       // Buying token with fiat
-      const tokenPriceInZAR = selectedToken.price * 18.5;
       return (inputAmount / tokenPriceInZAR).toFixed(6);
     } else if (activeTab === "sell") {
       // Selling token for fiat
-      const tokenPriceInZAR = selectedToken.price * 18.5;
       return (inputAmount * tokenPriceInZAR).toFixed(2);
     }
     
@@ -399,12 +432,46 @@ function TradingPanel({ selectedToken }: TradingPanelProps) {
 
 export default function ExplorePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedToken, setSelectedToken] = useState<typeof TOP_TOKENS[0] | null>(null);
+  const [selectedToken, setSelectedToken] = useState<TokenData | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
 
   const handleDepositClick = () => {
     setShowDepositModal(true);
   };
+
+  // Fetch real market data
+  const { data: marketData, isLoading: marketLoading } = useMarketData();
+  
+  // Convert market data to token format and determine available tokens
+  const tokens: TokenData[] = marketData ? marketData.map((market, index) => {
+    const [crypto, fiat] = market.pair.split('/');
+    const metadata = TOKEN_METADATA[crypto] || { 
+      name: crypto, 
+      icon: crypto[0] 
+    };
+    
+    return {
+      id: crypto.toLowerCase(),
+      symbol: crypto,
+      name: metadata.name,
+      price: parseFloat(market.price),
+      change: parseFloat(market.change_24h),
+      marketCap: `${parseFloat(market.volume_24h).toLocaleString()}`, // Using volume as market cap placeholder
+      icon: metadata.icon,
+      logoUrl: metadata.logoUrl
+    };
+  }).sort((a, b) => b.price - a.price) : []; // Sort by price, highest first
+
+  // Find available trading pairs (those with actual market data)
+  const availableTokens = tokens.filter(token => token.price > 0);
+  const availableTokenIds = availableTokens.map(t => t.id);
+
+  // Get ZAR exchange rate (find a ZAR pair or use default)
+  const zarExchangeRate = marketData?.find(m => m.pair.includes('/ZAR'))?.price || 18.5;
+  
+  // Calculate selected token price in ZAR
+  const selectedTokenPriceInZAR = selectedToken ? 
+    (selectedToken.price * parseFloat(zarExchangeRate.toString())) : 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -461,18 +528,18 @@ export default function ExplorePage() {
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                      3 Available Now
+                      {availableTokens.length} Available Now
                     </span>
                   </div>
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                    BTC, ETH, USDT ready to trade
+                    {availableTokens.map(t => t.symbol).join(', ')} ready to trade
                   </p>
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                      17 Coming Soon
+                      {tokens.length - availableTokens.length} Coming Soon
                     </span>
                   </div>
                   <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
@@ -495,21 +562,37 @@ export default function ExplorePage() {
 
             {/* Token Grid */}
             <div className="flex-1 p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                {TOP_TOKENS.map((token) => (
-                  <TokenCard
-                    key={token.id}
-                    token={token}
-                    isSelected={selectedToken?.id === token.id}
-                    onClick={() => setSelectedToken(token)}
-                  />
-                ))}
-              </div>
+              {marketLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading market data...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                  {tokens.map((token) => {
+                    const isAvailable = availableTokenIds.includes(token.id);
+                    const priceInZAR = token.price * parseFloat(zarExchangeRate.toString());
+                    return (
+                      <TokenCard
+                        key={token.id}
+                        token={token}
+                        isSelected={selectedToken?.id === token.id}
+                        onClick={() => setSelectedToken(token)}
+                        isAvailable={isAvailable}
+                        priceInZAR={priceInZAR}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </main>
 
           {/* Trading Panel */}
-          <TradingPanel selectedToken={selectedToken} />
+          <TradingPanel 
+            selectedToken={selectedToken} 
+            tokenPriceInZAR={selectedTokenPriceInZAR}
+          />
         </div>
         
         {/* Deposit Modal */}
