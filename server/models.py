@@ -11,6 +11,7 @@ class User(BaseModel):
     password_hash: Optional[str] = None
     google_id: Optional[str] = None
     first_name: Optional[str] = None
+    second_names: Optional[str] = None
     last_name: Optional[str] = None
     profile_image_url: Optional[str] = None
     is_active: bool = True
@@ -39,6 +40,23 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+
+class Wallet(BaseModel):
+    email: str
+    coin: str
+    address: Optional[str] = None
+    balance: str = "0"
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    
+class BankAccount(BaseModel):
+    email: str
+    accountName: str = Field(..., alias="account_name")
+    accountNumber: str = Field(..., alias="account_number")
+    branchCode: str = Field(..., alias="branch_code")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 
 class Session(BaseModel):

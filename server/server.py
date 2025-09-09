@@ -18,63 +18,24 @@ from typing import Optional, Set
 from pydantic import ValidationError
 from datetime import datetime, timedelta
 from pathlib import Path
-import pymysql
+import telebot
+
 from tornado.options import define, options
 
 from auth_utils import auth_utils
 from models import InsertTrade, InsertMarketData, LoginRequest, RegisterRequest, User, InsertUser
 
 from storage import storage
-
-class DataBase(object):
-    def __init__(self, database):
-        self.config = {'host':'127.0.0.1', 'user':'moya', 'password':'moya', 'database':database, 'autocommit':True}
-        
-    def query(self, sqlquery):
-        try:
-            con1 = pymysql.connect(**self.config)
-            cur = con1.cursor()
-            cur.execute(sqlquery)
-            rows = cur.fetchall()
-            cur.close()
-            con1.close()
-            return rows
-        except Exception as e:
-            print(e)
-            print('-reconnecting and trying again...')
-            return self.query(sqlquery)        
-        
-    
-    def execute(self, sqlquery, vals=None, return_id=False):
-        try:
-            con1 = pymysql.connect(**self.config)
-            cur = con1.cursor()
-            if not vals:
-                cur.execute(sqlquery)
-            else:
-                cur.execute(sqlquery, vals)
-            con1.commit()
-            if return_id:
-                last_id = cur.lastrowid
-                cur.close()
-                con1.close()
-                return True, last_id
-            cur.close()
-            con1.close()
-            return True
-        except Exception as e:
-            print(e)
-            print('reconnecting and trying again...')
-            return self.execute(sqlquery, vals, return_id)        
+from config import GOOGLE_CLIENT_ID
 
 class DateTimeEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, datetime):
-            return o.isoformat()
-        elif isinstance(o, (int, float)):
-            return str(o)
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, (int, float)):
+            return str(obj)
         else:
-            return super().default(o)
+            return super().default(obj)
       
 class Application(tornado.web.Application):
     coins = {}
@@ -112,7 +73,9 @@ class Application(tornado.web.Application):
 
     def wathcher(self):
         try:
+          storage.update_latest_prices()
           print("\n %s \n" % datetime.now())
+          print(str(float(str((random.random() - 0.5) * 5))))
         except Exception as e: print(e)
         threading.Timer(60.0, self.wathcher).start()
 
@@ -151,6 +114,8 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_status(204)
         self.finish()
 
+    def get_auth_headers(self):
+        return self.application.get_auth_headers()
 
     def get_time(self, btc):
         ms = int(time.time())
@@ -188,10 +153,10 @@ class RegisterHandler(BaseHandler):
                 self.set_status(400)
                 self.write({"error": "User with this email already exists"})
                 return
-            
+
             # Hash password
             password_hash = auth_utils.hash_password(register_data.password)
-            
+
             # Create user
             insert_user = InsertUser(
                 email=register_data.email,
@@ -199,17 +164,17 @@ class RegisterHandler(BaseHandler):
                 first_name=register_data.first_name,
                 last_name=register_data.last_name
             )
-            
+
             user = storage.create_user(insert_user)
-            
+
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
             storage.create_session(user.id, session_token, expires_at)
-            
+
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
-            
+
             # Return user data (without password)
             user_data = user.dict()
             user_data.pop('password_hash', None)
@@ -311,7 +276,7 @@ class GoogleAuthHandler(BaseHandler):
                 return
             
             # Get Google client ID from environment
-            google_client_id = os.getenv('GOOGLE_CLIENT_ID')
+            google_client_id = GOOGLE_CLIENT_ID
             if not google_client_id:
                 self.set_status(500)
                 self.write({"error": "Google authentication not configured"})
@@ -497,8 +462,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 def main():
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(5875, address='0.0.0.0')
-    print("Server started on 0.0.0.0:5875")
+    app.listen(5875, address='127.0.0.1')
     #logging.getLogger('tornado.access').disabled = True
     tornado.ioloop.IOLoop.current().start()
 

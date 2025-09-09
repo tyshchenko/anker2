@@ -2,7 +2,54 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 import random
-from models import User, InsertUser, Trade, InsertTrade, MarketData, InsertMarketData, Session
+import requests
+
+import pymysqlpool #pymysql-pool
+from valr_python import Client
+
+from models import User, InsertUser, Trade, InsertTrade, MarketData, InsertMarketData, Session, Wallet, BankAccount
+
+from config import  DB_USER, DB_PASSWORD, DB_NAME, VALR_KEY, VALR_SECRET
+
+class DataBase(object):
+    def __init__(self, database):
+        config={'host':'127.0.0.1', 'user':DB_USER, 'password':DB_PASSWORD, 'database':database, 'autocommit':True}
+        self.pool0 = pymysqlpool.ConnectionPool(size=2, maxsize=7, pre_create_num=2, name='pool0', **config)
+        
+    def query(self, sqlquery):
+        try:
+            con1 = self.pool0.get_connection()
+            cur = con1.cursor()
+            cur.execute(sqlquery)
+            rows = cur.fetchall()
+            cur.close()
+            con1.close()
+            return rows
+        except Exception as e:
+            print(e)
+
+            print('-reconnecting and trying again...')
+            return self.query(sqlquery)        
+        
+    
+    def execute(self, sqlquery, vals=None, return_id=False):
+        try:
+          con1 = self.pool0.get_connection()
+          cur = con1.cursor()
+          if not vals:
+              cur.execute(sqlquery)
+          else:
+              cur.execute(sqlquery, vals)
+          con1.commit()
+          cur.close()
+          con1.close()
+          if return_id:
+              return True, cur.lastrowid
+          return True
+        except Exception as e:
+          print(e)
+#          print('reconnecting and trying again...')
+#          self.execute(sqlquery, vals, return_id)        
 
 
 class IStorage(ABC):
@@ -62,63 +109,215 @@ class IStorage(ABC):
 
 class MemStorage(IStorage):
     def __init__(self):
-        self.users: Dict[str, User] = {}
+
         self.trades: Dict[str, Trade] = {}
         self.market_data: Dict[str, List[MarketData]] = {}
+        self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
+        self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
+        self.activepairs = ["BTC/ZAR"]
+
         self._initialize_market_data()
+        self.update_latest_prices()
 
     def _initialize_market_data(self):
-        pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "USD/ZAR", "EUR/ZAR", "GBP/ZAR"]
-        base_prices = {
-            "BTC/ZAR": float("1202500"),
-            "ETH/ZAR": float("64750"),
-            "USDT/ZAR": float("18.50"),
-            "USD/ZAR": float("18.50"),
-            "EUR/ZAR": float("20.00"),
-            "GBP/ZAR": float("23.00")
-        }
+        pairs = self.activepairs
+        prices = self.get_prices()
+        
 
         for pair in pairs:
-            base_price = base_prices.get(pair, float("1"))
+            base_price = prices.get(pair.replace('/',''), float("1"))
             data = []
-            
+            url = "https://min-api.cryptocompare.com/data/v2/histohour?fsym=%s&tsym=%s&limit=72&e=CCCAGG" % (pair.split('/')[0],pair.split('/')[1])
+            resutl = requests.get(url, headers={"Content-Type": "application/json"})
+            data72 = resutl.json()
+
             # Generate 72 hours of hourly data
-            for i in range(72, 0, -1):
-                timestamp = datetime.now() - timedelta(hours=i)
-                volatility = (random.random() - 0.5) * 0.02  # ±1% volatility
-                price = base_price * (1 + float(str(volatility)))
+            for step in data72['Data']['Data']:
                 
                 data.append(MarketData(
                     pair=pair,
-                    price=str(price),
-                    change_24h=str(float(str((random.random() - 0.5) * 5))),  # ±2.5% change
-                    volume_24h=str(float(str(random.random() * 1000000))),
-                    timestamp=timestamp
+                    price=str(step['open']),
+                    change_24h="0.00",
+                    volume_24h=str(step['volumeto']),
+                    timestamp=datetime.fromtimestamp(int(step['time'])/1000)
                 ))
             
             self.market_data[pair] = data
 
-    def get_user(self, user_id: str) -> Optional[User]:
-        return self.users.get(user_id)
 
+    def update_latest_prices(self):
+        pairs = self.pairs
+        prices = self.get_prices()
+        
+        all_data = []
+
+        for pair in pairs:
+            base_data = prices.get(pair.replace('/',''), None)
+            timestamp = datetime.now()
+            if base_data:
+                data = MarketData(
+                    pair=pair,
+                    price=str(base_data['markPrice']),
+                    change_24h=str(base_data['changeFromPrevious']),
+                    volume_24h=str(base_data['quoteVolume']),
+                    timestamp=timestamp
+                )
+                all_data.append(data)
+            else:
+                data = MarketData(
+                    pair=pair,
+                    price='0',
+                    change_24h='0',
+                    volume_24h='0',
+                    timestamp=timestamp
+                )
+                all_data.append(data)
+        self.latest_prices = all_data
+              
+
+    def get_valr(self):
+        c = Client(api_key=VALR_KEY, api_secret=VALR_SECRET)
+        c.rate_limiting_support = True
+        return c
+
+    def get_prices(self):
+        client = self.get_valr()
+        prices = client.get_market_summary()
+        pricedict = {}
+        for price in prices:
+          pricedict[price['currencyPair']] = price
+        return pricedict
+
+    def get_user(self, user_id: str) -> Optional[User]:
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where id=%s" % user_id
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
+        
+    def get_wallets(self, user: User) -> Optional[List[Wallet]]:
+        sql = "select id,email,coin,address,balance,is_active,created,updated from wallets where email='%s'" % user.email
+        db = DataBase(DB_NAME)
+        wallets = db.query(sql)
+        return wallets
+
+    def get_bankaccounts(self, user: User) -> Optional[BankAccount]:
+        sql = "select id,email,account_name,account_number,branch_code,created,updated from bank_accounts where email='%s'" % user.email
+        db = DataBase(DB_NAME)
+        bankaccounts = db.query(sql)
+        if bankaccounts:
+          return bankaccounts[0]
+        else:
+          return None
+      
     def get_user_by_username(self, username: str) -> Optional[User]:
-        for user in self.users.values():
-            if user.username == username:
-                return user
-        return None
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where username='%s'" % username
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
     
     def get_user_by_email(self, email: str) -> Optional[User]:
-        for user in self.users.values():
-            if user.email == email:
-                return user
-        return None
-    
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where email='%s'" % email
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
+        
+    def check_user_exist(self, insert_user: InsertUser) -> Optional[User]:
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where email='%s' or username='%s' or google_id='%s'" % (insert_user.email,insert_user.username,insert_user.google_id)
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
+        
     def get_user_by_google_id(self, google_id: str) -> Optional[User]:
-        for user in self.users.values():
-            if user.google_id == google_id:
-                return user
-        return None
+        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where google_id='%s'" % google_id
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        if users:
+          user = User(
+            id    = str(users[0][0]),
+            email = users[0][1],
+            username = users[0][2],
+            password_hash = users[0][3],
+            google_id = users[0][4],
+            first_name = users[0][5],
+            second_names = users[0][6],
+            last_name = users[0][7],
+            profile_image_url = users[0][8],
+            is_active = users[0][9],
+            created_at = users[0][10],
+            updated_at = users[0][11]
+            )
+          return user
+        else:
+          return None
     
     def create_session(self, user_id: str, session_token: str, expires_at: datetime) -> Session:
         session = Session(
@@ -145,8 +344,10 @@ class MemStorage(IStorage):
         return False
 
     def create_user(self, insert_user: InsertUser) -> User:
-        user = User(**insert_user.dict())
-        self.users[user.id] = user
+        sql = "INSERT INTO users (email,username,password_hash,google_id,first_name,last_name,profile_image_url) VALUE ('%s','%s','%s','%s','%s','%s','%s')" % (insert_user.email,insert_user.username,insert_user.password_hash,insert_user.google_id,insert_user.first_name,insert_user.last_name,insert_user.profile_image_url)
+        db = DataBase(DB_NAME)
+        lastrowid = db.execute(sql, return_id=True)
+        user = self.get_user_by_email(insert_user.email)
         return user
 
     def create_trade(self, insert_trade: InsertTrade) -> Trade:
@@ -195,11 +396,7 @@ class MemStorage(IStorage):
         return market_data
 
     def get_all_market_data(self) -> List[MarketData]:
-        all_data = []
-        for data_list in self.market_data.values():
-            if data_list:
-                all_data.append(data_list[-1])  # Latest data point for each pair
-        return all_data
+        return self.latest_prices
 
 
 # Global storage instance
