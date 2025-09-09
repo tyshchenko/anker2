@@ -134,7 +134,6 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
         
         {isAuthenticated ? (
           <>
-
             <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Your Portfolio
             </div>
@@ -143,6 +142,8 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
               <NavItem key={item.label} {...item} />
             ))}
           </>
+        ):(
+          <></>
         )}
       </nav>
 
