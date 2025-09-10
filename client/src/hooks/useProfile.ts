@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/auth';
 
 interface User {
-  id: number;
-  email: string;
+  id: string;
+  email?: string;
   username?: string;
   first_name?: string;
   last_name?: string;
@@ -49,36 +49,14 @@ const mapUserToProfile = (user: User): UserProfile => {
 };
 
 export const useProfile = () => {
+  const { user, isLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
-  const {
-    data: userData,
-    isLoading,
-    isError,
-    refetch
-  } = useQuery({
-    queryKey: ['/api/auth/me'],
-    queryFn: async (): Promise<User> => {
-      const response = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include', // Include session cookies
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch user profile');
-      }
-      
-      const data = await response.json();
-      return data.user;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
   useEffect(() => {
-    if (userData) {
-      setProfile(mapUserToProfile(userData));
+    if (user) {
+      setProfile(mapUserToProfile(user));
     }
-  }, [userData]);
+  }, [user]);
 
   const updateProfile = (field: keyof UserProfile, value: any) => {
     if (profile) {
@@ -90,8 +68,8 @@ export const useProfile = () => {
     profile,
     updateProfile,
     isLoading,
-    isError,
-    refetch,
-    userData // Raw user data from server
+    isError: false, // No separate error since we use auth context
+    refetch: () => {}, // No need to refetch since data comes from auth
+    userData: user // Raw user data from auth context
   };
 };

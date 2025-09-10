@@ -18,12 +18,12 @@ interface WalletsResponse {
 }
 
 export function useWallets() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['/api/wallets', user?.password_hash],
+    queryKey: ['/api/wallets', user?.email, user?.id],
     queryFn: async (): Promise<WalletsResponse> => {
-      if (!user?.password_hash) {
+      if (!isAuthenticated || !user?.email) {
         throw new Error('User not authenticated');
       }
 
@@ -32,8 +32,10 @@ export function useWallets() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include session cookies for authentication
         body: JSON.stringify({
-          password_hash: user.password_hash
+          email: user.email,
+          user_id: user.id, // Include user ID for session validation
         }),
       });
 
@@ -43,7 +45,7 @@ export function useWallets() {
 
       return response.json();
     },
-    enabled: !!user?.password_hash,
+    enabled: isAuthenticated && !!user?.email,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
