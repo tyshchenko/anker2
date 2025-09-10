@@ -38,11 +38,12 @@ interface TokenData {
   id: string;
   symbol: string;
   name: string;
-  price: number;
+  price: number; // USD price
   change: number;
   marketCap: string;
   icon: string;
   logoUrl?: string;
+  priceInZAR?: number; // ZAR price from API
 }
 
 // Static token metadata (logos, names, icons)
@@ -442,6 +443,9 @@ export default function ExplorePage() {
   // Fetch real market data
   const { data: marketData, isLoading: marketLoading } = useMarketData();
   
+  // Get USD/ZAR exchange rate (approximately 18.5 ZAR per 1 USD)
+  const usdToZarRate = 18.5; // This could be made dynamic later
+  
   // Convert market data to token format and determine available tokens
   const tokens: TokenData[] = marketData ? marketData.map((market, index) => {
     const [crypto, fiat] = market.pair.split('/');
@@ -450,28 +454,30 @@ export default function ExplorePage() {
       icon: crypto[0] 
     };
     
+    // API returns prices in ZAR, calculate USD price
+    const priceInZAR = parseFloat(market.price);
+    const priceInUSD = priceInZAR / usdToZarRate;
+    
     return {
       id: crypto.toLowerCase(),
       symbol: crypto,
       name: metadata.name,
-      price: parseFloat(market.price),
+      price: priceInUSD, // USD price for display
       change: parseFloat(market.change_24h),
       marketCap: `${parseFloat(market.volume_24h).toLocaleString()}`, // Using volume as market cap placeholder
       icon: metadata.icon,
-      logoUrl: metadata.logoUrl
+      logoUrl: metadata.logoUrl,
+      priceInZAR: priceInZAR // Add ZAR price for easy access
     };
-  }).sort((a, b) => b.price - a.price) : []; // Sort by price, highest first
+  }).sort((a, b) => b.priceInZAR - a.priceInZAR) : []; // Sort by ZAR price, highest first
 
   // Find available trading pairs (those with actual market data)
-  const availableTokens = tokens.filter(token => token.price > 0);
+  const availableTokens = tokens.filter(token => token.priceInZAR > 0);
   const availableTokenIds = availableTokens.map(t => t.id);
-
-  // Get ZAR exchange rate (find a ZAR pair or use default)
-  const zarExchangeRate = marketData?.find(m => m.pair.includes('/ZAR'))?.price || 18.5;
   
-  // Calculate selected token price in ZAR
+  // Selected token price in ZAR is already available
   const selectedTokenPriceInZAR = selectedToken ? 
-    (selectedToken.price * parseFloat(zarExchangeRate.toString())) : 0;
+    (selectedToken.priceInZAR || 0) : 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -571,7 +577,7 @@ export default function ExplorePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                   {tokens.map((token) => {
                     const isAvailable = availableTokenIds.includes(token.id);
-                    const priceInZAR = token.price * parseFloat(zarExchangeRate.toString());
+                    const priceInZAR = token.priceInZAR || 0;
                     return (
                       <TokenCard
                         key={token.id}
