@@ -472,7 +472,7 @@ export default function ExplorePage() {
   }).sort((a, b) => b.priceInZAR - a.priceInZAR) : []; // Sort by ZAR price, highest first
 
   // Find available trading pairs (those with actual market data)
-  const availableTokens = tokens.filter(token => token.priceInZAR > 0);
+  const availableTokens = tokens.filter(token => (token.priceInZAR || 0) > 0);
   const availableTokenIds = availableTokens.map(t => t.id);
   
   // Selected token price in ZAR is already available
