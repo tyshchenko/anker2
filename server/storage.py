@@ -119,7 +119,7 @@ class MemStorage(IStorage):
         self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
         self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
-        self.activepairs = ["BTC/ZAR"]
+        self.activepairs = self.pairs
 
         self._initialize_market_data()
         self.update_latest_prices()
