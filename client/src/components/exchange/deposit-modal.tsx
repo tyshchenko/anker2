@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ interface DepositModalProps {
 }
 
 export function DepositModal({ isOpen, onClose }: DepositModalProps) {
+  const { user } = useAuth();
   const [amount, setAmount] = useState("");
   const [phoneReference, setPhoneReference] = useState("");
   const { toast } = useToast();
@@ -173,7 +175,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                 </div>
                 <div className="flex flex-col space-y-1">
                   <span className="text-muted-foreground">Reference Number:</span>
-                  <span className="font-mono text-lg font-semibold text-primary">{phoneReference || "0661984607"}</span>
+                  <span className="font-mono text-lg font-semibold text-primary">{user?.reference || "0661984607"}</span>
                 </div>
               </div>
               <div className="mt-6 p-4 bg-background rounded-lg border space-y-2">
