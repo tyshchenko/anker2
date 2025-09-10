@@ -38,7 +38,7 @@ fi
 
 # Start frontend server with fixed configuration (bypass cartographer)
 echo "⚛️  Starting React frontend on port 5000..."
-REPL_ID="" NODE_ENV=development npx vite --host 0.0.0.0 --port 5000 --clearScreen false > frontend.log 2>&1 &
+unset REPL_ID && NODE_ENV=production npx vite --host 0.0.0.0 --port 5000 --clearScreen false > frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "Frontend PID: $FRONTEND_PID"
 

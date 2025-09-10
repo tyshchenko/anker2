@@ -136,7 +136,7 @@ class BaseHandler(tornado.web.RequestHandler):
         if not session:
             return None
         
-        return storage.get_user(session.user_id)
+        return storage.get_user_by_id(session["user_id"])
       
 
 class NotFoundHandler(BaseHandler):
@@ -174,7 +174,8 @@ class RegisterHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            session_data = {"session_token": session_token, "expires_at": expires_at.isoformat()}
+            storage.create_session(user.id, session_data)
 
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -221,7 +222,8 @@ class LoginHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            session_data = {"session_token": session_token, "expires_at": expires_at.isoformat()}
+            storage.create_session(user.id, session_data)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -319,7 +321,8 @@ class GoogleAuthHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            session_data = {"session_token": session_token, "expires_at": expires_at.isoformat()}
+            storage.create_session(user.id, session_data)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -611,7 +614,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 def main():
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(5875, address='127.0.0.1')
+    app.listen(5000, address='0.0.0.0')
     #logging.getLogger('tornado.access').disabled = True
     tornado.ioloop.IOLoop.current().start()
 
