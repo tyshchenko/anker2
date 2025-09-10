@@ -446,34 +446,63 @@ export default function ExplorePage() {
   // Get USD/ZAR exchange rate (approximately 18.5 ZAR per 1 USD)
   const usdToZarRate = 18.5; // This could be made dynamic later
   
-  // Convert market data to token format and determine available tokens
-  const tokens: TokenData[] = marketData ? marketData.map((market, index) => {
+  // Create market data lookup for available tokens
+  const marketDataLookup = marketData ? marketData.reduce((acc, market) => {
     const [crypto, fiat] = market.pair.split('/');
-    const metadata = TOKEN_METADATA[crypto] || { 
-      name: crypto, 
-      icon: crypto[0] 
-    };
-    
-    // API returns prices in ZAR, calculate USD price
-    const priceInZAR = parseFloat(market.price);
-    const priceInUSD = priceInZAR / usdToZarRate;
-    
-    return {
-      id: crypto.toLowerCase(),
-      symbol: crypto,
-      name: metadata.name,
-      price: priceInUSD, // USD price for display
-      change: parseFloat(market.change_24h),
-      marketCap: `${parseFloat(market.volume_24h).toLocaleString()}`, // Using volume as market cap placeholder
-      icon: metadata.icon,
-      logoUrl: metadata.logoUrl,
-      priceInZAR: priceInZAR // Add ZAR price for easy access
-    };
-  }).sort((a, b) => b.priceInZAR - a.priceInZAR) : []; // Sort by ZAR price, highest first
+    acc[crypto] = market;
+    return acc;
+  }, {} as Record<string, MarketData>) : {};
 
-  // Find available trading pairs (those with actual market data)
-  const availableTokens = tokens.filter(token => (token.priceInZAR || 0) > 0);
+  // All tokens from TOKEN_METADATA
+  const allTokens: TokenData[] = Object.entries(TOKEN_METADATA).map(([symbol, metadata]) => {
+    const market = marketDataLookup[symbol];
+    
+    if (market) {
+      // Token has market data - calculate prices
+      const priceInZAR = parseFloat(market.price);
+      const priceInUSD = priceInZAR / usdToZarRate;
+      
+      return {
+        id: symbol.toLowerCase(),
+        symbol: symbol,
+        name: metadata.name,
+        price: priceInUSD,
+        change: parseFloat(market.change_24h),
+        marketCap: `${parseFloat(market.volume_24h).toLocaleString()}`,
+        icon: metadata.icon,
+        logoUrl: metadata.logoUrl,
+        priceInZAR: priceInZAR
+      };
+    } else {
+      // Token doesn't have market data - show as coming soon
+      return {
+        id: symbol.toLowerCase(),
+        symbol: symbol,
+        name: metadata.name,
+        price: 0,
+        change: 0,
+        marketCap: "0",
+        icon: metadata.icon,
+        logoUrl: metadata.logoUrl,
+        priceInZAR: 0
+      };
+    }
+  });
+
+  // Available tokens (those with actual market data)
+  const availableTokens = allTokens.filter(token => (token.priceInZAR || 0) > 0);
   const availableTokenIds = availableTokens.map(t => t.id);
+  
+  // Sort tokens: available ones first (by price), then coming soon ones
+  const tokens = [...allTokens].sort((a, b) => {
+    const aHasData = availableTokenIds.includes(a.id);
+    const bHasData = availableTokenIds.includes(b.id);
+    
+    if (aHasData && !bHasData) return -1; // a goes first
+    if (!aHasData && bHasData) return 1;  // b goes first
+    if (aHasData && bHasData) return (b.priceInZAR || 0) - (a.priceInZAR || 0); // Sort by price
+    return a.name.localeCompare(b.name); // Sort coming soon alphabetically
+  });
   
   // Selected token price in ZAR is already available
   const selectedTokenPriceInZAR = selectedToken ? 
