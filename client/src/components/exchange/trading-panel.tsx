@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LoginDialog } from "@/components/auth/login-dialog";
 
 interface TradingPanelProps {
   onPairChange: (from: string, to: string, action: "buy" | "sell" | "convert") => void;
+}
+
+interface Trade {
+  id: string;
+  type: "buy" | "sell" | "convert";
+  fromAsset: string;
+  toAsset: string;
+  fromAmount: number;
+  toAmount: number;
+  rate: number;
+  fee: number;
+  status: "pending" | "completed" | "failed";
+  timestamp: string;
 }
 
 const FEE_RATE = 0.001; // 0.10%
@@ -62,9 +77,9 @@ function getAvailableAssets(marketData: MarketData[]) {
   });
   
   return {
-    cryptos: [...cryptos],
-    fiats: [...fiats], 
-    all: [...new Set([...cryptos, ...fiats])]
+    cryptos: Array.from(cryptos),
+    fiats: Array.from(fiats), 
+    all: Array.from(new Set([...Array.from(cryptos), ...Array.from(fiats)]))
   };
 }
 
@@ -127,9 +142,32 @@ function calculateQuote(from: string, to: string, fromAmount: number, marketData
   return { toAmount: netTo, rate, fee };
 }
 
+// Fetch user trades
+const useUserTrades = () => {
+  const { user, isAuthenticated } = useAuth();
+  
+  return useQuery({
+    queryKey: ['/api/trades', user?.id],
+    queryFn: async (): Promise<Trade[]> => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const response = await fetch(`/api/trades/${user.id}`, {
+        credentials: 'include', // Include session cookies
+      });
+      if (!response.ok) throw new Error('Failed to fetch trades');
+      return response.json();
+    },
+    enabled: isAuthenticated && !!user?.id,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+};
+
 export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const { data: marketData = [], isLoading, error } = useMarketData();
+  const { user, isAuthenticated } = useAuth();
+  const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   
   const availableAssets = useMemo(() => getAvailableAssets(marketData), [marketData]);
   
@@ -327,6 +365,11 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 className="w-full" 
                 size="lg"
                 disabled={!amountBuy || parseFloat(amountBuy) <= 0}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    setShowLoginDialog(true);
+                  }
+                }}
                 data-testid="button-preview-buy"
               >
                 Preview Buy Order
@@ -404,6 +447,11 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 className="w-full" 
                 size="lg"
                 disabled={!amountSell || parseFloat(amountSell) <= 0}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    setShowLoginDialog(true);
+                  }
+                }}
                 data-testid="button-preview-sell"
               >
                 Preview Sell Order
@@ -488,6 +536,11 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 className="w-full" 
                 size="lg"
                 disabled={!amountConvert || parseFloat(amountConvert) <= 0}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    setShowLoginDialog(true);
+                  }
+                }}
                 data-testid="button-preview-convert"
               >
                 Preview Convert
@@ -500,29 +553,57 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
         <div className="border-t border-border p-4">
           <h3 className="text-sm font-semibold mb-3">Recent Activity</h3>
           <div className="space-y-3 max-h-40 overflow-y-auto">
-            <div className="flex items-center justify-between text-sm">
-              <div>
-                <div className="font-medium">Bought BTC</div>
-                <div className="text-xs text-muted-foreground">2 hours ago</div>
+            {!isAuthenticated ? (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                <p>Sign in to view your trading activity</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setShowLoginDialog(true)}
+                >
+                  Sign In
+                </Button>
               </div>
-              <div className="text-right">
-                <div className="font-mono">0.00083 BTC</div>
-                <div className="text-xs text-muted-foreground">R1,000</div>
+            ) : tradesLoading ? (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                Loading trades...
               </div>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <div>
-                <div className="font-medium">Sold ETH</div>
-                <div className="text-xs text-muted-foreground">1 day ago</div>
+            ) : userTrades.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                No trading activity yet
               </div>
-              <div className="text-right">
-                <div className="font-mono">0.5 ETH</div>
-                <div className="text-xs text-muted-foreground">R32,375</div>
-              </div>
-            </div>
+            ) : (
+              userTrades.slice(0, 3).map((trade, index) => (
+                <div key={trade.id || index} className="flex items-center justify-between text-sm">
+                  <div>
+                    <div className="font-medium">
+                      {trade.type === "buy" ? "Bought" : trade.type === "sell" ? "Sold" : "Converted"} {trade.toAsset}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(trade.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono">
+                      {formatAmount(trade.toAsset, trade.toAmount)} {trade.toAsset}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatAmount(trade.fromAsset, trade.fromAmount)} {trade.fromAsset}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
+
+      {/* Login Dialog */}
+      <LoginDialog 
+        open={showLoginDialog} 
+        onOpenChange={setShowLoginDialog} 
+      />
     </aside>
   );
 }
