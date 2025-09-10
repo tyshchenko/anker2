@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -33,6 +35,8 @@ const SUPPORTED_CRYPTOCURRENCIES = [
 
 export default function CreateWalletPage() {
   const [, setLocation] = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [walletName, setWalletName] = useState<string>('');
@@ -70,10 +74,46 @@ export default function CreateWalletPage() {
     }, 1500);
   };
 
+  // Mutation to create wallet on server
+  const createWalletMutation = useMutation({
+    mutationFn: async (walletData: { coin: string; address: string; private_key: string }) => {
+      const response = await fetch('/api/wallet/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include session cookies for authentication
+        body: JSON.stringify(walletData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create wallet');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate wallets query to refresh the sidebar and wallets page
+      queryClient.invalidateQueries({ queryKey: ['/api/wallets'] });
+      setStep('confirmed');
+    },
+    onError: (error) => {
+      console.error('Failed to create wallet:', error);
+      alert('Failed to create wallet. Please try again.');
+    },
+  });
+
   const handleConfirmWallet = () => {
-    setStep('confirmed');
-    // Here you would save the wallet to local storage or send to backend
-    console.log('Wallet confirmed and saved:', generatedWallet);
+    if (!generatedWallet || !isAuthenticated) return;
+
+    // Create wallet data for server
+    const walletData = {
+      coin: generatedWallet.symbol,
+      address: generatedWallet.address,
+      private_key: generatedWallet.privateKey,
+    };
+
+    createWalletMutation.mutate(walletData);
   };
 
   const handleCreateAnother = () => {
@@ -321,14 +361,23 @@ export default function CreateWalletPage() {
                     <div className="flex space-x-3 mt-6">
                       <Button
                         onClick={handleConfirmWallet}
+                        disabled={createWalletMutation.isPending || !isAuthenticated}
                         className="flex-1"
                         data-testid="button-confirm-wallet"
                       >
-                        I've Saved My Private Key
+                        {createWalletMutation.isPending ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
+                            Saving Wallet...
+                          </>
+                        ) : (
+                          "I've Saved My Private Key"
+                        )}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={handleCreateAnother}
+                        disabled={createWalletMutation.isPending}
                         data-testid="button-create-another"
                       >
                         Create Another
