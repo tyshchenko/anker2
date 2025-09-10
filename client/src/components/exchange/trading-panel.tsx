@@ -156,7 +156,9 @@ const useUserTrades = () => {
         credentials: 'include', // Include session cookies
       });
       if (!response.ok) throw new Error('Failed to fetch trades');
-      return response.json();
+      const data = await response.json();
+      return data.data
+
     },
     enabled: isAuthenticated && !!user?.id,
     refetchInterval: 30000, // Refetch every 30 seconds
