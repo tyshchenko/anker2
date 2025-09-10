@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useWallets } from "@/hooks/useWallets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -165,11 +166,23 @@ const useUserTrades = () => {
 export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const { data: marketData = [], isLoading, error } = useMarketData();
   const { user, isAuthenticated } = useAuth();
+  const { data: walletsData } = useWallets();
   const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   
   const availableAssets = useMemo(() => getAvailableAssets(marketData), [marketData]);
+
+  // Get user's balance for a specific asset
+  const getUserBalance = (asset: string): number => {
+    if (!walletsData?.wallets) return 0;
+    
+    const wallet = walletsData.wallets.find(w => 
+      w.coin.toLowerCase() === asset.toLowerCase()
+    );
+    
+    return wallet ? parseFloat(wallet.balance) : 0;
+  };
   
   // Buy state
   const [fromBuy, setFromBuy] = useState("ZAR");
@@ -201,6 +214,25 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
     calculateQuote(fromConvert, toConvert, parseFloat(amountConvert) || 0, marketData), 
     [fromConvert, toConvert, amountConvert, marketData]
   );
+
+  // Check if user has sufficient balance for trades
+  const hasEnoughBalance = useMemo(() => {
+    if (!isAuthenticated) return false;
+    
+    const userAmount = parseFloat(
+      activeTab === "buy" ? amountBuy : 
+      activeTab === "sell" ? amountSell : 
+      amountConvert
+    ) || 0;
+    
+    const fromAsset = 
+      activeTab === "buy" ? fromBuy : 
+      activeTab === "sell" ? fromSell : 
+      fromConvert;
+    
+    const userBalance = getUserBalance(fromAsset);
+    return userBalance >= userAmount;
+  }, [activeTab, amountBuy, amountSell, amountConvert, fromBuy, fromSell, fromConvert, walletsData, isAuthenticated]);
 
   // Update parent component when pairs change
   useEffect(() => {
@@ -364,7 +396,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
               <Button 
                 className="w-full" 
                 size="lg"
-                disabled={!amountBuy || parseFloat(amountBuy) <= 0}
+                disabled={!amountBuy || parseFloat(amountBuy) <= 0 || (isAuthenticated && !hasEnoughBalance)}
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
@@ -372,7 +404,9 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 }}
                 data-testid="button-preview-buy"
               >
-                Preview Buy Order
+                {isAuthenticated && !hasEnoughBalance && parseFloat(amountBuy) > 0 
+                  ? `Insufficient ${fromBuy} Balance` 
+                  : "Preview Buy Order"}
               </Button>
             </div>
           )}
@@ -446,7 +480,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 variant="destructive"
                 className="w-full" 
                 size="lg"
-                disabled={!amountSell || parseFloat(amountSell) <= 0}
+                disabled={!amountSell || parseFloat(amountSell) <= 0 || (isAuthenticated && !hasEnoughBalance)}
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
@@ -454,7 +488,9 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 }}
                 data-testid="button-preview-sell"
               >
-                Preview Sell Order
+                {isAuthenticated && !hasEnoughBalance && parseFloat(amountSell) > 0 
+                  ? `Insufficient ${fromSell} Balance` 
+                  : "Preview Sell Order"}
               </Button>
             </div>
           )}
@@ -535,7 +571,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
               <Button 
                 className="w-full" 
                 size="lg"
-                disabled={!amountConvert || parseFloat(amountConvert) <= 0}
+                disabled={!amountConvert || parseFloat(amountConvert) <= 0 || (isAuthenticated && !hasEnoughBalance)}
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
@@ -543,7 +579,9 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 }}
                 data-testid="button-preview-convert"
               >
-                Preview Convert
+                {isAuthenticated && !hasEnoughBalance && parseFloat(amountConvert) > 0 
+                  ? `Insufficient ${fromConvert} Balance` 
+                  : "Preview Convert"}
               </Button>
             </div>
           )}
@@ -602,7 +640,8 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
       {/* Login Dialog */}
       <LoginDialog 
         open={showLoginDialog} 
-        onOpenChange={setShowLoginDialog} 
+        onOpenChange={setShowLoginDialog}
+        onSwitchToRegister={() => {}}
       />
     </aside>
   );

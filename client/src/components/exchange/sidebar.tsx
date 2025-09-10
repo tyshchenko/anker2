@@ -145,43 +145,44 @@ export function Sidebar({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
 
-  // Map wallet data to portfolio items with real balances
+  // Map wallet data to portfolio items with real balances - only show existing wallets
   const getPortfolioItems = () => {
-    if (!walletsData?.wallets)
-      return portfolioItems.map((item) => ({ ...item, amount: "0" }));
+    if (!walletsData?.wallets) return [];
 
-    return portfolioItems.map((portfolioItem) => {
-      // Find matching wallet by coin symbol
-      const wallet = walletsData.wallets.find(
-        (w) =>
-          w.coin.toLowerCase() ===
-            portfolioItem.label.toLowerCase().slice(0, 3) ||
-          w.coin.toLowerCase() === portfolioItem.label.toLowerCase() ||
-          (portfolioItem.label === "Bitcoin" &&
-            w.coin.toLowerCase() === "btc") ||
-          (portfolioItem.label === "Ethereum" &&
-            w.coin.toLowerCase() === "eth") ||
-          (portfolioItem.label === "Tether" &&
-            w.coin.toLowerCase() === "usdt") ||
-          (portfolioItem.label === "BNB" && w.coin.toLowerCase() === "bnb") ||
-          (portfolioItem.label === "Solana" &&
-            w.coin.toLowerCase() === "sol") ||
-          (portfolioItem.label === "XRP" && w.coin.toLowerCase() === "xrp") ||
-          (portfolioItem.label === "Cardano" &&
-            w.coin.toLowerCase() === "ada") ||
-          (portfolioItem.label === "Avalanche" &&
-            w.coin.toLowerCase() === "avax") ||
-          (portfolioItem.label === "Dogecoin" &&
-            w.coin.toLowerCase() === "doge") ||
-          (portfolioItem.label === "Polygon" &&
-            w.coin.toLowerCase() === "matic"),
-      );
+    return portfolioItems
+      .map((portfolioItem) => {
+        // Find matching wallet by coin symbol
+        const wallet = walletsData.wallets.find(
+          (w) =>
+            w.coin.toLowerCase() ===
+              portfolioItem.label.toLowerCase().slice(0, 3) ||
+            w.coin.toLowerCase() === portfolioItem.label.toLowerCase() ||
+            (portfolioItem.label === "Bitcoin" &&
+              w.coin.toLowerCase() === "btc") ||
+            (portfolioItem.label === "Ethereum" &&
+              w.coin.toLowerCase() === "eth") ||
+            (portfolioItem.label === "Tether" &&
+              w.coin.toLowerCase() === "usdt") ||
+            (portfolioItem.label === "BNB" && w.coin.toLowerCase() === "bnb") ||
+            (portfolioItem.label === "Solana" &&
+              w.coin.toLowerCase() === "sol") ||
+            (portfolioItem.label === "XRP" && w.coin.toLowerCase() === "xrp") ||
+            (portfolioItem.label === "Cardano" &&
+              w.coin.toLowerCase() === "ada") ||
+            (portfolioItem.label === "Avalanche" &&
+              w.coin.toLowerCase() === "avax") ||
+            (portfolioItem.label === "Dogecoin" &&
+              w.coin.toLowerCase() === "doge") ||
+            (portfolioItem.label === "Polygon" &&
+              w.coin.toLowerCase() === "matic"),
+        );
 
-      return {
-        ...portfolioItem,
-        amount: wallet ? parseFloat(wallet.balance).toFixed(4) : "0",
-      };
-    });
+        return wallet ? {
+          ...portfolioItem,
+          amount: parseFloat(wallet.balance).toFixed(4),
+        } : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null); // Remove null entries (wallets that don't exist)
   };
 
   const realPortfolioItems = getPortfolioItems();
