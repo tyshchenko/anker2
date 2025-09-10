@@ -35,35 +35,7 @@ interface NewBankAccount {
 }
 
 // Mock whitelisted bank accounts for demo
-const mockBankAccounts: BankAccount[] = [
-  {
-    id: "1",
-    bankName: "First National Bank",
-    accountNumber: "****1234",
-    accountHolderName: "John Doe",
-    branchNumber: "250655",
-    isVerified: true,
-    isWhitelisted: true
-  },
-  {
-    id: "2", 
-    bankName: "Standard Bank",
-    accountNumber: "****5678",
-    accountHolderName: "John Doe",
-    branchNumber: "051001",
-    isVerified: true,
-    isWhitelisted: true
-  },
-  {
-    id: "3",
-    bankName: "ABSA Bank",
-    accountNumber: "****9012", 
-    accountHolderName: "John Doe",
-    branchNumber: "632005",
-    isVerified: false,
-    isWhitelisted: false
-  }
-];
+const mockBankAccounts: BankAccount[] = [];
 
 export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const [step, setStep] = useState<"amount" | "bank" | "add-bank">("amount");

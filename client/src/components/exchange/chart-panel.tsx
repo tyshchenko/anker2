@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
@@ -18,29 +18,61 @@ interface ChartPanelProps {
 }
 
 const timeframes = [
-  { label: "1H", value: "1h", active: true },
-  { label: "1D", value: "1d" },
-  { label: "1W", value: "1w" },
-  { label: "1M", value: "1m" },
-  { label: "1Y", value: "1y" },
+  { label: "1H", value: "1H" },
+  { label: "1D", value: "1D" },
+  { label: "1W", value: "1W" },
+  { label: "1M", value: "1M" },
+  { label: "1Y", value: "1Y" },
 ];
 
 export function ChartPanel({ currentPair }: ChartPanelProps) {
+  const [selectedTimeframe, setSelectedTimeframe] = useState("1D");
+
+  // Parse the current pair to extract CRYPTO and FIAT (e.g., "BTC/ZAR" -> ["BTC", "ZAR"])
+  const [crypto, fiat] = currentPair.split('/');
+
   const { data: marketData = [], isLoading } = useQuery<MarketData[]>({
-    queryKey: ["/api/market", currentPair],
-    refetchInterval: 5000,
+    queryKey: ["/api/market", crypto, fiat, selectedTimeframe],
+    queryFn: async () => {
+      const response = await fetch(`/api/market/${crypto}/${fiat}?timeframe=${selectedTimeframe}`);
+      if (!response.ok) throw new Error('Failed to fetch chart data');
+      return response.json();
+    },
+    refetchInterval: 30000, // Reduced frequency for chart data
+    enabled: !!(crypto && fiat), // Only fetch if we have both crypto and fiat
   });
 
   const chartData = useMemo(() => {
-    return marketData.map((data, index) => ({
-      time: new Date(data.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      price: parseFloat(data.price),
-      index,
-    }));
-  }, [marketData]);
+    return marketData.map((data, index) => {
+      const date = new Date(data.timestamp);
+      let timeLabel = "";
+      
+      // Format time based on selected timeframe
+      switch (selectedTimeframe) {
+        case "1H":
+          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          break;
+        case "1D":
+          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          break;
+        case "1W":
+        case "1M":
+          timeLabel = date.toLocaleDateString([], { month: "short", day: "numeric" });
+          break;
+        case "1Y":
+          timeLabel = date.toLocaleDateString([], { month: "short", year: "2-digit" });
+          break;
+        default:
+          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+      
+      return {
+        time: timeLabel,
+        price: parseFloat(data.price),
+        index,
+      };
+    });
+  }, [marketData, selectedTimeframe]);
 
   const currentPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : 0;
   const firstPrice = chartData.length > 0 ? chartData[0].price : 0;
@@ -155,9 +187,10 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
             {timeframes.map((timeframe) => (
               <Button
                 key={timeframe.value}
-                variant={timeframe.active ? "default" : "ghost"}
+                variant={selectedTimeframe === timeframe.value ? "default" : "ghost"}
                 size="sm"
                 className="px-3 py-1.5 text-sm"
+                onClick={() => setSelectedTimeframe(timeframe.value)}
                 data-testid={`button-timeframe-${timeframe.value}`}
               >
                 {timeframe.label}

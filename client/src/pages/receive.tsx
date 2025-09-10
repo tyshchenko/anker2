@@ -98,7 +98,7 @@ export default function ReceivePage() {
         name: `${wallet.coin} Wallet`,
         symbol: wallet.coin,
         icon: mockWallet?.icon || wallet.coin[0],
-        logoUrl: mockWallet?.logoUrl,
+        logoUrl: mockWallet?.logoUrl || undefined,
         balance: parseFloat(wallet.balance),
         balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
         address: wallet.address || `${wallet.coin}-WALLET-001`,
