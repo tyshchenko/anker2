@@ -25,7 +25,7 @@ from tornado.options import define, options
 from auth_utils import auth_utils
 from models import InsertTrade, InsertMarketData, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount
 
-from storage import storage
+from storage_postgres import storage
 from config import GOOGLE_CLIENT_ID
 
 class DateTimeEncoder(json.JSONEncoder):
