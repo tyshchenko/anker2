@@ -19,10 +19,10 @@ export function BalanceDisplay({
 }: BalanceDisplayProps) {
   const { user: authUser } = useAuth();
   const [showVerificationModal, setShowVerificationModal] = useState(false);
-  
+
   // Fetch user wallets
   const { data: walletsData, isLoading } = useWallets();
-  
+
   // Find ZAR wallet balance
   const zarWallet = walletsData?.wallets.find(wallet => wallet.coin === 'ZAR');
   const balance = zarWallet?.balance || "0.00";
@@ -95,7 +95,7 @@ export function BalanceDisplay({
           </p>
         </div>
       </div>
-      
+
       <div className="flex items-center space-x-2">
         {/* Verification Status/Button */}
         {authUser?.verificationStatus === "approved" ? (

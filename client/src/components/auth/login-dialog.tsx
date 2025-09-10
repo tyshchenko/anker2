@@ -99,14 +99,14 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
           try {
             // Decode the JWT token to get user info
             const payload = JSON.parse(atob(response.credential.split('.')[1]));
-            
+
             await loginWithGoogle({
               token: response.credential,
               email: payload.email,
               name: payload.name,
               picture: payload.picture
             });
-            
+
             toast({
               title: "Success",
               description: "You have been logged in with Google!",

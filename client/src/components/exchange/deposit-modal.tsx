@@ -40,12 +40,12 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
           phoneReference: data.phoneReference
         })
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to process deposit');
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
@@ -53,10 +53,10 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
         title: "Deposit Successful",
         description: `R${parseFloat(amount).toFixed(2)} has been added to your account. New balance: R${parseFloat(data.balance).toFixed(2)}`,
       });
-      
+
       // Refresh balance data
       queryClient.invalidateQueries({ queryKey: ['/api/users', DEMO_USER_ID] });
-      
+
       // Reset form and close modal
       setAmount("");
       setPhoneReference("");
@@ -73,7 +73,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const depositAmount = parseFloat(amount);
     if (!depositAmount || depositAmount <= 0) {
       toast({
@@ -130,18 +130,18 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
   const handleAmountChange = (value: string) => {
     // Only allow numbers and decimal point
     const sanitized = value.replace(/[^0-9.]/g, '');
-    
+
     // Prevent multiple decimal points
     const parts = sanitized.split('.');
     if (parts.length > 2) {
       return;
     }
-    
+
     // Limit decimal places to 2
     if (parts[1] && parts[1].length > 2) {
       return;
     }
-    
+
     setAmount(sanitized);
   };
 
@@ -158,7 +158,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
             Add funds to your account to start trading cryptocurrencies
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-8">
           {/* Bank Deposit Instructions */}
           <div className="space-y-6">
@@ -175,7 +175,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                 </div>
                 <div className="flex flex-col space-y-1">
                   <span className="text-muted-foreground">Reference Number:</span>
-                  <span className="font-mono text-lg font-semibold text-primary">{user?.reference || "0661984607"}</span>
+                  <span className="font-mono text-lg font-semibold text-primary">{user?.reference || ""}</span>
                 </div>
               </div>
               <div className="mt-6 p-4 bg-background rounded-lg border space-y-2">

@@ -62,9 +62,9 @@ export default function CreateWalletPage() {
 
   const handleGenerateWallet = async () => {
     if (!selectedCrypto) return;
-    
+
     setIsGenerating(true);
-    
+
     // Simulate wallet generation process
     setTimeout(() => {
       const wallet = generateWallet(selectedCrypto);
@@ -182,7 +182,7 @@ export default function CreateWalletPage() {
               {step === 'setup' && (
                 <Card className="p-6">
                   <h2 className="text-xl font-semibold mb-6">Wallet Setup</h2>
-                  
+
                   <div className="space-y-6">
                     <div>
                       <Label htmlFor="crypto-select">Select Cryptocurrency</Label>
@@ -261,7 +261,7 @@ export default function CreateWalletPage() {
                       <CheckCircle className="w-6 h-6 text-green-600" />
                       <h2 className="text-xl font-semibold">Wallet Generated Successfully!</h2>
                     </div>
-                    
+
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                       <div className="flex items-start space-x-3">
                         <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
@@ -395,7 +395,7 @@ export default function CreateWalletPage() {
                     Your {generatedWallet?.symbol} wallet has been added to your account. 
                     You can now receive and send {generatedWallet?.symbol}.
                   </p>
-                  
+
                   <div className="flex space-x-3 justify-center">
                     <Button
                       onClick={() => setLocation('/wallets')}

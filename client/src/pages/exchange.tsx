@@ -18,14 +18,14 @@ export default function ExchangePage() {
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
+
     const ws = new WebSocket(wsUrl);
-    
+
     ws.onopen = () => {
       console.log("WebSocket connected");
       setWsConnection(ws);
     };
-    
+
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -37,12 +37,12 @@ export default function ExchangePage() {
         console.error("Invalid WebSocket message:", error);
       }
     };
-    
+
     ws.onclose = () => {
       console.log("WebSocket disconnected");
       setWsConnection(null);
     };
-    
+
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
     };
@@ -60,7 +60,7 @@ export default function ExchangePage() {
     else {
       // For convert, prioritize crypto assets for chart display
       const cryptoAssets = ["BTC", "ETH", "USDT"];
-      
+
       if (cryptoAssets.includes(from)) pair = `${from}/ZAR`;
       else if (cryptoAssets.includes(to)) pair = `${to}/ZAR`;
       else pair = `${from}/${to}`;
@@ -130,7 +130,7 @@ export default function ExchangePage() {
           {/* Trading Panel */}
           <TradingPanel onPairChange={handlePairChange} />
         </div>
-        
+
         {/* Deposit Modal */}
         <DepositModal 
           isOpen={showDepositModal}

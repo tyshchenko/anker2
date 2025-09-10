@@ -133,6 +133,10 @@ function TransactionRow({ transaction }: TransactionRowProps) {
         return <ArrowDownLeft className="w-4 h-4 text-purple-600" />;
       case 'convert':
         return <ArrowUpRight className="w-4 h-4 text-orange-600" />;
+      case 'withdraw':
+        return <ArrowUpRight className="w-4 h-4 text-red-500" />;
+      case 'deposit':
+        return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
       default:
         return <Clock className="w-4 h-4 text-gray-600" />;
     }
