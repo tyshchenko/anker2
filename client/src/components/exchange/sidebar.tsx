@@ -57,6 +57,8 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
   const { user, isAuthenticated, logout } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  // Fetch user wallets data
+  const { data: walletsData, isLoading: walletsLoading } = useWallets();
 
   // Map wallet data to portfolio items with real balances - only show existing wallets
   const getPortfolioItems = () => {
