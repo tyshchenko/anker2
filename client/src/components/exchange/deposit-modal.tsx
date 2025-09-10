@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign } from "lucide-react";
+import { Banknote } from "lucide-react";
 
 // Demo user ID for development
 const DEMO_USER_ID = "demo-user-123";
@@ -146,39 +146,58 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]" data-testid="modal-deposit">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh]" data-testid="modal-deposit">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <DollarSign className="h-5 w-5" />
+          <DialogTitle className="flex items-center space-x-2 text-xl">
+            <Banknote className="h-6 w-6" />
             <span>Deposit ZAR</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-base">
             Add funds to your account to start trading cryptocurrencies
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Bank Deposit Instructions */}
-          <div className="space-y-4">
-            <div className="p-4 bg-muted border border-border rounded-lg">
-              <h4 className="font-medium text-base mb-3">Deposit funds to:</h4>
-              <div className="text-sm space-y-2">
-                <p><strong>Standard Bank South Africa</strong></p>
-                <p><strong>Account number:</strong> <span className="font-mono">070220808</span></p>
-                <p><strong>Ref Number:</strong> <span className="font-mono">{phoneReference || "0661984607"}</span></p>
+          <div className="space-y-6">
+            <div className="p-6 bg-muted border border-border rounded-lg">
+              <h4 className="font-semibold text-lg mb-4">Deposit funds to:</h4>
+              <div className="space-y-3 text-base">
+                <div className="flex flex-col space-y-1">
+                  <span className="text-muted-foreground">Bank:</span>
+                  <span className="font-semibold text-lg">Standard Bank South Africa</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="text-muted-foreground">Account Number:</span>
+                  <span className="font-mono text-lg font-semibold">070220808</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="text-muted-foreground">Reference Number:</span>
+                  <span className="font-mono text-lg font-semibold text-primary">{phoneReference || "0661984607"}</span>
+                </div>
               </div>
-              <div className="mt-4 text-xs text-muted-foreground space-y-1">
-                <p><strong>*Note:</strong> If your reference number is incorrect it will cause delays.</p>
-                <p><strong>**Instant payments</strong> take 10-30min during working hours.</p>
-                <p><strong>***Regular payments</strong> reflect in 24-48 hours.</p>
+              <div className="mt-6 p-4 bg-background rounded-lg border space-y-2">
+                <div className="flex items-start space-x-2">
+                  <span className="text-amber-600 font-bold">⚠️</span>
+                  <p className="text-sm"><strong>Important:</strong> If your reference number is incorrect it will cause delays.</p>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="text-green-600 font-bold">⚡</span>
+                  <p className="text-sm"><strong>Instant payments</strong> take 10-30min during working hours.</p>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <span className="text-blue-600 font-bold">🕐</span>
+                  <p className="text-sm"><strong>Regular payments</strong> reflect in 24-48 hours.</p>
+                </div>
               </div>
             </div>
           </div>
 
-
           <DialogFooter>
             <Button
               onClick={onClose}
+              size="lg"
+              className="w-full sm:w-auto"
               data-testid="button-close-deposit"
             >
               Close

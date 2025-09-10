@@ -15,7 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Send, AlertTriangle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Send, AlertTriangle, CheckCircle, Copy, ExternalLink } from "lucide-react";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
 
 // Mock wallet data
 const WALLETS = [
@@ -24,6 +27,7 @@ const WALLETS = [
     name: 'Bitcoin Wallet',
     symbol: 'BTC',
     icon: '₿',
+    logoUrl: btcLogo,
     balance: 0.0234567,
     balanceZAR: 28125.45,
     color: 'bg-orange-500',
@@ -34,6 +38,7 @@ const WALLETS = [
     name: 'Ethereum Wallet',
     symbol: 'ETH',
     icon: 'Ξ',
+    logoUrl: ethLogo,
     balance: 1.247891,
     balanceZAR: 80423.12,
     color: 'bg-blue-500',
@@ -44,6 +49,7 @@ const WALLETS = [
     name: 'Tether Wallet',
     symbol: 'USDT',
     icon: '₮',
+    logoUrl: usdtLogo,
     balance: 2500.00,
     balanceZAR: 46250.00,
     color: 'bg-green-500',
@@ -91,11 +97,93 @@ export default function SendPage() {
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [transactionId, setTransactionId] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const wallet = WALLETS.find(w => w.id === selectedWallet) || WALLETS[0];
   const numAmount = parseFloat(amount) || 0;
   const isValidAmount = numAmount > 0 && numAmount <= wallet.balance;
-  const isValidAddress = recipientAddress.length > 10;
+  
+  // Cryptocurrency address validation functions
+  const isValidBitcoinAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Legacy Bitcoin addresses (P2PKH) - start with '1'
+    if (address.startsWith('1')) {
+      return /^[1][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+    }
+    
+    // SegWit addresses (P2SH) - start with '3'  
+    if (address.startsWith('3')) {
+      return /^[3][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address);
+    }
+    
+    // Bech32 addresses - start with 'bc1'
+    if (address.startsWith('bc1')) {
+      return /^bc1[a-z0-9]{39,59}$/.test(address);
+    }
+    
+    return false;
+  };
+
+  const isValidEthereumAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Ethereum addresses start with '0x' followed by 40 hexadecimal characters
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  };
+
+  const isValidUSDTAddress = (address: string): boolean => {
+    // USDT primarily runs on Ethereum blockchain, so use Ethereum address validation
+    // Note: USDT also runs on other chains like Tron, but Ethereum is most common
+    return isValidEthereumAddress(address);
+  };
+  
+  // Address validation based on wallet type
+  const getAddressValidation = () => {
+    if (!recipientAddress) return { isValid: false, errorMessage: '' };
+    
+    if (wallet.symbol === 'BTC') {
+      const isValid = isValidBitcoinAddress(recipientAddress);
+      return {
+        isValid,
+        errorMessage: isValid ? '' : 'Please enter a valid Bitcoin address (starts with 1, 3, or bc1)'
+      };
+    }
+    
+    if (wallet.symbol === 'ETH') {
+      const isValid = isValidEthereumAddress(recipientAddress);
+      return {
+        isValid,
+        errorMessage: isValid ? '' : 'Please enter a valid Ethereum address (starts with 0x followed by 40 characters)'
+      };
+    }
+    
+    if (wallet.symbol === 'USDT') {
+      const isValid = isValidUSDTAddress(recipientAddress);
+      return {
+        isValid,
+        errorMessage: isValid ? '' : 'Please enter a valid USDT address (Ethereum format: starts with 0x followed by 40 characters)'
+      };
+    }
+    
+    // For other cryptocurrencies, use basic length validation
+    const isValid = recipientAddress.length > 10;
+    return {
+      isValid,
+      errorMessage: isValid ? '' : `Please enter a valid ${wallet.symbol} wallet address`
+    };
+  };
+  
+  const addressValidation = getAddressValidation();
+  const isValidAddress = addressValidation.isValid;
   const canSubmit = isValidAmount && isValidAddress;
 
   const formatBalance = (amount: number, symbol: string) => {
@@ -105,13 +193,57 @@ export default function SendPage() {
     return amount.toFixed(4);
   };
 
+  // Generate mock transaction ID based on crypto type
+  const generateTransactionId = (symbol: string) => {
+    const chars = '0123456789abcdef';
+    if (symbol === 'BTC') {
+      // Bitcoin transaction ID (64 characters)
+      return Array.from({length: 64}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    } else if (symbol === 'ETH' || symbol === 'USDT') {
+      // Ethereum transaction hash (66 characters with 0x prefix)
+      return '0x' + Array.from({length: 64}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    }
+    return Array.from({length: 64}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  };
+
+  // Get block explorer URL for different cryptocurrencies
+  const getBlockExplorerUrl = (symbol: string, txId: string) => {
+    switch (symbol) {
+      case 'BTC':
+        return `https://blockstream.info/tx/${txId}`;
+      case 'ETH':
+        return `https://etherscan.io/tx/${txId}`;
+      case 'USDT':
+        return `https://etherscan.io/tx/${txId}`;
+      default:
+        return '#';
+    }
+  };
+
   const handleSend = () => {
     setIsConfirming(true);
     // Simulate sending
     setTimeout(() => {
+      const txId = generateTransactionId(wallet.symbol);
+      setTransactionId(txId);
       setIsConfirming(false);
-      setLocation('/wallets');
+      setIsSuccess(true);
     }, 2000);
+  };
+
+  const handleCopyTxId = () => {
+    navigator.clipboard.writeText(transactionId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCloseSuccess = () => {
+    setIsSuccess(false);
+    setRecipientAddress('');
+    setAmount('');
+    setMemo('');
+    setTransactionId('');
+    setLocation('/wallets');
   };
 
   if (isConfirming) {
@@ -126,6 +258,88 @@ export default function SendPage() {
             Please wait while we process your transaction...
           </p>
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        </Card>
+      </div>
+    );
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <Card className="p-8 max-w-lg mx-auto">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">Transaction Successful!</h2>
+            <p className="text-muted-foreground mb-6">
+              Your {wallet.symbol} transaction has been broadcast to the network.
+            </p>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-muted rounded-lg p-4">
+                <h3 className="font-semibold mb-2">Transaction Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Amount:</span>
+                    <span className="font-mono">{amount} {wallet.symbol}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">To:</span>
+                    <span className="font-mono text-xs">{recipientAddress.slice(0, 10)}...{recipientAddress.slice(-10)}</span>
+                  </div>
+                  {memo && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Memo:</span>
+                      <span>{memo}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-muted rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">Transaction ID</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopyTxId}
+                    className="h-auto p-1"
+                    data-testid="button-copy-txid"
+                  >
+                    {copied ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="font-mono text-xs break-all text-muted-foreground">
+                  {transactionId}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.open(getBlockExplorerUrl(wallet.symbol, transactionId), '_blank')}
+                data-testid="button-view-explorer"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                View on Block Explorer
+              </Button>
+              
+              <Button
+                className="w-full"
+                onClick={handleCloseSuccess}
+                data-testid="button-close-success"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     );
@@ -195,8 +409,16 @@ export default function SendPage() {
                     </Label>
                     {preSelectedWallet ? (
                       <div className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/50">
-                        <div className={`w-6 h-6 rounded-full ${preSelectedWallet.color} flex items-center justify-center`}>
-                          <span className="text-white text-xs font-bold">{preSelectedWallet.icon}</span>
+                        <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                          {preSelectedWallet.logoUrl ? (
+                            <img 
+                              src={preSelectedWallet.logoUrl} 
+                              alt={preSelectedWallet.symbol} 
+                              className="w-4 h-4"
+                            />
+                          ) : (
+                            <span className="text-black text-xs font-bold">{preSelectedWallet.icon}</span>
+                          )}
                         </div>
                         <span className="font-medium">{preSelectedWallet.name}</span>
                         <span className="text-muted-foreground">
@@ -212,8 +434,16 @@ export default function SendPage() {
                           {WALLETS.map((wallet) => (
                             <SelectItem key={wallet.id} value={wallet.id}>
                               <div className="flex items-center space-x-3">
-                                <div className={`w-6 h-6 rounded-full ${wallet.color} flex items-center justify-center`}>
-                                  <span className="text-white text-xs font-bold">{wallet.icon}</span>
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                                  {wallet.logoUrl ? (
+                                    <img 
+                                      src={wallet.logoUrl} 
+                                      alt={wallet.symbol} 
+                                      className="w-4 h-4"
+                                    />
+                                  ) : (
+                                    <span className="text-black text-xs font-bold">{wallet.icon}</span>
+                                  )}
                                 </div>
                                 <span>{wallet.name}</span>
                                 <span className="text-muted-foreground">
@@ -260,7 +490,7 @@ export default function SendPage() {
                     {recipientAddress && !isValidAddress && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
-                        Please enter a valid wallet address
+                        {addressValidation.errorMessage}
                       </p>
                     )}
                   </div>

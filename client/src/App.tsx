@@ -18,6 +18,7 @@ import ActivityPage from "@/pages/activity";
 import HelpPage from "@/pages/help";
 import ProfilePage from "@/pages/profile";
 import SignInPage from "@/pages/signin";
+import RegisterPage from "@/pages/register";
 import CreateWalletPage from "@/pages/create-wallet";
 
 function Router() {
@@ -59,6 +60,7 @@ function Router() {
         <Route path="/help" component={HelpPage} />
         <Route path="/profile" component={() => handleProtectedRoute(<ProfilePage />)} />
         <Route path="/signin" component={SignInPage} />
+        <Route path="/signup" component={RegisterPage} />
         <Route path="/create-wallet" component={() => handleProtectedRoute(<CreateWalletPage />)} />
         <Route component={NotFound} />
       </Switch>

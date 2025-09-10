@@ -69,7 +69,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   });
 
   // Fetch user data to get ZAR balance
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ zarBalance: string }>({
     queryKey: ["/api/auth/user"],
     retry: false,
   });
@@ -134,7 +134,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                     placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="pl-8 pr-16"
+                    className="pl-8 pr-16 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                     data-testid="input-withdraw-amount"
                   />
                   <Button
