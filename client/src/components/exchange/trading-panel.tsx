@@ -611,6 +611,10 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
               <div className="text-center text-sm text-muted-foreground py-4">
                 No trading activity yet
               </div>
+            ) : !userTrades ? (
+              <div className="text-center text-sm text-muted-foreground py-4">
+                No trading activity yet
+              </div>
             ) : (
               userTrades.slice(0, 3).map((trade, index) => (
                 <div key={trade.id || index} className="flex items-center justify-between text-sm">
