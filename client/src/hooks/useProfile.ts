@@ -5,10 +5,22 @@ interface User {
   id: string;
   email?: string;
   username?: string;
+  reference?: string;
+  phone?: string;
+  country?: string;
+  language?: string;
+  timezone?: string;
+  verification_level?: string;
   first_name?: string;
+  second_names?: string;
   last_name?: string;
   profile_image_url?: string;
   is_active: boolean;
+  two_factor_enabled?: boolean;
+  email_notifications?: boolean;
+  sms_notifications?: boolean;
+  trading_notifications?: boolean;
+  security_alerts?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -35,16 +47,16 @@ const mapUserToProfile = (user: User): UserProfile => {
     firstName: user.first_name || '',
     lastName: user.last_name || '',
     email: user.email || '',
-    phone: '', // Not available from server
-    country: 'South Africa', // Default value
-    language: 'English', // Default value
-    timezone: 'Africa/Johannesburg', // Default value
-    verificationLevel: 'basic', // Default value - could be enhanced
-    twoFactorEnabled: false, // Default value - could be enhanced
-    emailNotifications: true, // Default value
-    smsNotifications: false, // Default value
-    tradingNotifications: true, // Default value
-    securityAlerts: true, // Default value
+    phone: user.phone || '',
+    country: user.country || 'South Africa',
+    language: user.language || 'English',
+    timezone: user.timezone || 'Africa/Johannesburg',
+    verificationLevel: (user.verification_level as 'unverified' | 'basic' | 'advanced') || 'basic',
+    twoFactorEnabled: user.two_factor_enabled || false,
+    emailNotifications: user.email_notifications || false,
+    smsNotifications: user.sms_notifications || false,
+    tradingNotifications: user.trading_notifications || false,
+    securityAlerts: user.security_alerts || false,
   };
 };
 
