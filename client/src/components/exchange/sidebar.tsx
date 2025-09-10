@@ -1,16 +1,4 @@
-import {
-  Home,
-  Compass,
-  Search,
-  BarChart3,
-  Wallet,
-  Zap,
-  Users,
-  HelpCircle,
-  User,
-  LogIn,
-  LogOut,
-} from "lucide-react";
+import { Home, Compass, Search, BarChart3, Wallet, Zap, Users, HelpCircle, User, LogIn, LogOut } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -47,85 +35,16 @@ const navigationItems = [
 ];
 
 const portfolioItems = [
-  {
-    icon: "₿",
-    label: "Bitcoin",
-    amount: "0",
-    color: "text-orange-500",
-    href: "/wallets/btc",
-    logoUrl: btcLogo,
-  },
-  {
-    icon: "Ξ",
-    label: "Ethereum",
-    amount: "0",
-    color: "text-blue-400",
-    href: "/wallets/eth",
-    logoUrl: ethLogo,
-  },
-  {
-    icon: "₮",
-    label: "Tether",
-    amount: "0",
-    color: "text-green-500",
-    href: "/wallets/usdt",
-    logoUrl: usdtLogo,
-  },
-  {
-    icon: "◉",
-    label: "BNB",
-    amount: "0",
-    color: "text-yellow-500",
-    href: "/wallets/bnb",
-    logoUrl: bnbLogo,
-  },
-  {
-    icon: "◎",
-    label: "Solana",
-    amount: "0",
-    color: "text-purple-500",
-    href: "/wallets/sol",
-    logoUrl: solLogo,
-  },
-  {
-    icon: "◈",
-    label: "XRP",
-    amount: "0",
-    color: "text-blue-600",
-    href: "/wallets/xrp",
-    logoUrl: xrpLogo,
-  },
-  {
-    icon: "◇",
-    label: "Cardano",
-    amount: "0",
-    color: "text-blue-500",
-    href: "/wallets/ada",
-    logoUrl: cardanoLogo,
-  },
-  {
-    icon: "◆",
-    label: "Avalanche",
-    amount: "0",
-    color: "text-red-500",
-    href: "/wallets/avax",
-  },
-  {
-    icon: "◊",
-    label: "Dogecoin",
-    amount: "0",
-    color: "text-yellow-600",
-    href: "/wallets/doge",
-    logoUrl: dogeLogo,
-  },
-  {
-    icon: "⬟",
-    label: "Polygon",
-    amount: "0",
-    color: "text-purple-600",
-    href: "/wallets/matic",
-    logoUrl: polygonLogo,
-  },
+  { icon: "₿", label: "Bitcoin", amount: "0", color: "text-orange-500", href: "/wallets/btc", logoUrl: btcLogo },
+  { icon: "Ξ", label: "Ethereum", amount: "", color: "text-blue-400", href: "/wallets/eth", logoUrl: ethLogo },
+  { icon: "₮", label: "Tether", amount: "0", color: "text-green-500", href: "/wallets/usdt", logoUrl: usdtLogo },
+  { icon: "◉", label: "BNB", amount: "0", color: "text-yellow-500", href: "/wallets/bnb", logoUrl: bnbLogo },
+  { icon: "◎", label: "Solana", amount: "0", color: "text-purple-500", href: "/wallets/sol", logoUrl: solLogo },
+  { icon: "◈", label: "XRP", amount: "0", color: "text-blue-600", href: "/wallets/xrp", logoUrl: xrpLogo },
+  { icon: "◇", label: "Cardano", amount: "0", color: "text-blue-500", href: "/wallets/ada", logoUrl: cardanoLogo },
+  { icon: "◆", label: "Avalanche", amount: "0", color: "text-red-500", href: "/wallets/avax" },
+  { icon: "◊", label: "Dogecoin", amount: "0", color: "text-yellow-600", href: "/wallets/doge", logoUrl: dogeLogo },
+  { icon: "⬟", label: "Polygon", amount: "0", color: "text-purple-600", href: "/wallets/matic", logoUrl: polygonLogo },
 ];
 
 const bottomItems = [
@@ -134,14 +53,8 @@ const bottomItems = [
   { icon: User, label: "Profile", href: "/profile" },
 ];
 
-export function Sidebar({
-  className,
-  isMobile,
-  isOpen,
-  onClose,
-}: SidebarProps) {
-  const { isAuthenticated, user, logout } = useAuth();
-  const { data: walletsData, isLoading: walletsLoading } = useWallets();
+export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) {
+  const { user, isAuthenticated, logout } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
 
@@ -154,8 +67,6 @@ export function Sidebar({
         // Find matching wallet by coin symbol
         const wallet = walletsData.wallets.find(
           (w) =>
-            w.coin.toLowerCase() ===
-              portfolioItem.label.toLowerCase().slice(0, 3) ||
             w.coin.toLowerCase() === portfolioItem.label.toLowerCase() ||
             (portfolioItem.label === "Bitcoin" &&
               w.coin.toLowerCase() === "btc") ||
@@ -251,7 +162,7 @@ export function Sidebar({
               "flex items-center space-x-3 px-3 py-2.5 rounded-lg text-left w-full transition-colors cursor-pointer",
               active
                 ? "bg-secondary text-secondary-foreground"
-                : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground",
+                : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
             )}
             onClick={isMobile ? onClose : undefined}
             data-testid={`nav-${label.toLowerCase()}`}
@@ -266,9 +177,9 @@ export function Sidebar({
       <div
         className={cn(
           "flex items-center space-x-3 px-3 py-2.5 rounded-lg text-left w-full transition-colors",
-          comingSoon
-            ? "text-muted-foreground cursor-not-allowed opacity-75"
-            : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground cursor-pointer",
+          comingSoon 
+            ? "text-muted-foreground cursor-not-allowed opacity-75" 
+            : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground cursor-pointer"
         )}
         onClick={!comingSoon ? (isMobile ? onClose : undefined) : undefined}
         data-testid={`nav-${label.toLowerCase()}`}
@@ -286,9 +197,7 @@ export function Sidebar({
           alt="AnkerPay Logo"
           className="w-8 h-8 rounded-lg"
         />
-        <span className="text-lg font-semibold" data-testid="text-brand">
-          AnkerPay
-        </span>
+        <span className="text-lg font-semibold" data-testid="text-brand">AnkerPay</span>
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
@@ -412,7 +321,7 @@ export function Sidebar({
       <>
         {/* Overlay */}
         {isOpen && (
-          <div
+          <div 
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={onClose}
             data-testid="mobile-overlay"
@@ -424,7 +333,7 @@ export function Sidebar({
           className={cn(
             "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border lg:hidden transition-transform duration-300 ease-in-out",
             isOpen ? "translate-x-0" : "-translate-x-full",
-            className,
+            className
           )}
           data-testid="mobile-sidebar"
         >
@@ -435,10 +344,7 @@ export function Sidebar({
   }
 
   return (
-    <aside
-      className={cn("w-64 bg-card border-r border-border", className)}
-      data-testid="desktop-sidebar"
-    >
+    <aside className={cn("w-64 bg-card border-r border-border", className)} data-testid="desktop-sidebar">
       {content}
     </aside>
   );
