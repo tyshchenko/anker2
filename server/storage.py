@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 import random
@@ -53,66 +52,8 @@ class DataBase(object):
 #          self.execute(sqlquery, vals, return_id)        
 
 
-class IStorage(ABC):
-    @abstractmethod
-    def get_user(self, user_id: str) -> Optional[User]:
-        pass
 
-    @abstractmethod
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        pass
-
-    @abstractmethod
-    def create_user(self, insert_user: InsertUser) -> User:
-        pass
-
-    @abstractmethod
-    def create_trade(self, insert_trade: InsertTrade) -> Trade:
-        pass
-
-    @abstractmethod
-    def get_user_trades(self, user_id: str) -> List[Trade]:
-        pass
-
-    @abstractmethod
-    def get_market_data(self, pair: str) -> List[MarketData]:
-        pass
-
-    @abstractmethod
-    def update_market_data(self, data: InsertMarketData) -> MarketData:
-        pass
-
-    @abstractmethod
-    def get_all_market_data(self) -> List[MarketData]:
-        pass
-    
-    # Authentication methods
-    @abstractmethod
-    def get_user_by_email(self, email: str) -> Optional[User]:
-        pass
-    
-    @abstractmethod
-    def get_user_by_google_id(self, google_id: str) -> Optional[User]:
-        pass
-    
-    @abstractmethod
-    def create_session(self, user_id: str, session_token: str, expires_at: datetime) -> Session:
-        pass
-    
-    @abstractmethod
-    def get_session(self, session_token: str) -> Optional[Session]:
-        pass
-    
-    @abstractmethod
-    def delete_session(self, session_token: str) -> bool:
-        pass
-    
-    @abstractmethod
-    def get_user_by_password_hash(self, password_hash: str) -> Optional[User]:
-        pass
-
-
-class MemStorage(IStorage):
+class MemStorage:
     def __init__(self):
 
         self.trades: Dict[str, Trade] = {}
@@ -135,8 +76,8 @@ class MemStorage(IStorage):
             base_price = prices.get(pair.replace('/',''), float("1"))
             data = []
             url = "https://min-api.cryptocompare.com/data/v2/histohour?fsym=%s&tsym=%s&limit=72&e=CCCAGG" % (pair.split('/')[0],pair.split('/')[1])
-            resutl = requests.get(url, headers={"Content-Type": "application/json"})
-            data72 = resutl.json()
+            result = requests.get(url, headers={"Content-Type": "application/json"})
+            data72 = result.json()
 
             # Generate 72 hours of hourly data
             for step in data72['Data']['Data']:
@@ -153,7 +94,7 @@ class MemStorage(IStorage):
 
     def randomstr(self, str_len):
         """---Get random string---"""
-        return "".join(random.choice(string.digits + string.ascii_upercase) for _ in range(str_len))
+        return "".join(random.choice(string.digits + string.ascii_uppercase) for _ in range(str_len))
 
     def create_reference(self, user_id):
         return 'APB' + str(user_id) + self.randomstr(6)

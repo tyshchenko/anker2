@@ -5,7 +5,7 @@ import uuid
 
 
 class User(BaseModel):
-    id: str = None
+    id: Optional[str] = None
     email: Optional[str] = None
     username: Optional[str] = None
     reference: Optional[str] = None
@@ -76,6 +76,14 @@ class BankAccount(BaseModel):
     branchCode: str = Field(..., alias="branch_code")
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class NewBankAccount(BaseModel):
+    accountName: str = Field(..., alias="account_name")
+    accountNumber: str = Field(..., alias="account_number")
+    branchCode: str = Field(..., alias="branch_code")
+
+    model_config = {"populate_by_name": True}
 
 
 class Session(BaseModel):

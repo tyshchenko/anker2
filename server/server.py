@@ -23,7 +23,7 @@ import telebot
 from tornado.options import define, options
 
 from auth_utils import auth_utils
-from models import InsertTrade, InsertMarketData, LoginRequest, RegisterRequest, User, InsertUser
+from models import InsertTrade, InsertMarketData, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount
 
 from storage import storage
 from config import GOOGLE_CLIENT_ID
@@ -53,6 +53,8 @@ class Application(tornado.web.Application):
             (r"/api/trades", TradesHandler),
             (r"/api/trades/(.+)", UserTradesHandler),
             (r"/api/wallets", WalletsHandler),
+            (r"/api/wallet/create", WalletCreateHandler),
+            (r"/api/bankaccount/create", BankAccountCreateHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -395,6 +397,87 @@ class WalletsHandler(BaseHandler):
                 "success": True,
                 "wallets": wallet_data
             })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class WalletCreateHandler(BaseHandler):
+    def post(self):
+        """Create a new wallet for the authenticated user"""
+        try:
+            body = json.loads(self.request.body.decode())
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # Validate input data
+            try:
+                new_wallet_data = NewWallet(**body)
+            except ValidationError as e:
+                self.set_status(400)
+                self.write({"error": "Invalid wallet data", "details": e.errors()})
+                return
+            
+            # Check if wallet already exists for this coin
+            existing_wallets = storage.get_wallets(user)
+            for wallet in existing_wallets:
+                if wallet[2] == new_wallet_data.coin:  # wallet[2] is the coin field
+                    self.set_status(400)
+                    self.write({"error": f"Wallet for {new_wallet_data.coin} already exists"})
+                    return
+            
+            # Create the new wallet
+            wallet = storage.create_wallet(new_wallet_data, user)
+            
+            self.write({
+                "success": True,
+                "wallet": wallet,
+                "message": "Wallet created successfully"
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class BankAccountCreateHandler(BaseHandler):
+    def post(self):
+        """Create a new bank account for the authenticated user"""
+        try:
+            body = json.loads(self.request.body.decode())
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # Validate input data
+            try:
+                new_bank_account_data = NewBankAccount(**body)
+            except ValidationError as e:
+                self.set_status(400)
+                self.write({"error": "Invalid bank account data", "details": e.errors()})
+                return
+            
+            # Create the new bank account
+            try:
+                bank_account = storage.create_bank_account(new_bank_account_data, user)
+                
+                self.write({
+                    "success": True,
+                    "bank_account": bank_account,
+                    "message": "Bank account created successfully"
+                })
+            except ValueError as e:
+                self.set_status(400)
+                self.write({"error": str(e)})
+                return
             
         except Exception as e:
             print(e)
