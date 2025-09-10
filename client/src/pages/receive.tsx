@@ -17,6 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Download, Copy, QrCode, CheckCircle } from "lucide-react";
+import { useWallets } from "@/hooks/useWallets";
+import { useAuth } from "@/lib/auth";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
 
 // Mock wallet data
 const WALLETS = [
@@ -81,11 +86,31 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const { user } = useAuth();
+  const { data: walletsData } = useWallets();
+
+  // Get real wallets and create a mapping
+  const realWallets = walletsData?.wallets ? 
+    walletsData.wallets.map(wallet => {
+      const mockWallet = WALLETS.find(mock => mock.symbol.toLowerCase() === wallet.coin.toLowerCase());
+      return {
+        id: `${wallet.coin.toLowerCase()}-wallet`,
+        name: `${wallet.coin} Wallet`,
+        symbol: wallet.coin,
+        icon: mockWallet?.icon || wallet.coin[0],
+        logoUrl: mockWallet?.logoUrl,
+        balance: parseFloat(wallet.balance),
+        balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
+        address: wallet.address || `${wallet.coin}-WALLET-001`,
+        color: mockWallet?.color || 'bg-gray-500',
+        textColor: mockWallet?.textColor || 'text-gray-600'
+      };
+    }) : WALLETS;
   
   // Check if wallet parameter was passed in URL
   const urlParams = new URLSearchParams(window.location.search);
   const walletParam = urlParams.get('wallet');
-  const preSelectedWallet = walletParam ? WALLETS.find(w => w.symbol.toLowerCase() === walletParam) : null;
+  const preSelectedWallet = walletParam ? realWallets.find(w => w.symbol.toLowerCase() === walletParam) : null;
   
   // Set the selected wallet if coming from a specific wallet
   useEffect(() => {
@@ -98,7 +123,7 @@ export default function ReceivePage() {
   const [copied, setCopied] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState<string>("");
 
-  const wallet = WALLETS.find(w => w.id === selectedWallet) || WALLETS[0];
+  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0];
 
   const formatBalance = (amount: number, symbol: string) => {
     if (symbol === 'BTC') return amount.toFixed(7);
@@ -225,11 +250,19 @@ export default function ReceivePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {WALLETS.map((wallet) => (
+                          {realWallets.map((wallet) => (
                             <SelectItem key={wallet.id} value={wallet.id}>
                               <div className="flex items-center space-x-3">
-                                <div className={`w-6 h-6 rounded-full ${wallet.color} flex items-center justify-center`}>
-                                  <span className="text-white text-xs font-bold">{wallet.icon}</span>
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                                  {wallet.logoUrl ? (
+                                    <img 
+                                      src={wallet.logoUrl} 
+                                      alt={wallet.symbol} 
+                                      className="w-4 h-4"
+                                    />
+                                  ) : (
+                                    <span className="text-black text-xs font-bold">{wallet.icon}</span>
+                                  )}
                                 </div>
                                 <span>{wallet.name}</span>
                                 <span className="text-muted-foreground">

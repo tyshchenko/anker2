@@ -19,6 +19,8 @@ import {
 import { ArrowLeft, Send, AlertTriangle, CheckCircle, Copy, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useWallets } from "@/hooks/useWallets";
+import { useAuth } from "@/lib/auth";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
@@ -86,17 +88,31 @@ export default function SendPage() {
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data: walletsData } = useWallets();
   
-  // Get user data for userId
-  const { data: user } = useQuery<{ id: string }>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-  });
-  
+  // Get real wallets and create a mapping
+  const realWallets = walletsData?.wallets ? 
+    walletsData.wallets.map(wallet => {
+      const mockWallet = WALLETS.find(mock => mock.symbol.toLowerCase() === wallet.coin.toLowerCase());
+      return {
+        id: `${wallet.coin.toLowerCase()}-wallet`,
+        name: `${wallet.coin} Wallet`,
+        symbol: wallet.coin,
+        icon: mockWallet?.icon || wallet.coin[0],
+        logoUrl: mockWallet?.logoUrl,
+        balance: parseFloat(wallet.balance),
+        balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
+        address: wallet.address || `${wallet.coin}-WALLET-001`,
+        color: mockWallet?.color || 'bg-gray-500',
+        textColor: mockWallet?.textColor || 'text-gray-600'
+      };
+    }) : WALLETS;
+
   // Check if wallet parameter was passed in URL
   const urlParams = new URLSearchParams(window.location.search);
   const walletParam = urlParams.get('wallet');
-  const preSelectedWallet = walletParam ? WALLETS.find(w => w.symbol.toLowerCase() === walletParam) : null;
+  const preSelectedWallet = walletParam ? realWallets.find(w => w.symbol.toLowerCase() === walletParam) : null;
   
   // Set the selected wallet if coming from a specific wallet
   useEffect(() => {
@@ -112,7 +128,7 @@ export default function SendPage() {
   const [transactionId, setTransactionId] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const wallet = WALLETS.find(w => w.id === selectedWallet) || WALLETS[0];
+  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0];
   const numAmount = parseFloat(amount) || 0;
   const isValidAmount = numAmount > 0 && numAmount <= wallet.balance;
 
@@ -489,7 +505,7 @@ export default function SendPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {WALLETS.map((wallet) => (
+                          {realWallets.map((wallet) => (
                             <SelectItem key={wallet.id} value={wallet.id}>
                               <div className="flex items-center space-x-3">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">

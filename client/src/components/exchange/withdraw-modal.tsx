@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Building2, Plus, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface WithdrawModalProps {
   isOpen: boolean;
@@ -16,12 +18,20 @@ interface WithdrawModalProps {
 
 interface BankAccount {
   id: string;
-  bankName: string;
+  email: string;
+  account_name: string;
+  account_number: string;
+  branch_code: string;
+  created?: string;
+  updated?: string;
+  isVerified?: boolean;
+  isWhitelisted?: boolean;
+}
+
+interface NewBankAccount {
+  accountName: string;
   accountNumber: string;
-  accountHolderName: string;
-  branchNumber: string;
-  isVerified: boolean;
-  isWhitelisted: boolean;
+  branchCode: string;
 }
 
 // Mock whitelisted bank accounts for demo
@@ -62,19 +72,62 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const [withdrawalType, setWithdrawalType] = useState<"instant" | "regular">("instant");
   const [showAddBankForm, setShowAddBankForm] = useState(false);
   const [newBankData, setNewBankData] = useState({
-    bankName: "",
+    accountName: "",
     accountNumber: "",
-    accountHolderName: "",
-    branchNumber: ""
+    branchCode: ""
   });
 
-  // Fetch user data to get ZAR balance
-  const { data: user } = useQuery<{ zarBalance: string }>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch bank accounts from API
+  const { data: bankAccounts = [], isLoading: bankAccountsLoading } = useQuery({
+    queryKey: ['/api/bankaccounts'],
+    queryFn: async (): Promise<BankAccount[]> => {
+      const response = await fetch('/api/bankaccounts', {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch bank accounts');
+      return response.json();
+    },
+    enabled: isOpen, // Only fetch when modal is open
   });
 
-  const availableBalance = user?.zarBalance ? parseFloat(user.zarBalance) : 0;
+  // Create bank account mutation
+  const createBankAccountMutation = useMutation({
+    mutationFn: async (bankData: NewBankAccount) => {
+      const response = await fetch('/api/bankaccount/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(bankData),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create bank account');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Bank Account Added",
+        description: "Your bank account has been added successfully and is pending verification.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/bankaccounts'] });
+      setShowAddBankForm(false);
+      setNewBankData({ accountName: "", accountNumber: "", branchCode: "" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Add Bank Account",
+        description: error.message || "An error occurred while adding your bank account.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const availableBalance = 0; // TODO: Get real ZAR balance from user wallet
 
   const handleClose = () => {
     setStep("amount");
@@ -82,7 +135,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     setSelectedBank(null);
     setWithdrawalType("instant");
     setShowAddBankForm(false);
-    setNewBankData({ bankName: "", accountNumber: "", accountHolderName: "", branchNumber: "" });
+    setNewBankData({ accountName: "", accountNumber: "", branchCode: "" });
     onClose();
   };
 
@@ -93,10 +146,10 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   };
 
   const handleAddBank = () => {
-    // In a real app, this would add the bank account to the backend
-    console.log("Adding bank account:", newBankData);
-    setShowAddBankForm(false);
-    setStep("bank");
+    if (!newBankData.accountName || !newBankData.accountNumber || !newBankData.branchCode) {
+      return;
+    }
+    createBankAccountMutation.mutate(newBankData);
   };
 
   const handleWithdraw = () => {
@@ -213,64 +266,45 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
             <div>
               <h3 className="text-sm font-medium mb-3">Whitelisted Bank Accounts</h3>
               
-              {/* Whitelisted accounts */}
-              {mockBankAccounts.filter(account => account.isWhitelisted).map((account) => (
-                <Card 
-                  key={account.id}
-                  className={`p-4 cursor-pointer transition-colors ${
-                    selectedBank === account.id ? "border-primary bg-primary/5" : "border-border"
-                  }`}
-                  onClick={() => setSelectedBank(account.id)}
-                  data-testid={`bank-account-${account.id}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <p className="font-medium">{account.bankName}</p>
-                        <Badge variant="secondary" className="text-blue-600 bg-blue-50 text-xs">
-                          Whitelisted
-                        </Badge>
+              {/* Real bank accounts */}
+              {bankAccountsLoading ? (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  Loading bank accounts...
+                </div>
+              ) : bankAccounts.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-4">
+                  No bank accounts found. Add one below.
+                </div>
+              ) : (
+                bankAccounts.map((account) => (
+                  <Card 
+                    key={account.id}
+                    className={`p-4 cursor-pointer transition-colors ${
+                      selectedBank === account.id ? "border-primary bg-primary/5" : "border-border"
+                    }`}
+                    onClick={() => setSelectedBank(account.id)}
+                    data-testid={`bank-account-${account.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium">{account.account_name}</p>
+                          <Badge variant="secondary" className="text-blue-600 bg-blue-50 text-xs">
+                            Active
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">****{account.account_number.slice(-4)}</p>
+                        <p className="text-xs text-muted-foreground">Branch: {account.branch_code}</p>
+                        <p className="text-xs text-muted-foreground">Added: {account.created ? new Date(account.created).toLocaleDateString() : 'Recently'}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{account.accountNumber}</p>
-                      <p className="text-xs text-muted-foreground">{account.accountHolderName}</p>
-                      <p className="text-xs text-muted-foreground">Branch: {account.branchNumber}</p>
-                    </div>
-                    {account.isVerified && (
                       <Badge variant="secondary" className="text-green-600 bg-green-50">
                         Verified
                       </Badge>
-                    )}
-                  </div>
-                </Card>
-              ))}
-
-              {/* Non-whitelisted accounts (pending verification) */}
-              {mockBankAccounts.filter(account => !account.isWhitelisted).length > 0 && (
-                <>
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium mb-2 text-muted-foreground">Pending Verification</h4>
-                    {mockBankAccounts.filter(account => !account.isWhitelisted).map((account) => (
-                      <Card 
-                        key={account.id}
-                        className="p-4 opacity-60 cursor-not-allowed border-dashed"
-                        data-testid={`bank-account-pending-${account.id}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{account.bankName}</p>
-                            <p className="text-sm text-muted-foreground">{account.accountNumber}</p>
-                            <p className="text-xs text-muted-foreground">{account.accountHolderName}</p>
-                            <p className="text-xs text-muted-foreground">Branch: {account.branchNumber}</p>
-                          </div>
-                          <Badge variant="secondary" className="text-yellow-600 bg-yellow-50">
-                            Pending Verification
-                          </Badge>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
+                    </div>
+                  </Card>
+                ))
               )}
+
 
               <Button
                 variant="outline"
@@ -288,43 +322,31 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                 <Separator />
                 <div className="space-y-3">
                   <h4 className="text-sm font-medium">Add Bank Account</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="bank-name">Bank Name</Label>
-                      <Input
-                        id="bank-name"
-                        value={newBankData.bankName}
-                        onChange={(e) => setNewBankData(prev => ({ ...prev, bankName: e.target.value }))}
-                        placeholder="e.g., Standard Bank"
-                        data-testid="input-bank-name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="branch-number">Branch Code</Label>
-                      <Input
-                        id="branch-number"
-                        value={newBankData.branchNumber}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9]/g, '');
-                          if (value.length <= 6) {
-                            setNewBankData(prev => ({ ...prev, branchNumber: value }));
-                          }
-                        }}
-                        placeholder="e.g., 051001"
-                        className="font-mono"
-                        data-testid="input-branch-number"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="account-name">Account Holder Name</Label>
+                    <Input
+                      id="account-name"
+                      value={newBankData.accountName}
+                      onChange={(e) => setNewBankData(prev => ({ ...prev, accountName: e.target.value }))}
+                      placeholder="Full name as per bank account"
+                      data-testid="input-account-name"
+                    />
                   </div>
                   
                   <div>
-                    <Label htmlFor="account-holder">Account Holder Name</Label>
+                    <Label htmlFor="branch-code">Branch Code</Label>
                     <Input
-                      id="account-holder"
-                      value={newBankData.accountHolderName}
-                      onChange={(e) => setNewBankData(prev => ({ ...prev, accountHolderName: e.target.value }))}
-                      placeholder="Full name as per bank account"
-                      data-testid="input-account-holder"
+                      id="branch-code"
+                      value={newBankData.branchCode}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        if (value.length <= 6) {
+                          setNewBankData(prev => ({ ...prev, branchCode: value }));
+                        }
+                      }}
+                      placeholder="e.g., 051001"
+                      className="font-mono"
+                      data-testid="input-branch-code"
                     />
                   </div>
                   
@@ -354,10 +376,10 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                     <Button
                       onClick={handleAddBank}
                       className="flex-1"
-                      disabled={!newBankData.bankName || !newBankData.accountNumber || !newBankData.accountHolderName || !newBankData.branchNumber}
+                      disabled={!newBankData.accountName || !newBankData.accountNumber || !newBankData.branchCode || createBankAccountMutation.isPending}
                       data-testid="button-save-bank"
                     >
-                      Add to Whitelist
+                      {createBankAccountMutation.isPending ? "Adding..." : "Add Account"}
                     </Button>
                   </div>
                 </div>
