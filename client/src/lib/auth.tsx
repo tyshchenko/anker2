@@ -7,10 +7,23 @@ interface User {
   email?: string;
   username?: string;
   reference?: string;
+  phone?: string;
+  country?: string;
+  language?: string;
+  timezone?: string;
+  verification_level?: string;
+  password_hash?: string;
+  google_id?: string;
   first_name?: string;
+  second_names?: string;
   last_name?: string;
   profile_image_url?: string;
   is_active: boolean;
+  two_factor_enabled?: boolean;
+  email_notifications?: boolean;
+  sms_notifications?: boolean;
+  trading_notifications?: boolean;
+  security_alerts?: boolean;
   created_at: string;
   updated_at: string;
 }
