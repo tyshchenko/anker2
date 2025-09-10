@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -16,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Send, AlertTriangle, CheckCircle, Copy, ExternalLink } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
@@ -81,6 +84,14 @@ export default function SendPage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Get user data for userId
+  const { data: user } = useQuery<{ id: string }>({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+  });
   
   // Check if wallet parameter was passed in URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -104,6 +115,36 @@ export default function SendPage() {
   const wallet = WALLETS.find(w => w.id === selectedWallet) || WALLETS[0];
   const numAmount = parseFloat(amount) || 0;
   const isValidAmount = numAmount > 0 && numAmount <= wallet.balance;
+
+  // Mutation for creating send transactions
+  const createSendTransactionMutation = useMutation({
+    mutationFn: async (transactionData: any) => {
+      return await apiRequest("POST", "/api/transactions", transactionData);
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: "Transaction Sent Successfully!",
+        description: `Sent ${formatBalance(parseFloat(variables.amount), variables.fromAsset)} ${variables.fromAsset} to ${variables.recipientAddress.slice(0, 8)}...${variables.recipientAddress.slice(-8)}`,
+      });
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
+      // Set success state
+      setIsConfirming(false);
+      setIsSuccess(true);
+      setTransactionId(variables.transactionId);
+    },
+    onError: (error: any) => {
+      setIsConfirming(false);
+      toast({
+        title: "Transaction Failed",
+        description: error.message || "An error occurred while sending your transaction.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Cryptocurrency address validation functions
   const isValidBitcoinAddress = (address: string): boolean => {
@@ -186,6 +227,7 @@ export default function SendPage() {
   const isValidAddress = addressValidation.isValid;
   const canSubmit = isValidAmount && isValidAddress;
 
+
   const formatBalance = (amount: number, symbol: string) => {
     if (symbol === 'BTC') return amount.toFixed(7);
     if (symbol === 'ETH') return amount.toFixed(6);
@@ -221,14 +263,30 @@ export default function SendPage() {
   };
 
   const handleSend = () => {
+    if (!user?.id || !canSubmit) return;
+    
     setIsConfirming(true);
-    // Simulate sending
-    setTimeout(() => {
-      const txId = generateTransactionId(wallet.symbol);
-      setTransactionId(txId);
-      setIsConfirming(false);
-      setIsSuccess(true);
-    }, 2000);
+    
+    const txId = generateTransactionId(wallet.symbol);
+    
+    // Create transaction data for the send
+    const transactionData = {
+      userId: user.id,
+      type: 'send',
+      pair: `${wallet.symbol}/SEND`, // Special pair format for send transactions
+      amount: amount,
+      price: '1.0', // For send transactions, price is 1:1
+      total: amount,
+      fee: '0.0001', // Small network fee
+      status: 'completed',
+      fromAsset: wallet.symbol,
+      toAsset: 'EXTERNAL', // Indicates external wallet
+      transactionId: txId,
+      recipientAddress: recipientAddress,
+      memo: memo,
+    };
+    
+    createSendTransactionMutation.mutate(transactionData);
   };
 
   const handleCopyTxId = () => {
@@ -582,11 +640,11 @@ export default function SendPage() {
                 <Button
                   className="flex-1"
                   onClick={handleSend}
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || createSendTransactionMutation.isPending}
                   data-testid="button-send"
                 >
                   <Send className="w-4 h-4 mr-2" />
-                  Send {wallet.symbol}
+                  {createSendTransactionMutation.isPending ? "Sending..." : `Send ${wallet.symbol}`}
                 </Button>
               </div>
             </div>

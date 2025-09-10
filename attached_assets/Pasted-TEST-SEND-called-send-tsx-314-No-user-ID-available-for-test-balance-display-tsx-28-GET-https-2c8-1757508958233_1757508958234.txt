@@ -1,0 +1,87 @@
+TEST SEND called!
+send.tsx:314 No user ID available for test
+balance-display.tsx:28  GET https://2c8569d0-4751-4721-82d6-a25f23bb5394-00-1vdkp2jps445y.kirk.replit.dev/api/users/demo-user-123 404 (Not Found)
+queryFn @ balance-display.tsx:28
+fetchFn @ @tanstack_react-query.js?v=8c17f82f:840
+run @ @tanstack_react-query.js?v=8c17f82f:494
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245
+setInterval
+updateRefetchInterval_fn @ @tanstack_react-query.js?v=8c17f82f:2243
+updateTimers_fn @ @tanstack_react-query.js?v=8c17f82f:2250
+onQueryUpdate @ @tanstack_react-query.js?v=8c17f82f:2206
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:998
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:997
+batch @ @tanstack_react-query.js?v=8c17f82f:583
+dispatch_fn @ @tanstack_react-query.js?v=8c17f82f:996
+onError @ @tanstack_react-query.js?v=8c17f82f:861
+reject @ @tanstack_react-query.js?v=8c17f82f:465
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:508
+Promise.catch
+run @ @tanstack_react-query.js?v=8c17f82f:498
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245
+setInterval
+updateRefetchInterval_fn @ @tanstack_react-query.js?v=8c17f82f:2243
+updateTimers_fn @ @tanstack_react-query.js?v=8c17f82f:2250
+onQueryUpdate @ @tanstack_react-query.js?v=8c17f82f:2206
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:998
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:997
+batch @ @tanstack_react-query.js?v=8c17f82f:583
+dispatch_fn @ @tanstack_react-query.js?v=8c17f82f:996
+onError @ @tanstack_react-query.js?v=8c17f82f:861
+reject @ @tanstack_react-query.js?v=8c17f82f:465
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:508
+Promise.catch
+run @ @tanstack_react-query.js?v=8c17f82f:498
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245Understand this error
+balance-display.tsx:32  POST https://2c8569d0-4751-4721-82d6-a25f23bb5394-00-1vdkp2jps445y.kirk.replit.dev/api/users 400 (Bad Request)
+queryFn @ balance-display.tsx:32
+await in queryFn
+fetchFn @ @tanstack_react-query.js?v=8c17f82f:840
+run @ @tanstack_react-query.js?v=8c17f82f:494
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245
+setInterval
+updateRefetchInterval_fn @ @tanstack_react-query.js?v=8c17f82f:2243
+updateTimers_fn @ @tanstack_react-query.js?v=8c17f82f:2250
+onQueryUpdate @ @tanstack_react-query.js?v=8c17f82f:2206
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:998
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:997
+batch @ @tanstack_react-query.js?v=8c17f82f:583
+dispatch_fn @ @tanstack_react-query.js?v=8c17f82f:996
+onError @ @tanstack_react-query.js?v=8c17f82f:861
+reject @ @tanstack_react-query.js?v=8c17f82f:465
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:508
+Promise.catch
+run @ @tanstack_react-query.js?v=8c17f82f:498
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245
+setInterval
+updateRefetchInterval_fn @ @tanstack_react-query.js?v=8c17f82f:2243
+updateTimers_fn @ @tanstack_react-query.js?v=8c17f82f:2250
+onQueryUpdate @ @tanstack_react-query.js?v=8c17f82f:2206
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:998
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:997
+batch @ @tanstack_react-query.js?v=8c17f82f:583
+dispatch_fn @ @tanstack_react-query.js?v=8c17f82f:996
+onError @ @tanstack_react-query.js?v=8c17f82f:861
+reject @ @tanstack_react-query.js?v=8c17f82f:465
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:508
+Promise.catch
+run @ @tanstack_react-query.js?v=8c17f82f:498
+start @ @tanstack_react-query.js?v=8c17f82f:536
+fetch @ @tanstack_react-query.js?v=8c17f82f:926
+executeFetch_fn @ @tanstack_react-query.js?v=8c17f82f:2211
+(anonymous) @ @tanstack_react-query.js?v=8c17f82f:2245Understand this error
