@@ -37,7 +37,7 @@ export function VerificationBanner() {
         return {
           icon: Shield,
           title: "Verify Your Account",
-          description: "Complete account verification to unlock full trading features. Upload ID, proof of address, and selfie.",
+          description: "Complete account verification to unlock full trading features. Verify phone number, upload ID, proof of address, and selfie.",
           buttonText: "Start Verification",
           variant: "default" as const,
         };

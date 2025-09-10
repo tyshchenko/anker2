@@ -8,6 +8,7 @@ import { FileText, Home, Camera, Upload, Check } from "lucide-react";
 import { FileDropzone } from "@/components/ui/file-dropzone";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { PhoneVerification } from "./phone-verification";
 
 interface VerificationModalProps {
   open: boolean;
@@ -25,6 +26,7 @@ interface DocumentUpload {
 export function VerificationModal({ open, onOpenChange }: VerificationModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [documents, setDocuments] = useState<DocumentUpload[]>([
     { type: "id", uploaded: false },
     { type: "poa", uploaded: false },
@@ -139,7 +141,7 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
     }
   };
 
-  const canSubmit = documents.every(doc => doc.uploaded);
+  const canSubmit = phoneVerified && documents.every(doc => doc.uploaded);
 
   const handleSubmit = () => {
     const idDoc = documents.find(d => d.type === "id");
@@ -169,11 +171,24 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
           <div className="bg-muted/50 p-4 rounded-lg">
             <h3 className="font-semibold mb-2">What you'll need:</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Valid South African mobile number</li>
               <li>• South African ID, passport, or driver's license</li>
               <li>• Proof of address (bank statement, utility bill, municipal bill - max 3 months old)</li>
               <li>• Selfie photo holding your ID document</li>
               <li>• Processing time: 24-48 hours</li>
             </ul>
+          </div>
+
+          <div className="space-y-6">
+            {/* Phone Verification Section */}
+            <div>
+              <PhoneVerification 
+                onComplete={() => setPhoneVerified(true)}
+                isCompleted={phoneVerified}
+              />
+            </div>
+
+            <Separator />
           </div>
 
           <div className="space-y-6">
