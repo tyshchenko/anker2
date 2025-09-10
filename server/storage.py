@@ -3,11 +3,12 @@ from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 import random
 import requests
+import string
 
 import pymysqlpool #pymysql-pool
 from valr_python import Client
 
-from models import User, InsertUser, Trade, InsertTrade, MarketData, InsertMarketData, Session, Wallet, BankAccount
+from models import User, InsertUser, Trade, InsertTrade, MarketData, InsertMarketData, Session, Wallet, BankAccount, NewWallet
 
 from config import  DB_USER, DB_PASSWORD, DB_NAME, VALR_KEY, VALR_SECRET
 
@@ -120,6 +121,7 @@ class MemStorage(IStorage):
         self.sessions: Dict[str, Session] = {}
         self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
         self.activepairs = self.pairs
+        self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone "
 
         self._initialize_market_data()
         self.update_latest_prices()
@@ -149,6 +151,42 @@ class MemStorage(IStorage):
             
             self.market_data[pair] = data
 
+    def randomstr(self, str_len):
+        """---Get random string---"""
+        return "".join(random.choice(string.digits + string.ascii_upercase) for _ in range(str_len))
+
+    def create_reference(self, user_id):
+        return 'APB' + str(user_id) + self.randomstr(6)
+
+    def fill_user(self, users) -> Optional[User]:
+        if users:
+          reference = users[0][21]
+          if not reference:
+            reference = self.create_reference(users[0][0])
+            sql = "update users set reference='%s' where id=%s" % (reference,str(users[0][0]))
+            db = DataBase(DB_NAME)
+            lastrowid = db.execute(sql, return_id=True)
+          user = User(
+              id    = str(users[0][0]),
+              email = users[0][1],
+              username = users[0][2],
+              password_hash = users[0][3],
+              google_id = users[0][4],
+              first_name = users[0][5],
+              second_names = users[0][6],
+              last_name = users[0][7],
+              profile_image_url = users[0][8],
+              is_active = users[0][9],
+              created_at = users[0][10],
+              updated_at = users[0][11],
+              reference = reference,
+              phone = users[0][22],
+              two_factor_enabled = users[0][13],
+            )
+          
+          return user
+        else:
+          return None
 
     def update_latest_prices(self):
         pairs = self.pairs
@@ -194,32 +232,50 @@ class MemStorage(IStorage):
         return pricedict
 
     def get_user(self, user_id: str) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where id=%s" % user_id
+        sql = "select "+self.usersfields+" from users where id=%s" % user_id
         db = DataBase(DB_NAME)
         users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
+        return self.fill_user(users)
+      
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        sql = "select "+self.usersfields+" from users where username='%s'" % username
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        return self.fill_user(users)
+    
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        sql = "select "+self.usersfields+" from users where email='%s'" % email
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        return self.fill_user(users)
+        
+    def check_user_exist(self, insert_user: InsertUser) -> Optional[User]:
+        sql = "select "+self.usersfields+" from users where email='%s' or username='%s' or google_id='%s'" % (insert_user.email,insert_user.username,insert_user.google_id)
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        return self.fill_user(users)
+        
+    def get_user_by_google_id(self, google_id: str) -> Optional[User]:
+        sql = "select "+self.usersfields+" from users where google_id='%s'" % google_id
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        return self.fill_user(users)
+
+    def get_user_by_password_hash(self, password_hash: str) -> Optional[User]:
+        sql = "select "+self.usersfields+" from users where password_hash='%s'" % password_hash
+        db = DataBase(DB_NAME)
+        users = db.query(sql)
+        return self.fill_user(users)
         
     def get_wallets(self, user: User) -> Optional[List[Wallet]]:
         sql = "select id,email,coin,address,balance,is_active,created,updated from wallets where email='%s'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
+        print(wallets)
+        if not wallets:
+          new_zar_wallet = NewWallet(coin='ZAR')
+          self.create_wallet(new_zar_wallet,user)
+          wallets = db.query(sql)
         return wallets
 
     def get_bankaccounts(self, user: User) -> Optional[BankAccount]:
@@ -230,98 +286,7 @@ class MemStorage(IStorage):
           return bankaccounts[0]
         else:
           return None
-      
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where username='%s'" % username
-        db = DataBase(DB_NAME)
-        users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
-    
-    def get_user_by_email(self, email: str) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where email='%s'" % email
-        db = DataBase(DB_NAME)
-        users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
-        
-    def check_user_exist(self, insert_user: InsertUser) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where email='%s' or username='%s' or google_id='%s'" % (insert_user.email,insert_user.username,insert_user.google_id)
-        db = DataBase(DB_NAME)
-        users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
-        
-    def get_user_by_google_id(self, google_id: str) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where google_id='%s'" % google_id
-        db = DataBase(DB_NAME)
-        users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
+
     
     def create_session(self, user_id: str, session_token: str, expires_at: datetime) -> Session:
         session = Session(
@@ -347,35 +312,19 @@ class MemStorage(IStorage):
             return True
         return False
 
-    def get_user_by_password_hash(self, password_hash: str) -> Optional[User]:
-        sql = "select id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof from users where password_hash='%s'" % password_hash
-        db = DataBase(DB_NAME)
-        users = db.query(sql)
-        if users:
-          user = User(
-            id    = str(users[0][0]),
-            email = users[0][1],
-            username = users[0][2],
-            password_hash = users[0][3],
-            google_id = users[0][4],
-            first_name = users[0][5],
-            second_names = users[0][6],
-            last_name = users[0][7],
-            profile_image_url = users[0][8],
-            is_active = users[0][9],
-            created_at = users[0][10],
-            updated_at = users[0][11]
-            )
-          return user
-        else:
-          return None
-
     def create_user(self, insert_user: InsertUser) -> User:
         sql = "INSERT INTO users (email,username,password_hash,google_id,first_name,last_name,profile_image_url) VALUE ('%s','%s','%s','%s','%s','%s','%s')" % (insert_user.email,insert_user.username,insert_user.password_hash,insert_user.google_id,insert_user.first_name,insert_user.last_name,insert_user.profile_image_url)
         db = DataBase(DB_NAME)
         lastrowid = db.execute(sql, return_id=True)
+        
         user = self.get_user_by_email(insert_user.email)
         return user
+
+    def create_wallet(self, new_wallet: NewWallet, user: User):
+        sql = "INSERT INTO wallets (email,coin,address,balance) VALUE ('%s','%s','%s','0')" % (user.email,new_wallet.coin,new_wallet.address)
+        db = DataBase(DB_NAME)
+        lastrowid = db.execute(sql, return_id=True)
+
 
     def create_trade(self, insert_trade: InsertTrade) -> Trade:
         trade = Trade(

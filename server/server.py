@@ -367,15 +367,7 @@ class WalletsHandler(BaseHandler):
         """Get user wallets with password_hash authentication"""
         try:
             body = json.loads(self.request.body.decode())
-            password_hash = body.get('password_hash')
-            
-            if not password_hash:
-                self.set_status(400)
-                self.write({"error": "password_hash is required"})
-                return
-            
-            # Find user by password hash
-            user = storage.get_user_by_password_hash(password_hash)
+            user = self.get_current_user_from_session()
             if not user:
                 self.set_status(401)
                 self.write({"error": "Invalid authentication"})

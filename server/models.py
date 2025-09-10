@@ -5,9 +5,16 @@ import uuid
 
 
 class User(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = None
     email: Optional[str] = None
     username: Optional[str] = None
+    reference: Optional[str] = None
+    phone: Optional[str] = None
+    country: Optional[str] = 'South Africa'
+    language: Optional[str] = 'English'
+    timezone: Optional[str] = 'Africa/Johannesburg'
+    verification_level: Optional[str] = 'basic'
+    phone: Optional[str] = None
     password_hash: Optional[str] = None
     google_id: Optional[str] = None
     first_name: Optional[str] = None
@@ -15,8 +22,14 @@ class User(BaseModel):
     last_name: Optional[str] = None
     profile_image_url: Optional[str] = None
     is_active: bool = True
+    two_factor_enabled: bool = False
+    email_notifications: bool = False
+    sms_notifications: bool = False
+    trading_notifications: bool = False
+    security_alerts: bool = False
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
 
 
 class InsertUser(BaseModel):
@@ -49,6 +62,11 @@ class Wallet(BaseModel):
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+class NewWallet(BaseModel):
+    coin: str
+    address: Optional[str] = None
+
     
 class BankAccount(BaseModel):
     email: str
