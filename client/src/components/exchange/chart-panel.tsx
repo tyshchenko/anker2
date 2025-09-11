@@ -147,8 +147,8 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
       },
     });
 
-    // Add candlestick series
-    const candlestickSeries = (chart as any).addCandlestickSeries({
+    // Add candlestick series using v5 API
+    const candlestickSeries = chart.addSeries('Candlestick', {
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
