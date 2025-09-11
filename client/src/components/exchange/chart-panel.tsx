@@ -53,14 +53,11 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
           timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
           break;
         case "1D":
-          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", day: "numeric" });
           break;
         case "1W":
         case "1M":
-          timeLabel = date.toLocaleDateString([], { month: "short", day: "numeric" });
-          break;
-        case "1Y":
-          timeLabel = date.toLocaleDateString([], { month: "short", year: "2-digit" });
+          timeLabel = date.toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" });
           break;
         default:
           timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
