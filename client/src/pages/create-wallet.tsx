@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useWallets } from "@/hooks/useWallets";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -17,21 +18,70 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Wallet, Copy, CheckCircle, AlertTriangle, Eye, EyeOff } from "lucide-react";
-import { generateWallet, type GeneratedWallet } from "@/lib/walletGenerator";
+import { ArrowLeft, Wallet, Copy, CheckCircle, QrCode } from "lucide-react";
+import QRCode from "qrcode";
 
-const SUPPORTED_CRYPTOCURRENCIES = [
-  { symbol: 'BTC', name: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
-  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', color: 'bg-blue-500' },
-  { symbol: 'USDT', name: 'Tether', icon: '₮', color: 'bg-green-500' },
-  { symbol: 'BNB', name: 'BNB', icon: '◉', color: 'bg-yellow-500' },
-  { symbol: 'SOL', name: 'Solana', icon: '◎', color: 'bg-purple-500' },
-  { symbol: 'XRP', name: 'XRP', icon: '◈', color: 'bg-blue-600' },
-  { symbol: 'ADA', name: 'Cardano', icon: '◇', color: 'bg-blue-500' },
-  { symbol: 'AVAX', name: 'Avalanche', icon: '◆', color: 'bg-red-500' },
-  { symbol: 'DOGE', name: 'Dogecoin', icon: '◊', color: 'bg-yellow-600' },
-  { symbol: 'MATIC', name: 'Polygon', icon: '⬟', color: 'bg-purple-600' },
-];
+interface MarketData {
+  pair: string;
+  price: string;
+  change_24h: string;
+  volume_24h: string;
+  timestamp: string;
+}
+
+interface CreatedWallet {
+  email: string;
+  coin: string;
+  address: string;
+  balance: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Fetch market data from server
+const useMarketData = () => {
+  return useQuery({
+    queryKey: ['/api/market'],
+    queryFn: async (): Promise<MarketData[]> => {
+      const response = await fetch('/api/market');
+      if (!response.ok) throw new Error('Failed to fetch market data');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+};
+
+// Extract crypto currencies from market pairs
+function getAvailableCryptos(marketData: MarketData[]) {
+  if (!marketData || marketData.length === 0) {
+    return [];
+  }
+  
+  const cryptos = new Set<string>();
+  
+  marketData.forEach(data => {
+    const [crypto, fiat] = data.pair.split('/');
+    if (crypto && fiat) {
+      cryptos.add(crypto);
+    }
+  });
+  
+  return Array.from(cryptos);
+}
+
+const CRYPTO_DISPLAY_INFO: Record<string, { name: string; icon: string; color: string }> = {
+  'BTC': { name: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
+  'ETH': { name: 'Ethereum', icon: 'Ξ', color: 'bg-blue-500' },
+  'USDT': { name: 'Tether', icon: '₮', color: 'bg-green-500' },
+  'BNB': { name: 'BNB', icon: '◉', color: 'bg-yellow-500' },
+  'SOL': { name: 'Solana', icon: '◎', color: 'bg-purple-500' },
+  'XRP': { name: 'XRP', icon: '◈', color: 'bg-blue-600' },
+  'ADA': { name: 'Cardano', icon: '◇', color: 'bg-blue-500' },
+  'AVAX': { name: 'Avalanche', icon: '◆', color: 'bg-red-500' },
+  'DOGE': { name: 'Dogecoin', icon: '◊', color: 'bg-yellow-600' },
+  'MATIC': { name: 'Polygon', icon: '⬟', color: 'bg-purple-600' },
+};
 
 export default function CreateWalletPage() {
   const [, setLocation] = useLocation();
@@ -40,13 +90,29 @@ export default function CreateWalletPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [walletName, setWalletName] = useState<string>('');
-  const [generatedWallet, setGeneratedWallet] = useState<GeneratedWallet | null>(null);
-  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [createdWallet, setCreatedWallet] = useState<CreatedWallet | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [step, setStep] = useState<'setup' | 'generated' | 'confirmed'>('setup');
+  const [step, setStep] = useState<'setup' | 'success'>('setup');
 
-  const selectedCryptoData = SUPPORTED_CRYPTOCURRENCIES.find(c => c.symbol === selectedCrypto);
+  // Fetch market data to get available cryptocurrencies
+  const { data: marketData = [], isLoading: isLoadingMarket } = useMarketData();
+  
+  // Fetch user's existing wallets
+  const { data: walletsResponse, isLoading: isLoadingWallets } = useWallets();
+  
+  // Get available cryptocurrencies that user doesn't already have
+  const availableCryptos = useMemo(() => {
+    const allCryptos = getAvailableCryptos(marketData);
+    const existingCoins = walletsResponse?.wallets?.map(w => w.coin) || [];
+    return allCryptos.filter(crypto => !existingCoins.includes(crypto));
+  }, [marketData, walletsResponse]);
+
+  const selectedCryptoData = selectedCrypto ? {
+    symbol: selectedCrypto,
+    ...CRYPTO_DISPLAY_INFO[selectedCrypto],
+    name: CRYPTO_DISPLAY_INFO[selectedCrypto]?.name || selectedCrypto
+  } : null;
 
   const copyToClipboard = async (text: string, key: string) => {
     try {
@@ -60,23 +126,26 @@ export default function CreateWalletPage() {
     }
   };
 
-  const handleGenerateWallet = async () => {
-    if (!selectedCrypto) return;
-
-    setIsGenerating(true);
-
-    // Simulate wallet generation process
-    setTimeout(() => {
-      const wallet = generateWallet(selectedCrypto);
-      setGeneratedWallet(wallet);
-      setStep('generated');
-      setIsGenerating(false);
-    }, 1500);
+  // Generate QR code for wallet address
+  const generateQRCode = async (address: string) => {
+    try {
+      const qrCodeDataUrl = await QRCode.toDataURL(address, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      setQrCodeUrl(qrCodeDataUrl);
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+    }
   };
 
   // Mutation to create wallet on server
   const createWalletMutation = useMutation({
-    mutationFn: async (walletData: { coin: string; address: string; private_key: string }) => {
+    mutationFn: async (walletData: { coin: string }) => {
       const response = await fetch('/api/wallet/create', {
         method: 'POST',
         headers: {
@@ -87,42 +156,44 @@ export default function CreateWalletPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create wallet');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create wallet');
       }
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (wallet: CreatedWallet) => {
+      setCreatedWallet(wallet);
+      if (wallet.address) {
+        await generateQRCode(wallet.address);
+      }
       // Invalidate wallets query to refresh the sidebar and wallets page
       queryClient.invalidateQueries({ queryKey: ['/api/wallets'] });
-      setStep('confirmed');
+      setStep('success');
     },
     onError: (error) => {
       console.error('Failed to create wallet:', error);
-      alert('Failed to create wallet. Please try again.');
+      alert(error.message || 'Failed to create wallet. Please try again.');
     },
   });
 
-  const handleConfirmWallet = () => {
-    if (!generatedWallet || !isAuthenticated) return;
+  const handleCreateWallet = () => {
+    if (!selectedCrypto || !isAuthenticated) return;
 
-    // Create wallet data for server
-    const walletData = {
-      coin: generatedWallet.symbol,
-      address: generatedWallet.address,
-      private_key: generatedWallet.privateKey,
-    };
-
-    createWalletMutation.mutate(walletData);
+    createWalletMutation.mutate({ coin: selectedCrypto });
   };
 
   const handleCreateAnother = () => {
     setSelectedCrypto('');
     setWalletName('');
-    setGeneratedWallet(null);
-    setShowPrivateKey(false);
+    setCreatedWallet(null);
+    setQrCodeUrl('');
     setCopied({});
     setStep('setup');
+  };
+
+  const handleDone = () => {
+    setLocation('/wallets');
   };
 
   return (
@@ -191,16 +262,29 @@ export default function CreateWalletPage() {
                           <SelectValue placeholder="Choose a cryptocurrency" />
                         </SelectTrigger>
                         <SelectContent>
-                          {SUPPORTED_CRYPTOCURRENCIES.map((crypto) => (
-                            <SelectItem key={crypto.symbol} value={crypto.symbol}>
-                              <div className="flex items-center space-x-2">
-                                <div className={`w-6 h-6 rounded-full ${crypto.color} flex items-center justify-center text-white text-sm font-bold`}>
-                                  {crypto.icon}
-                                </div>
-                                <span>{crypto.name} ({crypto.symbol})</span>
-                              </div>
+                          {isLoadingMarket || isLoadingWallets ? (
+                            <SelectItem value="loading" disabled>
+                              Loading available cryptocurrencies...
                             </SelectItem>
-                          ))}
+                          ) : availableCryptos.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No new cryptocurrencies available
+                            </SelectItem>
+                          ) : (
+                            availableCryptos.map((crypto) => {
+                              const cryptoInfo = CRYPTO_DISPLAY_INFO[crypto] || { name: crypto, icon: '◉', color: 'bg-gray-500' };
+                              return (
+                                <SelectItem key={crypto} value={crypto}>
+                                  <div className="flex items-center space-x-2">
+                                    <div className={`w-6 h-6 rounded-full ${cryptoInfo.color} flex items-center justify-center text-white text-sm font-bold`}>
+                                      {cryptoInfo.icon}
+                                    </div>
+                                    <span>{cryptoInfo.name} ({crypto})</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -236,58 +320,45 @@ export default function CreateWalletPage() {
                     )}
 
                     <Button
-                      onClick={handleGenerateWallet}
-                      disabled={!selectedCrypto || isGenerating}
+                      onClick={handleCreateWallet}
+                      disabled={!selectedCrypto || createWalletMutation.isPending || isLoadingMarket || isLoadingWallets}
                       className="w-full"
-                      data-testid="button-generate-wallet"
+                      data-testid="button-create-wallet"
                     >
-                      {isGenerating ? (
+                      {createWalletMutation.isPending ? (
                         <>
                           <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
-                          Generating Wallet...
+                          Creating Wallet...
                         </>
                       ) : (
-                        'Generate Wallet'
+                        'Create Wallet'
                       )}
                     </Button>
                   </div>
                 </Card>
               )}
 
-              {step === 'generated' && generatedWallet && (
-                <div className="space-y-6">
-                  <Card className="p-6">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                      <h2 className="text-xl font-semibold">Wallet Generated Successfully!</h2>
-                    </div>
+              {step === 'success' && createdWallet && (
+                <Card className="p-6 text-center">
+                  <div className="flex items-center justify-center space-x-3 mb-6">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                    <h2 className="text-2xl font-semibold">Wallet Generated Successfully!</h2>
+                  </div>
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                      <div className="flex items-start space-x-3">
-                        <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                        <div>
-                          <h3 className="font-medium text-yellow-800">Important Security Notice</h3>
-                          <p className="text-sm text-yellow-700 mt-1">
-                            Save your private key securely. Anyone with access to your private key can control your funds. 
-                            Never share it with anyone or store it online.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Wallet Address</Label>
-                        <div className="flex space-x-2">
+                  <div className="space-y-6">
+                    <div>
+                      <Label className="text-lg font-medium mb-2 block">Wallet Address</Label>
+                      <div className="bg-muted rounded-lg p-4 mb-4">
+                        <div className="flex space-x-2 mb-3">
                           <Input
-                            value={generatedWallet.address}
+                            value={createdWallet.address || ''}
                             readOnly
-                            className="font-mono text-sm"
-                            data-testid="generated-address"
+                            className="font-mono text-sm text-center"
+                            data-testid="created-wallet-address"
                           />
                           <Button
                             variant="outline"
-                            onClick={() => copyToClipboard(generatedWallet.address, 'address')}
+                            onClick={() => copyToClipboard(createdWallet.address || '', 'address')}
                             className="shrink-0"
                           >
                             {copied.address ? (
@@ -297,119 +368,44 @@ export default function CreateWalletPage() {
                             )}
                           </Button>
                         </div>
-                      </div>
-
-                      <div>
-                        <Label>Private Key</Label>
-                        <div className="flex space-x-2">
-                          <Input
-                            type={showPrivateKey ? "text" : "password"}
-                            value={generatedWallet.privateKey}
-                            readOnly
-                            className="font-mono text-sm"
-                            data-testid="generated-private-key"
-                          />
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowPrivateKey(!showPrivateKey)}
-                            className="shrink-0"
-                          >
-                            {showPrivateKey ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => copyToClipboard(generatedWallet.privateKey, 'privateKey')}
-                            className="shrink-0"
-                          >
-                            {copied.privateKey ? (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label>Public Key</Label>
-                        <div className="flex space-x-2">
-                          <Input
-                            value={generatedWallet.publicKey}
-                            readOnly
-                            className="font-mono text-sm"
-                            data-testid="generated-public-key"
-                          />
-                          <Button
-                            variant="outline"
-                            onClick={() => copyToClipboard(generatedWallet.publicKey, 'publicKey')}
-                            className="shrink-0"
-                          >
-                            {copied.publicKey ? (
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
+                        
+                        {qrCodeUrl && (
+                          <div className="flex justify-center">
+                            <div className="bg-white p-4 rounded-lg border border-border">
+                              <img src={qrCodeUrl} alt="Wallet Address QR Code" className="w-48 h-48" />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex space-x-3 mt-6">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <QrCode className="w-5 h-5 text-blue-600" />
+                        <h3 className="font-medium text-blue-800">Share Your Address</h3>
+                      </div>
+                      <p className="text-sm text-blue-700">
+                        Use this address to receive {createdWallet.coin}. You can copy the address or share the QR code.
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-3 justify-center">
                       <Button
-                        onClick={handleConfirmWallet}
-                        disabled={createWalletMutation.isPending || !isAuthenticated}
-                        className="flex-1"
-                        data-testid="button-confirm-wallet"
+                        onClick={handleDone}
+                        className="px-8"
+                        data-testid="button-done"
                       >
-                        {createWalletMutation.isPending ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
-                            Saving Wallet...
-                          </>
-                        ) : (
-                          "I've Saved My Private Key"
-                        )}
+                        Done
                       </Button>
                       <Button
                         variant="outline"
                         onClick={handleCreateAnother}
-                        disabled={createWalletMutation.isPending}
+                        className="px-8"
                         data-testid="button-create-another"
                       >
                         Create Another
                       </Button>
                     </div>
-                  </Card>
-                </div>
-              )}
-
-              {step === 'confirmed' && (
-                <Card className="p-6 text-center">
-                  <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-semibold mb-2">Wallet Created Successfully!</h2>
-                  <p className="text-muted-foreground mb-6">
-                    Your {generatedWallet?.symbol} wallet has been added to your account. 
-                    You can now receive and send {generatedWallet?.symbol}.
-                  </p>
-
-                  <div className="flex space-x-3 justify-center">
-                    <Button
-                      onClick={() => setLocation('/wallets')}
-                      data-testid="button-view-wallets"
-                    >
-                      View All Wallets
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleCreateAnother}
-                      data-testid="button-create-another-final"
-                    >
-                      Create Another Wallet
-                    </Button>
                   </div>
                 </Card>
               )}
