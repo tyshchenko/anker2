@@ -22,7 +22,7 @@ const timeframes = [
   { label: "1D", value: "1D" },
   { label: "1W", value: "1W" },
   { label: "1M", value: "1M" },
-  { label: "1Y", value: "1Y" },
+
 ];
 
 export function ChartPanel({ currentPair }: ChartPanelProps) {
