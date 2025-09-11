@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import { Button } from "@/components/ui/button";
 import { Expand } from "lucide-react";
 
@@ -146,9 +146,9 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
         secondsVisible: false,
       },
     });
-
+    
     // Add candlestick series using v5 API
-    const candlestickSeries = chart.addSeries('Candlestick', {
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
