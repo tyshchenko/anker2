@@ -18,24 +18,33 @@ from typing import Optional, Set
 from pydantic import ValidationError
 from datetime import datetime, timedelta
 from pathlib import Path
-import telebot
+# Optional telebot import
+try:
+    import telebot
+except ImportError:
+    telebot = None
 
 from tornado.options import define, options
 
 from auth_utils import auth_utils
 from models import InsertTrade, InsertMarketData, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount
+from blockchain import generate_wallet, start_monitoring_wallet
 
-from storage import storage
-from config import GOOGLE_CLIENT_ID
+from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST
+
+if DATABASE_TYPE == 'postgresql':
+    from postgres_storage import storage
+elif DATABASE_TYPE == 'mysql':
+    from storage import storage
 
 class DateTimeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        elif isinstance(obj, (int, float)):
-            return str(obj)
+    def default(self, o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        elif isinstance(o, (int, float)):
+            return str(o)
         else:
-            return super().default(obj)
+            return super().default(o)
       
 class Application(tornado.web.Application):
     coins = {}
@@ -513,13 +522,23 @@ class BankAccountCreateHandler(BaseHandler):
 class MarketDataHandler(BaseHandler):
     def get(self, pair: Optional[str] = None):
         try:
+            # Get timeframe parameter with default of "1H"
+            timeframe = self.get_argument("timeframe", "1H")
+            
+            # Validate timeframe
+            valid_timeframes = ["1H", "1D", "1W", "1M", "1Y"]
+            if timeframe not in valid_timeframes:
+                self.set_status(400)
+                self.write({"error": f"Invalid timeframe. Valid options: {', '.join(valid_timeframes)}"})
+                return
+            
             if pair:
-                print("Get specific pair data: /api/market/{pair}")
-                data = storage.get_market_data(pair)
+                print(f"Get specific pair data: /api/market/{pair}?timeframe={timeframe}")
+                data = storage.get_market_data(pair, timeframe)
                 self.write(json.dumps([item.dict(by_alias=True) for item in data], cls=DateTimeEncoder))
             else:
-                print("Get all market data: /api/market")
-                data = storage.get_all_market_data()
+                print(f"Get all market data: /api/market?timeframe={timeframe}")
+                data = storage.get_all_market_data(timeframe)
                 #print(data)
                 self.write(json.dumps([item.dict(by_alias=True) for item in data], cls=DateTimeEncoder))
         except Exception as e:
@@ -611,7 +630,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 def main():
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(5875, address='127.0.0.1')
+    app.listen(APP_PORT, address=APP_HOST)
     #logging.getLogger('tornado.access').disabled = True
     tornado.ioloop.IOLoop.current().start()
 

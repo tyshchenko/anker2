@@ -88,7 +88,7 @@ class MemStorage:
                     price=str(step['open']),
                     change_24h="0.00",
                     volume_24h=str(step['volumeto']),
-                    timestamp=datetime.fromtimestamp(int(step['time'])/1000)
+                    timestamp=datetime.fromtimestamp(int(step['time']))
                 ))
             
             self.market_data[pair] = data
@@ -266,6 +266,7 @@ class MemStorage:
         sql = "INSERT INTO wallets (email,coin,address,balance,privatekey) VALUES ('%s','%s','%s','0','%s')" % (user.email,new_wallet.coin,new_wallet.address,new_wallet.private_key)
         db = DataBase(DB_NAME)
         lastrowid = db.execute(sql, return_id=True)
+        return Wallet()
 
     def create_bank_account(self, new_bank_account: NewBankAccount, user: User) -> dict:
         """Create a new bank account for user"""

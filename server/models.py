@@ -40,6 +40,12 @@ class InsertUser(BaseModel):
     google_id: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    second_names: Optional[str] = None
+    phone: Optional[str] = None
+    country: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+    verification_level: Optional[str] = None
     profile_image_url: Optional[str] = None
 
 
@@ -65,8 +71,7 @@ class Wallet(BaseModel):
 
 class NewWallet(BaseModel):
     coin: str
-    address: Optional[str] = None
-    private_key: Optional[str] = None
+    # address and private_key will be generated automatically
 
     
 class BankAccount(BaseModel):
