@@ -36,27 +36,69 @@ interface AuthContextType {
   register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   loginWithGoogle: (googleData: { token: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
+  setUnauthenticated: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Query to get current user
-  const { data: userResponse, isLoading } = useQuery({
+  const { data: userResponse, isLoading, error } = useQuery({
     queryKey: ["/api/auth/me"],
     retry: false,
     refetchOnWindowFocus: false,
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (response.status === 401) {
+          setIsAuthenticated(false);
+          return null;
+        }
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+        
+        const data = await response.json();
+        setIsAuthenticated(!!data?.user);
+        return data;
+      } catch (error) {
+        setIsAuthenticated(false);
+        throw error;
+      }
+    },
   });
+  
+  // Update authentication state when userResponse changes
+  useEffect(() => {
+    setIsAuthenticated(!!(userResponse as any)?.user);
+  }, [userResponse]);
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const response = await apiRequest("POST", "/api/auth/login", { email, password });
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/auth/login", { email, password });
+        return response.json();
+      } catch (error: any) {
+        if (error.message?.includes('401')) {
+          setIsAuthenticated(false);
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
+      setIsAuthenticated(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
     },
   });
 
@@ -72,37 +114,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       first_name?: string; 
       last_name?: string; 
     }) => {
-      const response = await apiRequest("POST", "/api/auth/register", { 
-        email, 
-        password, 
-        first_name, 
-        last_name 
-      });
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/auth/register", { 
+          email, 
+          password, 
+          first_name, 
+          last_name 
+        });
+        return response.json();
+      } catch (error: any) {
+        if (error.message?.includes('401')) {
+          setIsAuthenticated(false);
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
+      setIsAuthenticated(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
     },
   });
 
   const googleAuthMutation = useMutation({
     mutationFn: async (googleData: { token: string; email: string; name: string; picture?: string }) => {
-      const response = await apiRequest("POST", "/api/auth/google", googleData);
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/auth/google", googleData);
+        return response.json();
+      } catch (error: any) {
+        if (error.message?.includes('401')) {
+          setIsAuthenticated(false);
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
+      setIsAuthenticated(true);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/auth/logout", {});
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/auth/logout", {});
+        return response.json();
+      } catch (error: any) {
+        // Even if logout fails, we still want to clear auth state
+        setIsAuthenticated(false);
+        throw error;
+      }
     },
     onSuccess: () => {
+      setIsAuthenticated(false);
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
     },
   });
 
@@ -126,15 +200,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await logoutMutation.mutateAsync();
   };
+  
+  const setUnauthenticated = () => {
+    setIsAuthenticated(false);
+    queryClient.setQueryData(["/api/auth/me"], null);
+  };
 
   const value: AuthContextType = {
     user: (userResponse as any)?.user || null,
     isLoading,
-    isAuthenticated: !!(userResponse as any)?.user,
+    isAuthenticated,
     login,
     register,
     loginWithGoogle,
     logout,
+    setUnauthenticated,
   };
 
   return (

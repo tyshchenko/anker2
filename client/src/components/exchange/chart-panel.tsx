@@ -1,20 +1,20 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from "recharts";
-import type { MarketData } from "@shared/schema";
+import { createChart, ColorType } from 'lightweight-charts';
 import { Button } from "@/components/ui/button";
 import { Expand } from "lucide-react";
 
 interface ChartPanelProps {
   currentPair: string;
+}
+
+interface OHLCVData {
+  timestamp: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
 }
 
 const timeframes = [
@@ -31,50 +31,120 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
   // Parse the current pair to extract CRYPTO and FIAT (e.g., "BTC/ZAR" -> ["BTC", "ZAR"])
   const [crypto, fiat] = currentPair.split('/');
 
-  const { data: marketData = [], isLoading } = useQuery<MarketData[]>({
-    queryKey: ["/api/market", crypto, fiat, selectedTimeframe],
+  const { data: ohlcvData = [], isLoading } = useQuery<OHLCVData[]>({
+    queryKey: ["/api/market", crypto, fiat, selectedTimeframe, "OHLCV"],
     queryFn: async () => {
-      const response = await fetch(`/api/market/${crypto}/${fiat}?timeframe=${selectedTimeframe}`);
-      if (!response.ok) throw new Error('Failed to fetch chart data');
+      const response = await fetch(`/api/market/${crypto}/${fiat}?timeframe=${selectedTimeframe}&type=OHLCV`);
+      if (!response.ok) throw new Error('Failed to fetch OHLCV data');
       return response.json();
     },
     refetchInterval: 30000, // Reduced frequency for chart data
     enabled: !!(crypto && fiat), // Only fetch if we have both crypto and fiat
   });
 
-  const chartData = useMemo(() => {
-    return marketData.map((data, index) => {
-      const date = new Date(data.timestamp);
-      let timeLabel = "";
-      
-      // Format time based on selected timeframe
-      switch (selectedTimeframe) {
-        case "1H":
-          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          break;
-        case "1D":
-          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", day: "numeric" });
-          break;
-        case "1W":
-        case "1M":
-          timeLabel = date.toLocaleDateString([], { month: "short", day: "numeric", year: "2-digit" });
-          break;
-        default:
-          timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-      
-      return {
-        time: timeLabel,
-        price: parseFloat(data.price),
-        index,
-      };
-    });
-  }, [marketData, selectedTimeframe]);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstanceRef = useRef<any>(null);
+  const candlestickSeriesRef = useRef<any>(null);
 
-  const currentPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : 0;
-  const firstPrice = chartData.length > 0 ? chartData[0].price : 0;
+  const candlestickData = useMemo(() => {
+    return ohlcvData.map((data) => {
+      const timestamp = Math.floor(new Date(data.timestamp).getTime() / 1000); // Convert to seconds for lightweight-charts
+      return {
+        time: timestamp as any,
+        open: parseFloat(data.open),
+        high: parseFloat(data.high),
+        low: parseFloat(data.low),
+        close: parseFloat(data.close),
+      };
+    }).sort((a, b) => (a.time as number) - (b.time as number)); // Ensure chronological order
+  }, [ohlcvData]);
+
+  const currentPrice = candlestickData.length > 0 ? candlestickData[candlestickData.length - 1].close : 0;
+  const firstPrice = candlestickData.length > 0 ? candlestickData[0].open : 0;
   const priceChange = currentPrice - firstPrice;
   const percentChange = firstPrice > 0 ? (priceChange / firstPrice) * 100 : 0;
+
+  // Initialize chart
+  useEffect(() => {
+    if (!chartRef.current || candlestickData.length === 0) return;
+
+    // Clean up existing chart
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.remove();
+    }
+
+    // Create new chart
+    const chart = createChart(chartRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: 'rgba(255, 255, 255, 0.9)',
+      },
+      grid: {
+        vertLines: {
+          color: 'rgba(197, 203, 206, 0.1)',
+        },
+        horzLines: {
+          color: 'rgba(197, 203, 206, 0.1)',
+        },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(197, 203, 206, 0.2)',
+      },
+      timeScale: {
+        borderColor: 'rgba(197, 203, 206, 0.2)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    // Add candlestick series
+    const candlestickSeries = (chart as any).addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    // Set data
+    candlestickSeries.setData(candlestickData);
+
+    // Store references
+    chartInstanceRef.current = chart;
+    candlestickSeriesRef.current = candlestickSeries;
+
+    // Handle resize
+    const handleResize = () => {
+      if (chartRef.current && chartInstanceRef.current) {
+        chartInstanceRef.current.applyOptions({
+          width: chartRef.current.clientWidth,
+          height: chartRef.current.clientHeight,
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.remove();
+        chartInstanceRef.current = null;
+        candlestickSeriesRef.current = null;
+      }
+    };
+  }, [candlestickData]);
+
+  // Update chart data when it changes
+  useEffect(() => {
+    if (candlestickSeriesRef.current && candlestickData.length > 0) {
+      candlestickSeriesRef.current.setData(candlestickData);
+    }
+  }, [candlestickData]);
 
   const formatPrice = (price: number) => {
     if (currentPair.includes("ZAR")) {
@@ -122,57 +192,19 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
 
         {/* Chart Container */}
         <div className="flex-1 min-h-[400px] bg-card rounded-xl border border-border p-4 chart-container">
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ left: 12, right: 12, top: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(204, 76%, 49%)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="hsl(204, 76%, 49%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeOpacity={0.08} vertical={false} />
-                <XAxis 
-                  dataKey="time" 
-                  tick={{ fill: "hsl(215, 20%, 65%)", fontSize: 12 }} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  minTickGap={32} 
-                />
-                <YAxis 
-                  tick={{ fill: "hsl(215, 20%, 65%)", fontSize: 12 }} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  width={70} 
-                  domain={["dataMin", "dataMax"]}
-                  tickFormatter={(value) => formatPrice(value)}
-                />
-                <Tooltip
-                  contentStyle={{ 
-                    background: "hsl(222, 84%, 5%)", 
-                    border: "1px solid hsl(217, 32%, 17%)", 
-                    borderRadius: 12, 
-                    color: "hsl(210, 40%, 98%)" 
-                  }}
-                  labelStyle={{ color: "hsl(215, 20%, 65%)" }}
-                  formatter={(value: number) => [formatPrice(value), "Price"]}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="price" 
-                  stroke="hsl(204, 76%, 49%)" 
-                  fill="url(#priceGradient)" 
-                  strokeWidth={2} 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {candlestickData.length > 0 ? (
+            <div 
+              ref={chartRef} 
+              className="w-full h-full"
+              style={{ minHeight: '400px' }}
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <div className="text-center">
                 <svg className="w-16 h-16 text-muted-foreground mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
                 </svg>
-                <p className="text-muted-foreground">No chart data available</p>
+                <p className="text-muted-foreground">No candlestick data available</p>
               </div>
             </div>
           )}

@@ -9,7 +9,7 @@ import { WithdrawModal } from "@/components/exchange/withdraw-modal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine } from "lucide-react";
+import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine, Copy, CheckCircle } from "lucide-react";
 import { useWallets } from "@/hooks/useWallets";
 import { useAuth } from "@/lib/auth";
 import btcLogo from "@assets/BTC_1757408297384.png";
@@ -173,7 +173,24 @@ interface WalletCardProps {
   isComingSoon?: boolean;
 }
 
+interface CopiedState {
+  [key: string]: boolean;
+}
+
 function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCardProps) {
+  const [copied, setCopied] = useState<CopiedState>({});
+
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => {
+        setCopied(prev => ({ ...prev, [key]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
   const formatBalance = (amount: number, symbol: string) => {
     if (!isBalanceVisible) return '••••••';
     
@@ -249,9 +266,25 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
 
         <div>
           <p className="text-sm text-muted-foreground">Address</p>
-          <p className="text-lg font-semibold" data-testid={`wallet-address-${wallet.id}`}>
-            {formatAddress(wallet.address)}
-          </p>
+          <div className="flex items-center space-x-2">
+            <p className="text-lg font-semibold flex-1" data-testid={`wallet-address-${wallet.id}`}>
+              {formatAddress(wallet.address)}
+            </p>
+            {isBalanceVisible && (
+              <button
+                onClick={() => copyToClipboard(wallet.address, `address-${wallet.id}`)}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Copy full address"
+                data-testid={`copy-address-${wallet.id}`}
+              >
+                {copied[`address-${wallet.id}`] ? (
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Copy className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
