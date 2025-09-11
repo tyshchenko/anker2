@@ -29,7 +29,8 @@ class DataBase(object):
             print(e)
 
             print('-reconnecting and trying again...')
-            return self.query(sqlquery)        
+            #return self.query(sqlquery)
+            return None
         
     
     def execute(self, sqlquery, vals=None, return_id=False):
