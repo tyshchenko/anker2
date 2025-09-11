@@ -249,7 +249,7 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
 
         <div>
           <p className="text-sm text-muted-foreground">Address</p>
-          <p className="text-xs font-mono text-muted-foreground" data-testid={`wallet-address-${wallet.id}`}>
+          <p className="text-lg font-semibold" data-testid={`wallet-address-${wallet.id}`}>
             {formatAddress(wallet.address)}
           </p>
         </div>
