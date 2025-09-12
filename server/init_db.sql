@@ -69,6 +69,18 @@ CREATE TABLE IF NOT EXISTS market_data (
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(200) NOT NULL,
+    coin VARCHAR(20) NOT NULL,
+    side VARCHAR(50) NOT NULL,
+    amount VARCHAR(200) NOT NULL,
+    price VARCHAR(200) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);

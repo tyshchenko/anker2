@@ -232,7 +232,7 @@ export function ChartPanel({ currentPair }: ChartPanelProps) {
               className={`text-lg ${percentChange >= 0 ? "price-up" : "price-down"}`}
               data-testid="text-price-change"
             >
-              {percentChange >= 0 ? "+" : ""}{formatPrice(priceChange)} ({percentChange.toFixed(2)}%) today
+              {percentChange >= 0 ? "+" : ""}{formatPrice(priceChange)} ({percentChange.toFixed(2)}%)
             </div>
           </div>
         </div>
