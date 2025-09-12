@@ -67,15 +67,23 @@ function getAvailableCryptos(marketData: MarketData[]) {
       cryptos.add(crypto);
     }
   });
-  
+  cryptos.delete('USDT')
+  cryptos.delete('SOL')
   return Array.from(cryptos);
 }
 
 const CRYPTO_DISPLAY_INFO: Record<string, { name: string; icon: string; color: string }> = {
   'BTC': { name: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
   'ETH': { name: 'Ethereum', icon: 'Ξ', color: 'bg-blue-500' },
+  'USDT': { name: 'Tether', icon: '₮', color: 'bg-green-500' },
   'BNB': { name: 'BNB', icon: '◉', color: 'bg-yellow-500' },
-  'TRX': { name: 'Tron', icon: '◈', color: 'bg-red-600' },
+  'SOL': { name: 'Solana', icon: '◎', color: 'bg-purple-500' },
+  'TRX': { name: 'Tron', icon: '◎', color: 'bg-red-500' },
+  'XRP': { name: 'XRP', icon: '◈', color: 'bg-blue-600' },
+  'ADA': { name: 'Cardano', icon: '◇', color: 'bg-blue-500' },
+  'AVAX': { name: 'Avalanche', icon: '◆', color: 'bg-red-500' },
+  'DOGE': { name: 'Dogecoin', icon: '◊', color: 'bg-yellow-600' },
+  'MATIC': { name: 'Polygon', icon: '⬟', color: 'bg-purple-600' },
 };
 
 export default function CreateWalletPage() {
