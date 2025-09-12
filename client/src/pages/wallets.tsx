@@ -164,6 +164,17 @@ const WALLETS = [
     address: '0xmatic1234567890abcdef1234567890abcdef12345678',
     color: 'bg-purple-600',
     textColor: 'text-purple-700'
+  },
+  {
+    id: 'trx-wallet',
+    name: 'Tron Wallet',
+    symbol: 'TRX',
+    icon: '◎',
+    balance: 0,
+    balanceZAR: 0,
+    address: 'TRXtron1234567890abcdef1234567890abcdef123456',
+    color: 'bg-red-500',
+    textColor: 'text-red-600'
   }
 ];
 
@@ -286,6 +297,18 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
             )}
           </div>
         </div>
+
+        <div>
+          <p className="text-sm text-muted-foreground">Miner Fee</p>
+          <p className="text-sm font-medium" data-testid={`wallet-miner-fee-${wallet.id}`}>
+            {isBalanceVisible ? (
+              wallet.symbol === 'BTC' ? '~0.0001 BTC' :
+              wallet.symbol === 'ETH' ? '~0.002 ETH' :
+              wallet.symbol === 'TRX' ? '~1 TRX' :
+              `~0.01 ${wallet.symbol}`
+            ) : '••••••'}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -328,6 +351,17 @@ export default function WalletsPage() {
   
   // Fetch user wallets data
   const { data: walletsData, isLoading: walletsLoading } = useWallets();
+  
+  // Fetch market prices for ZAR conversion
+  const { data: marketData } = useQuery({
+    queryKey: ['/api/market'],
+    queryFn: async () => {
+      const response = await fetch('/api/market');
+      if (!response.ok) throw new Error('Failed to fetch market data');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
 
   const handleDepositClick = () => {
     setShowDepositModal(true);
@@ -335,6 +369,15 @@ export default function WalletsPage() {
 
   const handleWithdrawClick = () => {
     setShowWithdrawModal(true);
+  };
+  
+  // Helper function to get ZAR price for a crypto symbol
+  const getZARPrice = (symbol: string): number => {
+    if (!marketData || symbol === 'ZAR') return 1; // ZAR is 1:1 with itself
+    if (symbol === 'USD') return 18.5; // Approximate USD to ZAR rate
+    
+    const pair = marketData.find((data: any) => data.pair === `${symbol}/ZAR`);
+    return pair ? parseFloat(pair.price) : 0;
   };
   
   // Real wallets from the server
@@ -345,14 +388,19 @@ export default function WalletsPage() {
     // Find matching static UI data for this coin
     const staticWallet = WALLETS.find(w => w.symbol === wallet.coin);
     
+    // Calculate ZAR balance using real market prices
+    const balance = parseFloat(wallet.balance);
+    const zarPrice = getZARPrice(wallet.coin);
+    const balanceZAR = balance * zarPrice;
+    
     return {
       id: wallet.id,
       name: staticWallet?.name || `${wallet.coin} Wallet`,
       symbol: wallet.coin,
       icon: staticWallet?.icon || wallet.coin[0],
       logoUrl: staticWallet?.logoUrl,
-      balance: parseFloat(wallet.balance),
-      balanceZAR: parseFloat(wallet.balance), // For now, assume 1:1 - could be enhanced with exchange rates
+      balance,
+      balanceZAR,
       address: wallet.address,
       color: staticWallet?.color || 'bg-gray-500',
       textColor: staticWallet?.textColor || 'text-gray-600',
@@ -366,8 +414,12 @@ export default function WalletsPage() {
     return wallet.symbol !== 'ZAR';
   });
 
-  // Calculate total balance from real wallets
-  const totalBalanceZAR = realWallets.reduce((sum, wallet) => sum + parseFloat(wallet.balance), 0);
+  // Calculate total balance from real wallets using real ZAR prices
+  const totalBalanceZAR = realWallets.reduce((sum, wallet) => {
+    const balance = parseFloat(wallet.balance);
+    const zarPrice = getZARPrice(wallet.coin);
+    return sum + (balance * zarPrice);
+  }, 0);
   
   // Find ZAR wallet for the prominent section
   const zarWallet = realWallets.find(wallet => wallet.coin === 'ZAR');

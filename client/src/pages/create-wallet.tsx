@@ -21,6 +21,15 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Wallet, Copy, CheckCircle, QrCode } from "lucide-react";
 import QRCode from "qrcode";
+import btcLogo from "@assets/BTC_1757408297384.png";
+import ethLogo from "@assets/ETH_1757408297384.png";
+import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
 interface MarketData {
   pair: string;
@@ -72,18 +81,18 @@ function getAvailableCryptos(marketData: MarketData[]) {
   return Array.from(cryptos);
 }
 
-const CRYPTO_DISPLAY_INFO: Record<string, { name: string; icon: string; color: string }> = {
-  'BTC': { name: 'Bitcoin', icon: '₿', color: 'bg-orange-500' },
-  'ETH': { name: 'Ethereum', icon: 'Ξ', color: 'bg-blue-500' },
-  'USDT': { name: 'Tether', icon: '₮', color: 'bg-green-500' },
-  'BNB': { name: 'BNB', icon: '◉', color: 'bg-yellow-500' },
-  'SOL': { name: 'Solana', icon: '◎', color: 'bg-purple-500' },
+const CRYPTO_DISPLAY_INFO: Record<string, { name: string; icon: string; color: string; logoUrl?: string }> = {
+  'BTC': { name: 'Bitcoin', icon: '₿', color: 'bg-orange-500', logoUrl: btcLogo },
+  'ETH': { name: 'Ethereum', icon: 'Ξ', color: 'bg-blue-500', logoUrl: ethLogo },
+  'USDT': { name: 'Tether', icon: '₮', color: 'bg-green-500', logoUrl: usdtLogo },
+  'BNB': { name: 'BNB', icon: '◉', color: 'bg-yellow-500', logoUrl: bnbLogo },
+  'SOL': { name: 'Solana', icon: '◎', color: 'bg-purple-500', logoUrl: solLogo },
   'TRX': { name: 'Tron', icon: '◎', color: 'bg-red-500' },
-  'XRP': { name: 'XRP', icon: '◈', color: 'bg-blue-600' },
-  'ADA': { name: 'Cardano', icon: '◇', color: 'bg-blue-500' },
+  'XRP': { name: 'XRP', icon: '◈', color: 'bg-blue-600', logoUrl: xrpLogo },
+  'ADA': { name: 'Cardano', icon: '◇', color: 'bg-blue-500', logoUrl: cardanoLogo },
   'AVAX': { name: 'Avalanche', icon: '◆', color: 'bg-red-500' },
-  'DOGE': { name: 'Dogecoin', icon: '◊', color: 'bg-yellow-600' },
-  'MATIC': { name: 'Polygon', icon: '⬟', color: 'bg-purple-600' },
+  'DOGE': { name: 'Dogecoin', icon: '◊', color: 'bg-yellow-600', logoUrl: dogeLogo },
+  'MATIC': { name: 'Polygon', icon: '⬟', color: 'bg-purple-600', logoUrl: polygonLogo },
 };
 
 export default function CreateWalletPage() {
@@ -284,8 +293,18 @@ export default function CreateWalletPage() {
                               return (
                                 <SelectItem key={crypto} value={crypto}>
                                   <div className="flex items-center space-x-2">
-                                    <div className={`w-6 h-6 rounded-full ${cryptoInfo.color} flex items-center justify-center text-white text-sm font-bold`}>
-                                      {cryptoInfo.icon}
+                                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center p-0.5">
+                                      {cryptoInfo.logoUrl ? (
+                                        <img 
+                                          src={cryptoInfo.logoUrl} 
+                                          alt={`${crypto} logo`} 
+                                          className="w-full h-full rounded-full object-contain"
+                                        />
+                                      ) : (
+                                        <div className={`w-full h-full rounded-full ${cryptoInfo.color} flex items-center justify-center text-white text-sm font-bold`}>
+                                          {cryptoInfo.icon}
+                                        </div>
+                                      )}
                                     </div>
                                     <span>{cryptoInfo.name} ({crypto})</span>
                                   </div>
@@ -311,8 +330,18 @@ export default function CreateWalletPage() {
                     {selectedCrypto && (
                       <div className="bg-muted rounded-lg p-4">
                         <div className="flex items-center space-x-3 mb-3">
-                          <div className={`w-8 h-8 rounded-full ${selectedCryptoData?.color} flex items-center justify-center text-white font-bold`}>
-                            {selectedCryptoData?.icon}
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center p-1">
+                            {selectedCryptoData?.logoUrl ? (
+                              <img 
+                                src={selectedCryptoData.logoUrl} 
+                                alt={`${selectedCrypto} logo`} 
+                                className="w-full h-full rounded-full object-contain"
+                              />
+                            ) : (
+                              <div className={`w-full h-full rounded-full ${selectedCryptoData?.color} flex items-center justify-center text-white font-bold`}>
+                                {selectedCryptoData?.icon}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <h3 className="font-medium">{selectedCryptoData?.name} Wallet</h3>

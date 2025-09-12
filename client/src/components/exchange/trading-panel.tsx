@@ -12,6 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { LoginDialog } from "@/components/auth/login-dialog";
 
 interface TradingPanelProps {
@@ -172,6 +179,14 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewOrder, setPreviewOrder] = useState<{
+    type: ActionTab;
+    from: string;
+    to: string;
+    amount: string;
+    quote: any;
+  } | null>(null);
   
   const availableAssets = useMemo(() => getAvailableAssets(marketData), [marketData]);
 
@@ -259,6 +274,30 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
     } else {
       setAmountConvert(amount);
     }
+  };
+
+  const handlePreviewOrder = (type: ActionTab) => {
+    let from: string, to: string, amount: string, quote: any;
+    
+    if (type === "buy") {
+      from = fromBuy;
+      to = toBuy;
+      amount = amountBuy;
+      quote = buyQuote;
+    } else if (type === "sell") {
+      from = fromSell;
+      to = toSell;
+      amount = amountSell;
+      quote = sellQuote;
+    } else {
+      from = fromConvert;
+      to = toConvert;
+      amount = amountConvert;
+      quote = convertQuote;
+    }
+    
+    setPreviewOrder({ type, from, to, amount, quote });
+    setShowPreviewModal(true);
   };
 
   const TabButton = ({ tab, label }: { tab: ActionTab; label: string }) => (
@@ -402,6 +441,8 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
+                  } else {
+                    handlePreviewOrder("buy");
                   }
                 }}
                 data-testid="button-preview-buy"
@@ -486,6 +527,8 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
+                  } else {
+                    handlePreviewOrder("sell");
                   }
                 }}
                 data-testid="button-preview-sell"
@@ -577,6 +620,8 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 onClick={() => {
                   if (!isAuthenticated) {
                     setShowLoginDialog(true);
+                  } else {
+                    handlePreviewOrder("convert");
                   }
                 }}
                 data-testid="button-preview-convert"
@@ -649,6 +694,92 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
         onOpenChange={setShowLoginDialog}
         onSwitchToRegister={() => {}}
       />
+
+      {/* Preview Order Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Preview {previewOrder?.type === "buy" ? "Buy" : previewOrder?.type === "sell" ? "Sell" : "Convert"} Order
+            </DialogTitle>
+            <DialogDescription>
+              Please review your order details before confirming.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewOrder && (
+            <div className="space-y-4">
+              {/* Order Details */}
+              <div className="bg-muted rounded-lg p-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {previewOrder.type === "buy" ? "Pay with" : "From"}
+                  </span>
+                  <span className="font-medium">
+                    {formatAmount(previewOrder.from, parseFloat(previewOrder.amount))} {previewOrder.from}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Exchange Rate</span>
+                  <span className="font-mono">
+                    1 {previewOrder.from} = {formatAmount(previewOrder.to, previewOrder.quote.rate)} {previewOrder.to}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Fee (0.10%)</span>
+                  <span className="font-mono">
+                    {formatAmount(previewOrder.to, previewOrder.quote.fee)} {previewOrder.to}
+                  </span>
+                </div>
+                
+                <div className="h-px bg-border" />
+                
+                <div className="flex justify-between font-semibold">
+                  <span>You receive</span>
+                  <span className="font-mono text-green-600">
+                    {formatAmount(previewOrder.to, previewOrder.quote.toAmount)} {previewOrder.to}
+                  </span>
+                </div>
+              </div>
+
+              {/* Your Balance */}
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Your {previewOrder.from} Balance</span>
+                  <span className="font-mono">
+                    {formatAmount(previewOrder.from, getUserBalance(previewOrder.from))} {previewOrder.from}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => setShowPreviewModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1"
+                  variant={previewOrder.type === "sell" ? "destructive" : "default"}
+                  onClick={() => {
+                    // TODO: Implement actual order execution
+                    console.log("Order confirmed:", previewOrder);
+                    setShowPreviewModal(false);
+                    // You would typically send the order to your backend here
+                  }}
+                >
+                  Confirm {previewOrder.type === "buy" ? "Buy" : previewOrder.type === "sell" ? "Sell" : "Convert"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }
