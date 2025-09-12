@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -94,6 +95,7 @@ export default function CreateWalletPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
   const [step, setStep] = useState<'setup' | 'success'>('setup');
+  const { toast } = useToast();
 
   // Fetch market data to get available cryptocurrencies
   const { data: marketData = [], isLoading: isLoadingMarket } = useMarketData();
@@ -159,8 +161,8 @@ export default function CreateWalletPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to create wallet');
       }
-
-      return response.json();
+      const data = await response.json();
+      return data.wallet;
     },
     onSuccess: async (wallet: CreatedWallet) => {
       setCreatedWallet(wallet);
@@ -173,7 +175,11 @@ export default function CreateWalletPage() {
     },
     onError: (error) => {
       console.error('Failed to create wallet:', error);
-      alert(error.message || 'Failed to create wallet. Please try again.');
+      toast({
+        title: "Failed to create wallet",
+        description: error.message || "Failed to create wallet. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
