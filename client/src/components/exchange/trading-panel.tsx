@@ -723,7 +723,13 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Exchange Rate</span>
                   <span className="font-mono">
-                    1 {previewOrder.from} = {formatAmount(previewOrder.to, previewOrder.quote.rate)} {previewOrder.to}
+                    {previewOrder.type === "buy" || previewOrder.type === "sell" ? (
+                      previewOrder.type === "buy" ? 
+                        `1 ${previewOrder.to} = ${formatAmount(previewOrder.from, 1 / previewOrder.quote.rate)} ${previewOrder.from}` :
+                        `1 ${previewOrder.from} = ${formatAmount(previewOrder.to, previewOrder.quote.rate)} ${previewOrder.to}`
+                    ) : (
+                      `1 ${previewOrder.from} = ${formatAmount(previewOrder.to, previewOrder.quote.rate)} ${previewOrder.to}`
+                    )}
                   </span>
                 </div>
                 
@@ -766,11 +772,45 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 <Button 
                   className="flex-1"
                   variant={previewOrder.type === "sell" ? "destructive" : "default"}
-                  onClick={() => {
-                    // TODO: Implement actual order execution
-                    console.log("Order confirmed:", previewOrder);
-                    setShowPreviewModal(false);
-                    // You would typically send the order to your backend here
+                  onClick={async () => {
+                    try {
+                      // Prepare trade data for API
+                      const tradeData = {
+                        user_id: user?.id,
+                        type: previewOrder.type,
+                        from_asset: previewOrder.from,
+                        to_asset: previewOrder.to,
+                        from_amount: parseFloat(previewOrder.amount),
+                        to_amount: previewOrder.quote.toAmount,
+                        rate: previewOrder.quote.rate,
+                        fee: previewOrder.quote.fee,
+                        status: "pending"
+                      };
+
+                      // Send POST request to create trade
+                      const response = await fetch('/api/trades', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify(tradeData)
+                      });
+
+                      if (response.ok) {
+                        const result = await response.json();
+                        console.log("Trade created successfully:", result);
+                        setShowPreviewModal(false);
+                        // You might want to show a success message or refresh the trades list here
+                      } else {
+                        const error = await response.json();
+                        console.error("Failed to create trade:", error);
+                        // You might want to show an error message here
+                      }
+                    } catch (error) {
+                      console.error("Error creating trade:", error);
+                      // You might want to show an error message here
+                    }
                   }}
                 >
                   Confirm {previewOrder.type === "buy" ? "Buy" : previewOrder.type === "sell" ? "Sell" : "Convert"}
