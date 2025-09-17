@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useWallets } from "@/hooks/useWallets";
 import { Button } from "@/components/ui/button";
@@ -177,6 +177,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const { user, isAuthenticated } = useAuth();
   const { data: walletsData } = useWallets();
   const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -800,8 +801,19 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                       if (response.ok) {
                         const result = await response.json();
                         console.log("Trade created successfully:", result);
+                        
+                        // Refresh wallet balances after successful trade
+                        await queryClient.invalidateQueries({
+                          queryKey: ['/api/wallets', user?.email, user?.id]
+                        });
+                        
+                        // Also refresh trades list
+                        await queryClient.invalidateQueries({
+                          queryKey: ['/api/trades', user?.id]
+                        });
+                        
                         setShowPreviewModal(false);
-                        // You might want to show a success message or refresh the trades list here
+                        // You might want to show a success message here
                       } else {
                         const error = await response.json();
                         console.error("Failed to create trade:", error);
