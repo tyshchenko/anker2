@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import type { BankAccount, InsertBankAccount } from "@shared/schema";
 
 interface UserProfile {
   firstName: string;
@@ -58,22 +59,21 @@ interface UserProfile {
   securityAlerts: boolean;
 }
 
-interface BankAccount {
-  id: string;
-  accountName: string;
-  accountNumber: string;
-  bankName: string;
-  branchNumber: string;
-  isWhitelisted?: boolean;
-}
-
-interface InsertBankAccount {
-  userId: string;
-  accountName: string;
-  accountNumber: string;
-  bankName: string;
-  branchNumber: string;
-}
+const MOCK_PROFILE: UserProfile = {
+  firstName: 'John',
+  lastName: 'Smith',
+  email: 'john.smith@example.com',
+  phone: '+27 82 123 4567',
+  country: 'South Africa',
+  language: 'English',
+  timezone: 'Africa/Johannesburg',
+  verificationLevel: 'basic',
+  twoFactorEnabled: true,
+  emailNotifications: true,
+  smsNotifications: false,
+  tradingNotifications: true,
+  securityAlerts: true
+};
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -83,8 +83,8 @@ export default function ProfilePage() {
   
   // Create profile state from authenticated user data, with defaults for missing fields
   const [profile, setProfile] = useState<UserProfile>({
-    firstName: user?.first_name || '',
-    lastName: user?.last_name || '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
     email: user?.email || '',
     phone: '+27 82 123 4567', // Default value, can be updated
     country: 'South Africa',
@@ -105,7 +105,7 @@ export default function ProfilePage() {
   const [newBankData, setNewBankData] = useState({
     bankName: "",
     accountNumber: "",
-    accountName: "",
+    accountHolderName: "",
     branchNumber: ""
   });
 
@@ -114,8 +114,8 @@ export default function ProfilePage() {
     if (user) {
       setProfile(prev => ({
         ...prev,
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
         email: user.email || '',
       }));
     }
@@ -134,11 +134,6 @@ export default function ProfilePage() {
   // Fetch user's bank accounts
   const { data: bankAccounts = [], isLoading: isLoadingBankAccounts } = useQuery<BankAccount[]>({
     queryKey: ["/api/bank-accounts", userId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bank-accounts/${userId}`);
-      const data = await response.json();
-      return data.data || [];
-    },
     enabled: !!userId,
   });
 
@@ -155,7 +150,7 @@ export default function ProfilePage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts", userId] });
       setShowAddBankForm(false);
-      setNewBankData({ bankName: "", accountNumber: "", accountName: "", branchNumber: "" });
+      setNewBankData({ bankName: "", accountNumber: "", accountHolderName: "", branchNumber: "" });
     },
     onError: (error: any) => {
       const errorMessage = error.message || "Failed to add bank account";
@@ -351,10 +346,7 @@ export default function ProfilePage() {
                             value={profile.email}
                             onChange={(e) => handleProfileUpdate('email', e.target.value)}
                             data-testid="input-email"
-                            disabled={true}
-                            className="bg-muted"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
                         </div>
                         <div>
                           <Label htmlFor="phone">Phone Number</Label>
@@ -562,17 +554,21 @@ export default function ProfilePage() {
                                       <p className="text-sm text-muted-foreground">
                                         {maskAccountNumber(account.accountNumber)}
                                       </p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {account.accountName}
-                                      </p>
+                                      <p className="text-xs text-muted-foreground">{account.accountHolderName}</p>
+                                      <p className="text-xs text-muted-foreground">Branch: {account.branchNumber}</p>
                                     </div>
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       onClick={() => handleDeleteBank(account.id)}
                                       disabled={deleteBankAccountMutation.isPending}
+                                      data-testid={`button-delete-bank-${account.id}`}
                                     >
-                                      <Trash2 className="w-4 h-4" />
+                                      {deleteBankAccountMutation.isPending ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-4 h-4" />
+                                      )}
                                     </Button>
                                   </div>
                                 </Card>
@@ -580,78 +576,123 @@ export default function ProfilePage() {
                             </div>
                           )}
 
-                          {!showAddBankForm ? (
-                            <div className="mt-4">
-                              <Button 
-                                variant="outline" 
+                          {bankAccounts.length === 0 || !showAddBankForm ? (
+                            bankAccounts.length === 0 && (
+                              <Button
+                                variant="outline"
+                                className="w-full mt-4"
                                 onClick={() => setShowAddBankForm(true)}
-                                className="w-full"
+                                data-testid="button-add-bank-profile"
                               >
                                 <Plus className="w-4 h-4 mr-2" />
                                 Add Bank Account
                               </Button>
+                            )
+                          ) : null}
+
+                          {bankAccounts.length > 0 && !showAddBankForm && (
+                            <div className="text-center mt-4">
+                              <p className="text-sm text-muted-foreground">
+                                You can only have one bank account per profile for regulatory compliance.
+                              </p>
                             </div>
-                          ) : (
-                            <div className="mt-4 space-y-4 border-t pt-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          )}
+
+                          {showAddBankForm && (
+                            <>
+                              <Separator className="my-4" />
+                              <div className="space-y-4">
+                                <h4 className="text-sm font-medium">Add Bank Account</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label htmlFor="profile-bank-name">Bank Name</Label>
+                                    <Input
+                                      id="profile-bank-name"
+                                      value={newBankData.bankName}
+                                      onChange={(e) => setNewBankData(prev => ({ ...prev, bankName: e.target.value }))}
+                                      placeholder="e.g., Standard Bank"
+                                      data-testid="input-profile-bank-name"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="profile-branch-number">Branch Code</Label>
+                                    <Input
+                                      id="profile-branch-number"
+                                      value={newBankData.branchNumber}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9]/g, '');
+                                        if (value.length <= 6) {
+                                          setNewBankData(prev => ({ ...prev, branchNumber: value }));
+                                        }
+                                      }}
+                                      placeholder="e.g., 051001"
+                                      className="font-mono"
+                                      data-testid="input-profile-branch-number"
+                                    />
+                                  </div>
+                                </div>
+                                
                                 <div>
-                                  <Label htmlFor="bankName">Bank Name</Label>
+                                  <Label htmlFor="profile-account-holder">Account Holder Name</Label>
                                   <Input
-                                    id="bankName"
-                                    value={newBankData.bankName}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, bankName: e.target.value }))}
-                                    placeholder="e.g. Standard Bank"
+                                    id="profile-account-holder"
+                                    value={newBankData.accountHolderName}
+                                    onChange={(e) => setNewBankData(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                                    placeholder="Full name as per bank account"
+                                    data-testid="input-profile-account-holder"
                                   />
                                 </div>
+                                
                                 <div>
-                                  <Label htmlFor="accountName">Account Holder Name</Label>
+                                  <Label htmlFor="profile-account-number">Account Number</Label>
                                   <Input
-                                    id="accountName"
-                                    value={newBankData.accountName}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, accountName: e.target.value }))}
-                                    placeholder="Full name on account"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="accountNumber">Account Number</Label>
-                                  <Input
-                                    id="accountNumber"
+                                    id="profile-account-number"
                                     value={newBankData.accountNumber}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                                    placeholder="Account number"
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/[^0-9]/g, '');
+                                      setNewBankData(prev => ({ ...prev, accountNumber: value }));
+                                    }}
+                                    placeholder="Your bank account number"
+                                    className="font-mono"
+                                    data-testid="input-profile-account-number"
                                   />
                                 </div>
-                                <div>
-                                  <Label htmlFor="branchNumber">Branch Number</Label>
-                                  <Input
-                                    id="branchNumber"
-                                    value={newBankData.branchNumber}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, branchNumber: e.target.value }))}
-                                    placeholder="Branch code"
-                                  />
+                                <div className="flex space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setShowAddBankForm(false);
+                                      setNewBankData({ bankName: "", accountNumber: "", accountHolderName: "", branchNumber: "" });
+                                    }}
+                                    className="flex-1"
+                                    data-testid="button-cancel-add-bank-profile"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    onClick={handleAddBank}
+                                    className="flex-1"
+                                    disabled={
+                                      !newBankData.bankName || 
+                                      !newBankData.accountNumber || 
+                                      !newBankData.accountHolderName || 
+                                      !newBankData.branchNumber ||
+                                      createBankAccountMutation.isPending
+                                    }
+                                    data-testid="button-save-bank-profile"
+                                  >
+                                    {createBankAccountMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Adding...
+                                      </>
+                                    ) : (
+                                      "Add Account"
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="flex space-x-2">
-                                <Button 
-                                  onClick={handleAddBank}
-                                  disabled={createBankAccountMutation.isPending}
-                                  className="flex-1"
-                                >
-                                  {createBankAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                  Add Account
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  onClick={() => {
-                                    setShowAddBankForm(false);
-                                    setNewBankData({ bankName: "", accountNumber: "", accountName: "", branchNumber: "" });
-                                  }}
-                                  className="flex-1"
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
+                            </>
                           )}
                         </>
                       )}
@@ -755,17 +796,45 @@ export default function ProfilePage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Africa/Johannesburg">South Africa Standard Time</SelectItem>
-                              <SelectItem value="Europe/London">Greenwich Mean Time</SelectItem>
-                              <SelectItem value="America/New_York">Eastern Standard Time</SelectItem>
-                              <SelectItem value="America/Los_Angeles">Pacific Standard Time</SelectItem>
-                              <SelectItem value="Asia/Tokyo">Japan Standard Time</SelectItem>
+                              <SelectItem value="Africa/Johannesburg">Africa/Johannesburg (SAST)</SelectItem>
+                              <SelectItem value="Europe/London">Europe/London (GMT)</SelectItem>
+                              <SelectItem value="America/New_York">America/New_York (EST)</SelectItem>
+                              <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                       </div>
                       <div className="mt-6">
                         <Button data-testid="button-save-preferences">Save Preferences</Button>
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Data Export */}
+                  <div>
+                    <h2 className="text-xl font-semibold mb-4">Data Management</h2>
+                    <Card className="p-6">
+                      <div className="space-y-4">
+                        <div>
+                          <h3 className="font-medium">Export Account Data</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Download a copy of your account data including transaction history and profile information.
+                          </p>
+                          <Button variant="outline" data-testid="button-export-data">
+                            <Download className="w-4 h-4 mr-2" />
+                            Request Data Export
+                          </Button>
+                        </div>
+                        <Separator />
+                        <div>
+                          <h3 className="font-medium">Account Deletion</h3>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Permanently delete your account and all associated data. This action cannot be undone.
+                          </p>
+                          <Button variant="destructive" data-testid="button-delete-account">
+                            Delete Account
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   </div>
