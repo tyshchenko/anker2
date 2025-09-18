@@ -605,17 +605,7 @@ export default function SendPage() {
                     )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="memo">Memo (Optional)</Label>
-                    <Input
-                      id="memo"
-                      type="text"
-                      placeholder="Add a note for this transaction..."
-                      value={memo}
-                      onChange={(e) => setMemo(e.target.value)}
-                      data-testid="input-memo"
-                    />
-                  </div>
+
                 </div>
               </Card>
 
