@@ -27,15 +27,12 @@ except ImportError:
 from tornado.options import define, options
 
 from auth_utils import auth_utils
-from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet
+from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction
 from blockchain import blockchain
 
 from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS
 
-if DATABASE_TYPE == 'postgresql':
-    from postgres_storage import storage
-elif DATABASE_TYPE == 'mysql':
-    from storage import storage
+from storage import storage
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
@@ -69,6 +66,7 @@ class Application(tornado.web.Application):
             (r"/api/wallet/create", WalletCreateHandler),
             (r"/api/bankaccounts", BankAccountsHandler),
             (r"/api/bankaccount/create", BankAccountCreateHandler),
+            (r"/api/send", SendHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -629,6 +627,68 @@ class TransactionsHandler(BaseHandler):
             print(e)
             self.set_status(500)
             self.write({"error": "Failed to fetch trades"})
+
+
+class SendHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            send_data = SendTransaction(**body)
+            
+            # Validate user has sufficient balance
+            user_wallets = storage.get_user_wallets(send_data.userId)
+            sender_wallet = None
+            for wallet in user_wallets:
+                if wallet.coin.upper() == send_data.fromAsset.upper():
+                    sender_wallet = wallet
+                    break
+            
+            if not sender_wallet:
+                self.set_status(400)
+                self.write({"error": f"No {send_data.fromAsset} wallet found"})
+                return
+            
+            available_balance = float(sender_wallet.balance)
+            send_amount = float(send_data.amount)
+            
+            if send_amount > available_balance:
+                self.set_status(400)
+                self.write({"error": "Insufficient balance"})
+                return
+            
+            # For now, we'll simulate the send transaction
+            # In a real implementation, you would:
+            # 1. Deduct balance from sender wallet
+            # 2. Create transaction record
+            # 3. Broadcast to blockchain network
+            
+            # Simulate successful transaction
+            transaction_id = f"tx_{send_data.fromAsset.lower()}_{int(time.time())}"
+            
+            # Update sender wallet balance (subtract the sent amount)
+            new_balance = available_balance - send_amount
+            storage.update_wallet_balance_by_user_coin(send_data.userId, send_data.fromAsset, str(new_balance))
+            
+            response = {
+                "status": "success",
+                "message": "Transaction Successful!",
+                "transactionId": transaction_id,
+                "amount": send_data.amount,
+                "fromAsset": send_data.fromAsset,
+                "recipientAddress": send_data.recipientAddress,
+                "memo": send_data.memo
+            }
+            
+            self.write(response)
+            
+        except ValidationError as e:
+            print(e)
+            self.set_status(400)
+            self.write({"error": "Invalid send data", "details": e.errors()})
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
 
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):

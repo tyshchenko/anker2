@@ -5,7 +5,11 @@ import requests
 from ecdsa import SigningKey, SECP256k1
 import web3
 from web3.exceptions import InvalidTransaction
-from web3.middleware import geth_poa_middleware
+try:
+    from web3.middleware import geth_poa_middleware
+except ImportError:
+    # For newer versions of web3.py
+    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
 from eth_account import Account
 #from solana.rpc.api import Client as SolanaClient
 #from solana.keypair import Keypair

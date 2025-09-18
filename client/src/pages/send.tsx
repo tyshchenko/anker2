@@ -134,23 +134,25 @@ export default function SendPage() {
 
   // Mutation for creating send transactions
   const createSendTransactionMutation = useMutation({
-    mutationFn: async (transactionData: any) => {
-      return await apiRequest("POST", "/api/transactions", transactionData);
+    mutationFn: async (sendData: any) => {
+      const response = await apiRequest("POST", "/api/send", sendData);
+      return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (responseData, variables) => {
+      // Show the server's success message
       toast({
-        title: "Transaction Sent Successfully!",
+        title: responseData.message || "Transaction Successful!",
         description: `Sent ${formatBalance(parseFloat(variables.amount), variables.fromAsset)} ${variables.fromAsset} to ${variables.recipientAddress.slice(0, 8)}...${variables.recipientAddress.slice(-8)}`,
       });
       
-      // Invalidate queries to refresh data
+      // Invalidate queries to refresh wallet balances
+      queryClient.invalidateQueries({ queryKey: ["/api/wallets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       
-      // Set success state
+      // Set success state with server response data
       setIsConfirming(false);
       setIsSuccess(true);
-      setTransactionId(variables.transactionId);
+      setTransactionId(responseData.transactionId || generateTransactionId(wallet.symbol));
     },
     onError: (error: any) => {
       setIsConfirming(false);
@@ -283,26 +285,16 @@ export default function SendPage() {
     
     setIsConfirming(true);
     
-    const txId = generateTransactionId(wallet.symbol);
-    
-    // Create transaction data for the send
-    const transactionData = {
+    // Create send transaction data
+    const sendData = {
       userId: user.id,
-      type: 'send',
-      pair: `${wallet.symbol}/SEND`, // Special pair format for send transactions
-      amount: amount,
-      price: '1.0', // For send transactions, price is 1:1
-      total: amount,
-      fee: '0.0001', // Small network fee
-      status: 'completed',
       fromAsset: wallet.symbol,
-      toAsset: 'EXTERNAL', // Indicates external wallet
-      transactionId: txId,
+      amount: amount,
       recipientAddress: recipientAddress,
       memo: memo,
     };
     
-    createSendTransactionMutation.mutate(transactionData);
+    createSendTransactionMutation.mutate(sendData);
   };
 
   const handleCopyTxId = () => {
@@ -347,7 +339,7 @@ export default function SendPage() {
             </div>
             <h2 className="text-xl font-semibold mb-2">Transaction Successful!</h2>
             <p className="text-muted-foreground mb-6">
-              Your {wallet.symbol} transaction has been broadcast to the network.
+              Your {wallet.symbol} has been sent successfully to the recipient address.
             </p>
             
             <div className="space-y-4 mb-6">

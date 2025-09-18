@@ -6,8 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.12.15",
     "bcrypt>=4.3.0",
+    "bit>=0.8.0",
+    "ecdsa>=0.19.1",
     "google-auth>=2.40.3",
     "google-auth-oauthlib>=1.2.2",
+    "passlib>=1.7.4",
     "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.7",
     "pyjwt>=2.10.1",
@@ -17,7 +20,9 @@ dependencies = [
     "requests>=2.32.5",
     "telebot>=0.0.5",
     "tornado>=6.5.2",
+    "tronpy>=0.6.1",
     "urllib3>=2.5.0",
     "uvloop>=0.21.0",
+    "web3>=7.13.0",
     "websockets>=15.0.1",
 ]

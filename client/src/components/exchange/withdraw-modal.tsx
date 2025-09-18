@@ -54,9 +54,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const queryClient = useQueryClient();
 
   // Fetch bank accounts from API
-  const { data: bankAccounts = [], isLoading: bankAccountsLoading } = useQuery({
+  const { data: bankAccountsData, isLoading: bankAccountsLoading } = useQuery({
     queryKey: ['/api/bankaccounts'],
-    queryFn: async (): Promise<BankAccount[]> => {
+    queryFn: async () => {
       const response = await fetch('/api/bankaccounts', {
         credentials: 'include',
       });
@@ -65,6 +65,15 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     },
     enabled: isOpen, // Only fetch when modal is open
   });
+
+  // Safely extract bank accounts array from API response
+  const bankAccounts: BankAccount[] = Array.isArray(bankAccountsData) 
+    ? bankAccountsData 
+    : Array.isArray(bankAccountsData?.bank_accounts) 
+    ? bankAccountsData.bank_accounts 
+    : Array.isArray(bankAccountsData?.data) 
+    ? bankAccountsData.data 
+    : [];
 
   // Create bank account mutation
   const createBankAccountMutation = useMutation({
