@@ -486,7 +486,7 @@ class MySqlStorage:
         return self.fill_user(users)
         
     def get_wallets(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated from wallets where email='%s'" % user.email
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
@@ -496,7 +496,7 @@ class MySqlStorage:
         return wallets
 
     def get_all_wallets(self, coins) -> Optional[List[FullWallet]]:
-        sql = "select id,email,coin,address,balance,is_active,privatekey,created,updated,hotwalet from wallets where is_active=1 and privatekey>'' and coin IN('%s')" % ("','".join(coins))
+        sql = "select id,email,coin,address,balance,is_active,privatekey,created,updated,hotwalet,pending from wallets where is_active=1 and privatekey>'' and coin IN('%s')" % ("','".join(coins))
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         allwallets = []
@@ -506,6 +506,7 @@ class MySqlStorage:
                 coin = wallet[2],
                 address = wallet[3],
                 balance = wallet[4],
+                pending = wallet[10],
                 hotwalet = wallet[9],
                 is_active = wallet[5],
                 privatekey = wallet[6],

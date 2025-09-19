@@ -75,6 +75,7 @@ class FullWallet(BaseModel):
     coin: str
     address: str
     balance: str = "0"
+    pending: str = "0"
     hotwalet: str = "0"
     is_active: bool = True
     privatekey: str

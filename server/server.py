@@ -442,6 +442,7 @@ class WalletsHandler(BaseHandler):
                         "fee": miner_fee[wallet[2]],
                         "address": wallet[3],
                         "balance": str(wallet[4]),
+                        "pending": str(wallet[8]),
                         "is_active": wallet[5],
                         "created": wallet[6].isoformat() if wallet[6] else None,
                         "updated": wallet[7].isoformat() if wallet[7] else None
