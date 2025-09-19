@@ -319,7 +319,7 @@ export default function SendPage() {
     const sendData = {
       userId: user.id,
       fromAsset: wallet.symbol,
-      amount: amount,
+      amount: formatBalance(Number(amount), wallet.symbol),
       recipientAddress: recipientAddress,
       memo: memo,
     };
