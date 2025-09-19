@@ -46,15 +46,28 @@ interface Transaction {
 interface Trade {
   id: string;
   userId: string;
-  pair: string;
-  type: 'buy' | 'sell';
-  amount: number;
-  price: number;
-  total: number;
+  type: 'buy' | 'sell' | 'convert';
+  fromAsset: string;
+  toAsset: string;
+  fromAmount: number;
+  toAmount: number;
+  rate: number;
   fee: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'failed';
   createdAt: string;
-  updatedAt: string;
+}
+
+// Server transaction interface (for send/receive operations)
+interface ServerTransaction {
+  id?: string;
+  userId: string;
+  fromAsset: string;
+  amount: string;
+  recipientAddress: string;
+  memo?: string;
+  status?: 'pending' | 'completed' | 'failed';
+  createdAt?: string;
+  type?: 'send' | 'receive';
 }
 
 // Convert server trade data to frontend transaction format
@@ -62,18 +75,37 @@ const mapTradeToTransaction = (trade: Trade): Transaction => {
   return {
     id: trade.id,
     type: trade.type,
-    pair: trade.pair,
-    amount: trade.amount,
-    price: trade.price,
-    total: trade.total,
+    pair: `${trade.fromAsset}/${trade.toAsset}`,
+    amount: trade.fromAmount,
+    price: trade.rate,
+    total: trade.toAmount,
     fee: trade.fee,
-    status: trade.status === 'cancelled' ? 'failed' : trade.status,
-    timestamp: trade.createdAt
+    status: trade.status,
+    timestamp: trade.createdAt,
+    fromAsset: trade.fromAsset,
+    toAsset: trade.toAsset
   };
 };
 
-// Hook to fetch user transactions
-const useUserTransactions = (userId: string | null) => {
+// Convert server transaction data to frontend transaction format
+const mapServerTransactionToTransaction = (serverTx: ServerTransaction): Transaction => {
+  return {
+    id: serverTx.id || `tx-${Date.now()}`,
+    type: serverTx.type || 'send',
+    pair: serverTx.fromAsset,
+    amount: parseFloat(serverTx.amount),
+    price: 1, // For direct transactions, price is typically 1:1
+    total: parseFloat(serverTx.amount),
+    fee: 0, // Assuming no fee for direct transactions unless specified
+    status: serverTx.status || 'completed',
+    timestamp: serverTx.createdAt || new Date().toISOString(),
+    fromAsset: serverTx.fromAsset,
+    toAsset: serverTx.fromAsset // For sends, same asset
+  };
+};
+
+// Hook to fetch user trades
+const useUserTrades = (userId: string | null) => {
   return useQuery({
     queryKey: ['/api/trades', userId],
     queryFn: async (): Promise<Transaction[]> => {
@@ -87,11 +119,44 @@ const useUserTransactions = (userId: string | null) => {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
+        throw new Error('Failed to fetch trades');
       }
       
       const data = await response.json();
       return data.data ? data.data.map(mapTradeToTransaction) : [];
+    },
+    enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+};
+
+// Hook to fetch user transactions
+const useUserTransactions = (userId: string | null) => {
+  return useQuery({
+    queryKey: ['/api/transactions', userId],
+    queryFn: async (): Promise<Transaction[]> => {
+      if (!userId) {
+        throw new Error('User ID not available');
+      }
+      
+      const response = await fetch(`/api/transactions/${userId}`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      
+      const data = await response.json();
+      return data.data ? data.data.map((item: any) => {
+        // Check if it's a transaction with recipient address
+        if (item.recipientAddress) {
+          return mapServerTransactionToTransaction(item);
+        } else {
+          return mapTradeToTransaction(item);
+        }
+      }) : [];
     },
     enabled: !!userId,
     staleTime: 30 * 1000, // 30 seconds
@@ -212,8 +277,20 @@ export default function ActivityPage() {
   const [sortBy, setSortBy] = useState('newest');
   
   const { user } = useAuth();
-  const { data: transactionsData, isLoading, isError } = useUserTransactions(user?.id?.toString() || null);
-  const transactions = transactionsData || [];
+  const { data: tradesData, isLoading: tradesLoading, isError: tradesError } = useUserTrades(user?.id?.toString() || null);
+  const { data: transactionsData, isLoading: transactionsLoading, isError: transactionsError } = useUserTransactions(user?.id?.toString() || null);
+  
+  // Combine trades and transactions, remove duplicates by ID
+  const allTransactions = [
+    ...(tradesData || []),
+    ...(transactionsData || [])
+  ].filter((transaction, index, self) => 
+    index === self.findIndex(t => t.id === transaction.id)
+  );
+  
+  const isLoading = tradesLoading || transactionsLoading;
+  const isError = tradesError || transactionsError;
+  const transactions = allTransactions;
 
   const filteredTransactions = transactions
     .filter(tx => {
