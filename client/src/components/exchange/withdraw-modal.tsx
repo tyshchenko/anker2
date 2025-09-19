@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useWallets } from "@/hooks/useWallets";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +60,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const { data: bankAccountsData, isLoading: bankAccountsLoading } = useQuery({
     queryKey: ['/api/bankaccounts'],
     queryFn: async () => {
-      const response = await fetch('/api/bankaccounts', {
-        credentials: 'include',
-      });
+      const response = await fetchWithAuth('/api/bankaccounts');
       if (!response.ok) throw new Error('Failed to fetch bank accounts');
       return response.json();
     },
@@ -80,10 +79,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   // Create bank account mutation
   const createBankAccountMutation = useMutation({
     mutationFn: async (bankData: NewBankAccount) => {
-      const response = await fetch('/api/bankaccount/create', {
+      const response = await fetchWithAuth('/api/bankaccount/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(bankData),
       });
       if (!response.ok) {
@@ -113,10 +111,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   // Withdraw mutation
   const withdrawMutation = useMutation({
     mutationFn: async (withdrawData: { amount: string; bankAccountId: string; type: string }) => {
-      const response = await fetch('/api/withdraw', {
+      const response = await fetchWithAuth('/api/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(withdrawData),
       });
       if (!response.ok) {

@@ -7,6 +7,13 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Global reference to auth setUnauthenticated function
+let globalSetUnauthenticated: (() => void) | null = null;
+
+export function setGlobalUnauthenticatedHandler(handler: () => void) {
+  globalSetUnauthenticated = handler;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -26,8 +33,28 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  // Handle 401 responses globally
+  if (res.status === 401 && globalSetUnauthenticated) {
+    globalSetUnauthenticated();
+  }
+
   await throwIfResNotOk(res);
   return res;
+}
+
+// Helper function for fetch calls that handles 401s
+export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
+
+  // Handle 401 responses globally
+  if (response.status === 401 && globalSetUnauthenticated) {
+    globalSetUnauthenticated();
+  }
+
+  return response;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

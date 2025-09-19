@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -77,7 +78,7 @@ const useMarketData = () => {
   return useQuery({
     queryKey: ['/api/market'],
     queryFn: async (): Promise<MarketData[]> => {
-      const response = await fetch('/api/market');
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },

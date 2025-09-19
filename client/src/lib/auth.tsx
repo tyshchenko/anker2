@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "./queryClient";
+import { apiRequest, setGlobalUnauthenticatedHandler } from "./queryClient";
 
 interface User {
   id: string;
@@ -205,6 +205,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     queryClient.setQueryData(["/api/auth/me"], null);
   };
+
+  // Set up global 401 handler
+  useEffect(() => {
+    setGlobalUnauthenticatedHandler(setUnauthenticated);
+  }, []);
 
   const value: AuthContextType = {
     user: (userResponse as any)?.user || null,

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/queryClient";
 
 interface Wallet {
   id: string;
@@ -29,12 +30,11 @@ export function useWallets() {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch('/api/wallets', {
+      const response = await fetchWithAuth('/api/wallets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include session cookies for authentication
         body: JSON.stringify({
           email: user.email,
           user_id: user.id, // Include user ID for session validation

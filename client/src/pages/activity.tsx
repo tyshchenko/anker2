@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
@@ -107,9 +108,8 @@ const useUserTrades = (userId: string | null) => {
         throw new Error('User ID not available');
       }
       
-      const response = await fetch(`/api/trades/${userId}`, {
+      const response = await fetchWithAuth(`/api/trades/${userId}`, {
         method: 'GET',
-        credentials: 'include',
       });
       
       if (!response.ok) {
@@ -135,9 +135,8 @@ const useUserTransactions = (userId: string | null) => {
         throw new Error('User ID not available');
       }
       
-      const response = await fetch(`/api/transactions/${userId}`, {
+      const response = await fetchWithAuth(`/api/transactions/${userId}`, {
         method: 'GET',
-        credentials: 'include',
       });
       
       if (!response.ok) {

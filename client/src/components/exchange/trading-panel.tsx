@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { useWallets } from "@/hooks/useWallets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,7 @@ const useMarketData = () => {
   return useQuery({
     queryKey: ['/api/market'],
     queryFn: async (): Promise<MarketData[]> => {
-      const response = await fetch('/api/market');
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },
@@ -159,9 +160,7 @@ const useUserTrades = () => {
     queryFn: async (): Promise<Trade[]> => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      const response = await fetch(`/api/trades/${user.id}`, {
-        credentials: 'include', // Include session cookies
-      });
+      const response = await fetchWithAuth(`/api/trades/${user.id}`);
       if (!response.ok) throw new Error('Failed to fetch trades');
       const data = await response.json();
       return data.data
@@ -788,12 +787,11 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                       };
 
                       // Send POST request to create trade
-                      const response = await fetch('/api/trades', {
+                      const response = await fetchWithAuth('/api/trades', {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
-                        credentials: 'include',
                         body: JSON.stringify(tradeData)
                       });
 
