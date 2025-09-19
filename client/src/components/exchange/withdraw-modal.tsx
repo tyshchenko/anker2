@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useWallets } from "@/hooks/useWallets";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: walletsData } = useWallets();
 
   // Fetch bank accounts from API
   const { data: bankAccountsData, isLoading: bankAccountsLoading } = useQuery({
@@ -140,7 +142,9 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     },
   });
 
-  const availableBalance = 0; // TODO: Get real ZAR balance from user wallet
+  // Get ZAR balance from real wallets or fallback to 0
+  const zarWallet = walletsData?.wallets?.find(wallet => wallet.coin === 'ZAR');
+  const availableBalance = zarWallet ? parseFloat(zarWallet.balance) : 0;
 
   const handleClose = () => {
     setStep("amount");

@@ -35,6 +35,7 @@ const WALLETS = [
     logoUrl: btcLogo,
     balance: 0.0234567,
     balanceZAR: 28125.45,
+    fee: 0.001,
     color: 'bg-orange-500',
     textColor: 'text-orange-600'
   },
@@ -46,6 +47,7 @@ const WALLETS = [
     logoUrl: ethLogo,
     balance: 1.247891,
     balanceZAR: 80423.12,
+    fee: 0.002,
     color: 'bg-blue-500',
     textColor: 'text-blue-600'
   },
@@ -57,6 +59,7 @@ const WALLETS = [
     logoUrl: usdtLogo,
     balance: 2500.00,
     balanceZAR: 46250.00,
+    fee: 1.0,
     color: 'bg-green-500',
     textColor: 'text-green-600'
   },
@@ -67,6 +70,7 @@ const WALLETS = [
     icon: 'R',
     balance: 15420.75,
     balanceZAR: 15420.75,
+    fee: 0,
     color: 'bg-purple-500',
     textColor: 'text-purple-600'
   },
@@ -77,6 +81,7 @@ const WALLETS = [
     icon: '$',
     balance: 850.00,
     balanceZAR: 15725.00,
+    fee: 0,
     color: 'bg-green-600',
     textColor: 'text-green-700'
   }
@@ -91,18 +96,43 @@ export default function SendPage() {
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
   
-  // Get real wallets and create a mapping
+  // Fetch market data for accurate rate calculations
+  const { data: marketData = [] } = useQuery({
+    queryKey: ['/api/market'],
+    queryFn: async () => {
+      const response = await fetch('/api/market');
+      if (!response.ok) throw new Error('Failed to fetch market data');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Helper function to get ZAR rate for a crypto symbol
+  const getZARPrice = (symbol: string): number => {
+    if (symbol === 'ZAR') return 1; // ZAR is 1:1 with itself
+    if (symbol === 'USD') return 18.5; // Approximate USD to ZAR rate
+    
+    const pair = marketData.find((data: any) => data.pair === `${symbol}/ZAR`);
+    return pair ? parseFloat(pair.price) : 0;
+  };
+
+  // Get real wallets and create a mapping with accurate rates
   const realWallets = walletsData?.wallets ? 
     walletsData.wallets.map(wallet => {
       const mockWallet = WALLETS.find(mock => mock.symbol.toLowerCase() === wallet.coin.toLowerCase());
+      const balance = parseFloat(wallet.balance);
+      const zarPrice = getZARPrice(wallet.coin);
+      const balanceZAR = balance * zarPrice;
+      
       return {
         id: `${wallet.coin.toLowerCase()}-wallet`,
         name: `${wallet.coin} Wallet`,
         symbol: wallet.coin,
         icon: mockWallet?.icon || wallet.coin[0],
         logoUrl: mockWallet?.logoUrl,
-        balance: parseFloat(wallet.balance),
-        balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
+        balance,
+        balanceZAR,
+        fee: parseFloat(wallet.fee || '0'),
         address: wallet.address || `${wallet.coin}-WALLET-001`,
         color: mockWallet?.color || 'bg-gray-500',
         textColor: mockWallet?.textColor || 'text-gray-600'
@@ -592,7 +622,7 @@ export default function SendPage() {
                     )}
                     {amount && isValidAmount && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        ≈ R{(numAmount * (wallet.balanceZAR / wallet.balance)).toLocaleString()}
+                        ≈ R{(numAmount * getZARPrice(wallet.symbol)).toLocaleString()}
                       </p>
                     )}
                   </div>
@@ -613,13 +643,13 @@ export default function SendPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network Fee</span>
-                    <span className="font-mono">~0.001 {wallet.symbol}</span>
+                    <span className="font-mono">{wallet.fee ? wallet.fee : '0.001'} {wallet.symbol}</span>
                   </div>
                   <div className="h-px bg-border" />
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
                     <span className="font-mono" data-testid="summary-total">
-                      {(numAmount + 0.001).toFixed(wallet.symbol === 'BTC' ? 7 : 4)} {wallet.symbol}
+                      {(numAmount + (wallet.fee || 0.001)).toFixed(wallet.symbol === 'BTC' ? 7 : 4)} {wallet.symbol}
                     </span>
                   </div>
                 </div>

@@ -8,6 +8,7 @@ interface Wallet {
   address: string;
   balance: string;
   pending: string;
+  fee: string;
   is_active: boolean;
   created: string | null;
   updated: string | null;
