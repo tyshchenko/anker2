@@ -7,6 +7,7 @@ interface Wallet {
   coin: string;
   address: string;
   balance: string;
+  pending: string;
   is_active: boolean;
   created: string | null;
   updated: string | null;

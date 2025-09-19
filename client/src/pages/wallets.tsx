@@ -179,7 +179,7 @@ const WALLETS = [
 ];
 
 interface WalletCardProps {
-  wallet: typeof WALLETS[0];
+  wallet: typeof WALLETS[0] & { pending?: number };
   isBalanceVisible: boolean;
   isComingSoon?: boolean;
 }
@@ -274,6 +274,15 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
             {isBalanceVisible ? `R${wallet.balanceZAR.toLocaleString()}` : '••••••'}
           </p>
         </div>
+
+        {(wallet.pending || 0) > 0 && (
+          <div>
+            <p className="text-sm text-muted-foreground">Pending</p>
+            <p className="text-lg font-semibold text-yellow-600" data-testid={`wallet-pending-${wallet.id}`}>
+              {isBalanceVisible ? `${formatBalance(wallet.pending || 0, wallet.symbol)} ${wallet.symbol}` : '••••••'}
+            </p>
+          </div>
+        )}
 
         <div>
           <p className="text-sm text-muted-foreground">Address</p>
@@ -401,6 +410,7 @@ export default function WalletsPage() {
       logoUrl: staticWallet?.logoUrl,
       balance,
       balanceZAR,
+      pending: parseFloat(wallet.pending || '0'),
       address: wallet.address,
       color: staticWallet?.color || 'bg-gray-500',
       textColor: staticWallet?.textColor || 'text-gray-600',
@@ -546,6 +556,14 @@ export default function WalletsPage() {
                           : '••••••••'
                         }
                       </p>
+                      {zarWallet && parseFloat(zarWallet.pending || '0') > 0 && (
+                        <p className="text-sm text-yellow-600 font-medium" data-testid="zar-wallet-pending">
+                          {isBalanceVisible 
+                            ? `R${parseFloat(zarWallet.pending).toFixed(2)} pending`
+                            : '••••••• pending'
+                          }
+                        </p>
+                      )}
                       <p className="text-sm text-primary/80">South African Rand</p>
                     </div>
                   </div>
