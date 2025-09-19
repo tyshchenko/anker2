@@ -35,7 +35,7 @@ interface Trade {
   rate: number;
   fee: number;
   status: "pending" | "completed" | "failed";
-  timestamp: string;
+  createdAt: string;
 }
 
 const FEE_RATE = 0.05; // 5%
@@ -671,7 +671,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                       {trade.type === "buy" ? "Bought" : trade.type === "sell" ? "Sold" : "Converted"} {trade.toAsset}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(trade.timestamp).toLocaleDateString()}
+                      {new Date(trade.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <div className="text-right">
