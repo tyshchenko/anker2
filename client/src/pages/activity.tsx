@@ -37,37 +37,35 @@ interface Transaction {
   total: number;
   fee: number;
   status: 'completed' | 'pending' | 'failed';
-  timestamp: string;
-  fromAsset?: string;
-  toAsset?: string;
+  created_at: string;
 }
 
 // Trade interface from server
 interface Trade {
   id: string;
-  userId: string;
-  type: 'buy' | 'sell' | 'convert';
-  fromAsset: string;
-  toAsset: string;
-  fromAmount: number;
-  toAmount: number;
+  type: "buy" | "sell" | "convert";
+  from_asset: string;
+  to_asset: string;
+  from_amount: number;
+  to_amount: number;
   rate: number;
   fee: number;
-  status: 'pending' | 'completed' | 'failed';
-  createdAt: string;
+  status: "pending" | "completed" | "failed";
+  created_at: string;
 }
 
 // Server transaction interface (for send/receive operations)
 interface ServerTransaction {
   id?: string;
-  userId: string;
-  fromAsset: string;
+  user_id: string;
+  coin: string;
+  side: 'send' | 'receive';
   amount: string;
-  recipientAddress: string;
-  memo?: string;
+  price: string;
+  txhash: string;
+  txtype: string;
   status?: 'pending' | 'completed' | 'failed';
-  createdAt?: string;
-  type?: 'send' | 'receive';
+  created_at?: string;
 }
 
 // Convert server trade data to frontend transaction format
@@ -75,15 +73,13 @@ const mapTradeToTransaction = (trade: Trade): Transaction => {
   return {
     id: trade.id,
     type: trade.type,
-    pair: `${trade.fromAsset}/${trade.toAsset}`,
-    amount: trade.fromAmount,
+    pair: `${trade.from_asset}/${trade.to_asset}`,
+    amount: trade.from_amount,
     price: trade.rate,
-    total: trade.toAmount,
+    total: trade.to_amount,
     fee: trade.fee,
     status: trade.status,
-    timestamp: trade.createdAt,
-    fromAsset: trade.fromAsset,
-    toAsset: trade.toAsset
+    created_at: trade.created_at,
   };
 };
 
@@ -91,16 +87,14 @@ const mapTradeToTransaction = (trade: Trade): Transaction => {
 const mapServerTransactionToTransaction = (serverTx: ServerTransaction): Transaction => {
   return {
     id: serverTx.id || `tx-${Date.now()}`,
-    type: serverTx.type || 'send',
-    pair: serverTx.fromAsset,
+    type: serverTx.side || 'send',
+    pair: serverTx.coin,
     amount: parseFloat(serverTx.amount),
-    price: 1, // For direct transactions, price is typically 1:1
+    price: parseFloat(serverTx.price),
     total: parseFloat(serverTx.amount),
     fee: 0, // Assuming no fee for direct transactions unless specified
     status: serverTx.status || 'completed',
-    timestamp: serverTx.createdAt || new Date().toISOString(),
-    fromAsset: serverTx.fromAsset,
-    toAsset: serverTx.fromAsset // For sends, same asset
+    created_at: serverTx.created_at || new Date().toISOString(),
   };
 };
 
@@ -149,14 +143,8 @@ const useUserTransactions = (userId: string | null) => {
       }
       
       const data = await response.json();
-      return data.data ? data.data.map((item: any) => {
-        // Check if it's a transaction with recipient address
-        if (item.recipientAddress) {
-          return mapServerTransactionToTransaction(item);
-        } else {
-          return mapTradeToTransaction(item);
-        }
-      }) : [];
+      return data.data ? data.data.map(mapServerTransactionToTransaction) : [];
+
     },
     enabled: !!userId,
     staleTime: 30 * 1000, // 30 seconds
@@ -221,12 +209,6 @@ function TransactionRow({ transaction }: TransactionRowProps) {
   };
 
   const getDescription = () => {
-    if (transaction.type === 'convert') {
-      return `Convert ${transaction.fromAsset} to ${transaction.toAsset}`;
-    }
-    if (transaction.type === 'send' || transaction.type === 'receive') {
-      return `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} ${transaction.pair}`;
-    }
     return `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} ${transaction.pair}`;
   };
 
@@ -242,7 +224,7 @@ function TransactionRow({ transaction }: TransactionRowProps) {
           </p>
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
             <span data-testid={`transaction-date-${transaction.id}`}>
-              {formatDate(transaction.timestamp)}
+              {formatDate(transaction.created_at)}
             </span>
             <span>•</span>
             <span data-testid={`transaction-id-${transaction.id}`}>
@@ -303,9 +285,9 @@ export default function ActivityPage() {
     .sort((a, b) => {
       switch (sortBy) {
         case 'newest':
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'oldest':
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'amount-high':
           return b.total - a.total;
         case 'amount-low':
@@ -320,7 +302,7 @@ export default function ActivityPage() {
     completedTransactions: transactions.filter(tx => tx.status === 'completed').length,
     totalVolume: transactions
       .filter(tx => tx.status === 'completed')
-      .reduce((sum, tx) => sum + tx.total, 0),
+      .reduce((sum, tx) => sum + Math.abs(tx.total), 0),
     totalFees: transactions
       .filter(tx => tx.status === 'completed')
       .reduce((sum, tx) => sum + tx.fee, 0)
@@ -337,13 +319,11 @@ export default function ActivityPage() {
       'Total (ZAR)',
       'Fee (ZAR)',
       'Status',
-      'From Asset',
-      'To Asset'
     ];
 
     const csvData = filteredTransactions.map(tx => [
       tx.id,
-      new Date(tx.timestamp).toLocaleString('en-ZA'),
+      new Date(tx.created_at).toLocaleString('en-ZA'),
       tx.type.charAt(0).toUpperCase() + tx.type.slice(1),
       tx.pair,
       tx.amount,
@@ -351,8 +331,6 @@ export default function ActivityPage() {
       tx.total,
       tx.fee,
       tx.status.charAt(0).toUpperCase() + tx.status.slice(1),
-      tx.fromAsset || '',
-      tx.toAsset || ''
     ]);
 
     const csvContent = [

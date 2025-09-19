@@ -28,14 +28,14 @@ interface TradingPanelProps {
 interface Trade {
   id: string;
   type: "buy" | "sell" | "convert";
-  fromAsset: string;
-  toAsset: string;
-  fromAmount: number;
-  toAmount: number;
+  from_asset: string;
+  to_asset: string;
+  from_amount: number;
+  to_amount: number;
   rate: number;
   fee: number;
   status: "pending" | "completed" | "failed";
-  createdAt: string;
+  created_at: string;
 }
 
 const FEE_RATE = 0.05; // 5%
@@ -668,18 +668,18 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 <div key={trade.id || index} className="flex items-center justify-between text-sm">
                   <div>
                     <div className="font-medium">
-                      {trade.type === "buy" ? "Bought" : trade.type === "sell" ? "Sold" : "Converted"} {trade.toAsset}
+                      {trade.type === "buy" ? "Bought" : trade.type === "sell" ? "Sold" : "Converted"} {trade.to_asset}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {new Date(trade.createdAt).toLocaleDateString()}
+                      {new Date(trade.created_at).toLocaleDateString()}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-mono">
-                      {formatAmount(trade.toAsset, trade.toAmount)} {trade.toAsset}
+                      {formatAmount(trade.to_asset, trade.to_amount)} {trade.to_asset}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatAmount(trade.fromAsset, trade.fromAmount)} {trade.fromAsset}
+                      {formatAmount(trade.from_asset, trade.from_amount)} {trade.from_asset}
                     </div>
                   </div>
                 </div>
