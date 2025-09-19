@@ -120,7 +120,9 @@ const useUserTrades = (userId: string | null) => {
       return data.data ? data.data.map(mapTradeToTransaction) : [];
     },
     enabled: !!userId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Always refetch when component mounts
+    refetchOnMount: true, // Force refetch on mount
+    refetchOnWindowFocus: false, // Don't refetch on window focus to avoid too many requests
   });
 };
 
@@ -147,7 +149,9 @@ const useUserTransactions = (userId: string | null) => {
 
     },
     enabled: !!userId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Always refetch when component mounts
+    refetchOnMount: true, // Force refetch on mount
+    refetchOnWindowFocus: false, // Don't refetch on window focus to avoid too many requests
   });
 };
 
