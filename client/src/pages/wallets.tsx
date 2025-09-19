@@ -31,6 +31,7 @@ const WALLETS = [
     icon: '₿',
     logoUrl: btcLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S',
     color: 'bg-orange-500',
@@ -43,6 +44,7 @@ const WALLETS = [
     icon: 'Ξ',
     logoUrl: ethLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '0x1234567890abcdef1234567890abcdef12345678',
     color: 'bg-blue-500',
@@ -55,6 +57,7 @@ const WALLETS = [
     icon: '₮',
     logoUrl: usdtLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '0xabcdef1234567890abcdef1234567890abcdef12',
     color: 'bg-green-500',
@@ -66,6 +69,7 @@ const WALLETS = [
     symbol: 'ZAR',
     icon: 'R',
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'ZAR-WALLET-001',
     color: 'bg-purple-500',
@@ -77,6 +81,7 @@ const WALLETS = [
     symbol: 'USD',
     icon: '$',
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'USD-WALLET-001',
     color: 'bg-green-600',
@@ -89,6 +94,7 @@ const WALLETS = [
     icon: '◉',
     logoUrl: bnbLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '0xbnb1234567890abcdef1234567890abcdef12345678',
     color: 'bg-yellow-500',
@@ -101,6 +107,7 @@ const WALLETS = [
     icon: '◎',
     logoUrl: solLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'Sol1234567890abcdef1234567890abcdef1234567890ab',
     color: 'bg-purple-500',
@@ -113,6 +120,7 @@ const WALLETS = [
     icon: '◈',
     logoUrl: xrpLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'rXRP1234567890abcdef1234567890abcdef1234567890',
     color: 'bg-blue-600',
@@ -125,6 +133,7 @@ const WALLETS = [
     icon: '◇',
     logoUrl: cardanoLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'addr1ada1234567890abcdef1234567890abcdef123456789',
     color: 'bg-blue-500',
@@ -136,6 +145,7 @@ const WALLETS = [
     symbol: 'AVAX',
     icon: '◆',
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '0xavax1234567890abcdef1234567890abcdef12345678',
     color: 'bg-red-500',
@@ -148,6 +158,7 @@ const WALLETS = [
     icon: '◊',
     logoUrl: dogeLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'DDoge1234567890abcdef1234567890abcdef1234567890',
     color: 'bg-yellow-600',
@@ -160,6 +171,7 @@ const WALLETS = [
     icon: '⬟',
     logoUrl: polygonLogo,
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: '0xmatic1234567890abcdef1234567890abcdef12345678',
     color: 'bg-purple-600',
@@ -171,6 +183,7 @@ const WALLETS = [
     symbol: 'TRX',
     icon: '◎',
     balance: 0,
+    fee: 0,
     balanceZAR: 0,
     address: 'TRXtron1234567890abcdef1234567890abcdef123456',
     color: 'bg-red-500',
@@ -310,11 +323,10 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
         <div>
           <p className="text-sm text-muted-foreground">Miner Fee</p>
           <p className="text-sm font-medium" data-testid={`wallet-miner-fee-${wallet.id}`}>
-            {isBalanceVisible ? (
-              wallet.symbol === 'BTC' ? '~0.0001 BTC' :
-              wallet.symbol === 'ETH' ? '~0.002 ETH' :
-              wallet.symbol === 'TRX' ? '~1 TRX' :
-              `~0.01 ${wallet.symbol}`
+            { isBalanceVisible ? (
+              <>
+              { wallet.fee } {wallet.symbol}
+              </>
             ) : '••••••'}
           </p>
         </div>

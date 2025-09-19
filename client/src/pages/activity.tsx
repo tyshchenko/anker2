@@ -168,10 +168,12 @@ function TransactionRow({ transaction }: TransactionRowProps) {
   };
 
   const formatAmount = (amount: number, symbol: string) => {
-    if (symbol.includes('BTC')) return amount.toFixed(7);
-    if (symbol.includes('ETH')) return amount.toFixed(6);
-    if (symbol.includes('ZAR') || symbol.includes('USD')) return amount.toFixed(2);
-    return amount.toFixed(4);
+    if (symbol) {
+      if (symbol.includes('BTC')) return amount.toFixed(7);
+      if (symbol.includes('ETH')) return amount.toFixed(6);
+      if (symbol.includes('ZAR') || symbol.includes('USD')) return amount.toFixed(2);
+      return amount.toFixed(4);
+    }
   };
 
   const getTypeIcon = (type: string) => {
@@ -236,15 +238,19 @@ function TransactionRow({ transaction }: TransactionRowProps) {
 
       <div className="text-right">
         <div className="flex items-center space-x-3">
-          <div>
-            <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
-              {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0] || transaction.pair}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              R{transaction.total.toLocaleString()}
-            </p>
-          </div>
-          {getStatusBadge(transaction.status)}
+          { transaction.amount ? (
+            <>
+              <div>
+                <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
+                  {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0] || transaction.pair}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  R{transaction.total.toLocaleString()}
+                </p>
+              </div>
+              {getStatusBadge(transaction.status)}
+            </>
+            ) : '' }
         </div>
       </div>
     </div>
