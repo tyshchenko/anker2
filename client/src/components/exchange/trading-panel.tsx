@@ -38,7 +38,7 @@ interface Trade {
   timestamp: string;
 }
 
-const FEE_RATE = 0.001; // 0.10%
+const FEE_RATE = 0.05; // 5%
 
 interface MarketData {
   pair: string;
@@ -330,18 +330,18 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
     </div>
   );
 
-  const OrderSummary = ({ quote, from, to }: { quote: any; from: string; to: string }) => (
+  const OrderSummary = ({ quote, from, to, ordertype }: { quote: any; from: string; to: string; ordertype: string }) => (
     <div className="bg-muted rounded-lg p-4 space-y-3">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Rate</span>
         <span className="font-mono" data-testid="text-exchange-rate">
-          1 {from} = {formatAmount(to, quote.rate)} {to}
-        </span>
-      </div>
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Fee (0.10%)</span>
-        <span className="font-mono" data-testid="text-trading-fee">
-          {formatAmount(to, quote.fee)} {to}
+          {ordertype === "buy" || ordertype === "sell" ? (
+                      ordertype === "buy" ? 
+                        `1 ${to} = ${formatAmount(from, 1 / quote.rate)} ${from}` :
+                        `1 ${from} = ${formatAmount(to, quote.rate)} ${to}`
+                    ) : (
+                      `1 ${from} = ${formatAmount(to, quote.rate)} ${to}`
+                    )}
         </span>
       </div>
       <div className="h-px bg-border" />
@@ -433,7 +433,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
 
               <QuickAmountButtons />
 
-              <OrderSummary quote={buyQuote} from={fromBuy} to={toBuy} />
+              <OrderSummary quote={buyQuote} from={fromBuy} to={toBuy} ordertype='buy' />
 
               <Button 
                 className="w-full" 
@@ -518,7 +518,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 />
               </div>
 
-              <OrderSummary quote={sellQuote} from={fromSell} to={toSell} />
+              <OrderSummary quote={sellQuote} from={fromSell} to={toSell} ordertype='sell' />
 
               <Button 
                 variant="destructive"
@@ -612,7 +612,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 />
               </div>
 
-              <OrderSummary quote={convertQuote} from={fromConvert} to={toConvert} />
+              <OrderSummary quote={convertQuote} from={fromConvert} to={toConvert} ordertype='convert' />
 
               <Button 
                 className="w-full" 
@@ -734,13 +734,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                   </span>
                 </div>
                 
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Fee (0.10%)</span>
-                  <span className="font-mono">
-                    {formatAmount(previewOrder.to, previewOrder.quote.fee)} {previewOrder.to}
-                  </span>
-                </div>
-                
+
                 <div className="h-px bg-border" />
                 
                 <div className="flex justify-between font-semibold">

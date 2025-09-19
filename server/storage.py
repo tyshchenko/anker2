@@ -740,20 +740,55 @@ class MySqlStorage:
         self.trades[trade.id] = trade
         return trade
 
-    def get_user_trades(self, user_id: str) -> List[Trade]:
-        user_trades = [
-            trade for trade in self.trades.values() 
-            if trade.userId == user_id
-        ]
-        return sorted(user_trades, key=lambda t: t.createdAt, reverse=True)
+    def get_user_trades(self, user: User) -> List[Trade]:
+        sql = "SELECT id, email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status, created, updated FROM trades WHERE email='%s'" % user.email
+        db = DataBase(DB_NAME)
+        trades = db.query(sql)
+        
+        result = []
+        if trades:
+            for trade in trades:
+                result.append(Trade(
+                      user_id=str(trade[1]),
+                      type=trade[2],
+                      from_asset=trade[3],
+                      to_asset=trade[4],
+                      from_amount=trade[5],
+                      to_amount=trade[6],
+                      rate=trade[7],
+                      fee='0',
+                      status=trade[8],
+                      created_at=account_row[9].isoformat() if account_row[9] else None
+                  )
+                )
+
+        return sorted(result, key=lambda t: t.createdAt, reverse=True)
 
     def get_user_transactions(self, user_id: str) -> List[Trade]:
-        user_trades = [
-            trade for trade in self.trades.values() 
-            if trade.userId == user_id
-        ]
-        return sorted(user_trades, key=lambda t: t.createdAt, reverse=True)
+        sql = "SELECT id, email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status, created, updated FROM trades WHERE email='%s'" % user.email
+        db = DataBase(DB_NAME)
+        trades = db.query(sql)
+        
+        result = []
+        if trades:
+            for trade in trades:
+                result.append(Trade(
+                      user_id=str(trade[1]),
+                      type=trade[2],
+                      from_asset=trade[3],
+                      to_asset=trade[4],
+                      from_amount=trade[5],
+                      to_amount=trade[6],
+                      rate=trade[7],
+                      fee='0',
+                      status=trade[8],
+                      created_at=account_row[9].isoformat() if account_row[9] else None
+                  )
+                )
 
+        return sorted(result, key=lambda t: t.createdAt, reverse=True)
+      
+      
     def get_market_data(self, pair: str, timeframe: str, charttype: str) -> List[OhlcvMarketData]:
         if charttype == 'OHLCV':
           timedata = self.ohlcv_market_data.get(timeframe, None)

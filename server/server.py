@@ -620,7 +620,12 @@ class TradesHandler(BaseHandler):
 class UserTradesHandler(BaseHandler):
     def get(self, user_id: str):
         try:
-            trades = storage.get_user_trades(user_id)
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            trades = storage.get_user_trades(user)
             self.write({"data": [trade.dict(by_alias=True) for trade in trades]})
         except Exception as e:
             print(e)
@@ -630,7 +635,12 @@ class UserTradesHandler(BaseHandler):
 class TransactionsHandler(BaseHandler):
     def get(self, user_id: str):
         try:
-            trades = storage.get_user_transactions(user_id)
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            trades = storage.get_user_transactions(user)
             self.write({"data": [trade.dict(by_alias=True) for trade in trades]})
         except Exception as e:
             print(e)

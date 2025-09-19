@@ -65,6 +65,7 @@ class Wallet(BaseModel):
     coin: str
     address: Optional[str] = None
     balance: str = "0"
+    pending: str = "0"
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
