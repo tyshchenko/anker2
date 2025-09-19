@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Send, AlertTriangle, CheckCircle, Copy, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, fetchWithAuth } from "@/lib/queryClient";
 import { useWallets } from "@/hooks/useWallets";
 import { useAuth } from "@/lib/auth";
 import btcLogo from "@assets/BTC_1757408297384.png";
@@ -100,7 +100,7 @@ export default function SendPage() {
   const { data: marketData = [] } = useQuery({
     queryKey: ['/api/market'],
     queryFn: async () => {
-      const response = await fetch('/api/market');
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },

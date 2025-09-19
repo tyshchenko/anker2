@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { useWallets } from "@/hooks/useWallets";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
@@ -54,7 +55,7 @@ const useMarketData = () => {
   return useQuery({
     queryKey: ['/api/market'],
     queryFn: async (): Promise<MarketData[]> => {
-      const response = await fetch('/api/market');
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },
@@ -159,12 +160,11 @@ export default function CreateWalletPage() {
   // Mutation to create wallet on server
   const createWalletMutation = useMutation({
     mutationFn: async (walletData: { coin: string }) => {
-      const response = await fetch('/api/wallet/create', {
+      const response = await fetchWithAuth('/api/wallet/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include session cookies for authentication
         body: JSON.stringify(walletData),
       });
 

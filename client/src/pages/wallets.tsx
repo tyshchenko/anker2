@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Wallet, Plus, Send, Download, Eye, EyeOff, CreditCard, TrendingUp, ArrowDownToLine, Copy, CheckCircle } from "lucide-react";
 import { useWallets } from "@/hooks/useWallets";
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/queryClient";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
@@ -377,7 +378,7 @@ export default function WalletsPage() {
   const { data: marketData } = useQuery({
     queryKey: ['/api/market'],
     queryFn: async () => {
-      const response = await fetch('/api/market');
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },
