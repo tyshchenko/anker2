@@ -181,6 +181,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   const [previewOrder, setPreviewOrder] = useState<{
     type: ActionTab;
     from: string;
@@ -767,7 +768,11 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 <Button 
                   className="flex-1"
                   variant={previewOrder.type === "sell" ? "destructive" : "default"}
+                  disabled={isConfirmingOrder}
                   onClick={async () => {
+                    if (isConfirmingOrder) return; // Prevent double clicks
+                    
+                    setIsConfirmingOrder(true);
                     try {
                       // Prepare trade data for API
                       const tradeData = {
@@ -816,10 +821,12 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                     } catch (error) {
                       console.error("Error creating trade:", error);
                       // You might want to show an error message here
+                    } finally {
+                      setIsConfirmingOrder(false);
                     }
                   }}
                 >
-                  Confirm {previewOrder.type === "buy" ? "Buy" : previewOrder.type === "sell" ? "Sell" : "Convert"}
+                  {isConfirmingOrder ? "Confirming..." : `Confirm ${previewOrder.type === "buy" ? "Buy" : previewOrder.type === "sell" ? "Sell" : "Convert"}`}
                 </Button>
               </div>
             </div>

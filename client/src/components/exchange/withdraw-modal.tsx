@@ -108,6 +108,38 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     },
   });
 
+  // Withdraw mutation
+  const withdrawMutation = useMutation({
+    mutationFn: async (withdrawData: { amount: string; bankAccountId: string; type: string }) => {
+      const response = await fetch('/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(withdrawData),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process withdrawal');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Withdrawal Initiated",
+        description: `Your withdrawal of R${amount} has been initiated successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/wallets'] });
+      handleClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Withdrawal Failed",
+        description: error.message || "An error occurred while processing your withdrawal.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const availableBalance = 0; // TODO: Get real ZAR balance from user wallet
 
   const handleClose = () => {
@@ -134,9 +166,15 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   };
 
   const handleWithdraw = () => {
-    // In a real app, this would initiate the withdrawal
-    console.log("Withdrawing", amount, "to bank account", selectedBank);
-    handleClose();
+    if (!selectedBank || !amount || withdrawMutation.isPending) return;
+    
+    const withdrawData = {
+      amount,
+      bankAccountId: selectedBank,
+      type: withdrawalType
+    };
+    
+    withdrawMutation.mutate(withdrawData);
   };
 
   const handleMaxAmount = () => {
@@ -403,10 +441,10 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   <Button
                     onClick={handleWithdraw}
                     className="flex-1"
-                    disabled={!selectedBank}
+                    disabled={!selectedBank || withdrawMutation.isPending}
                     data-testid="button-confirm-withdraw"
                   >
-                    Withdraw
+                    {withdrawMutation.isPending ? "Processing..." : "Withdraw"}
                   </Button>
                 </div>
               </>
