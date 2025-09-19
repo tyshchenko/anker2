@@ -5,11 +5,7 @@ import requests
 from ecdsa import SigningKey, SECP256k1
 import web3
 from web3.exceptions import InvalidTransaction
-try:
-    from web3.middleware import geth_poa_middleware
-except ImportError:
-    # For newer versions of web3.py
-    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
+from web3.middleware import geth_poa_middleware
 from eth_account import Account
 #from solana.rpc.api import Client as SolanaClient
 #from solana.keypair import Keypair
@@ -475,8 +471,9 @@ class Blockchain:
         key = Key.from_hex(priv_key_hex)
         balance = self.get_btc_balance(address)
         if balance > COIN_SETTINGS['BTC']['min_send_amount']:
+            to_send_amnt = balance - COIN_SETTINGS['BTC']['min_send_amount']
             # Estimate fee, bit handles it
-            key.send([(central, balance / 10**8, 'btc')])  # bit handles fee automatically
+            key.send([(central, to_send_amnt / 10**8, 'btc')])  # bit handles fee automatically
             print("BTC sent to central")
 
     def send_eth_all(self, address, priv_key_bytes, central):

@@ -181,3 +181,5 @@ class OhlcvMarketData(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class Error(BaseModel):
+    error: str

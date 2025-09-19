@@ -10,9 +10,9 @@ import threading
 import pymysqlpool #pymysql-pool
 from valr_python import Client
 
-from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData
+from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData,Error
 
-from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT
+from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS
 from blockchain import blockchain
 
 class DataBase(object):
@@ -75,9 +75,9 @@ class MySqlStorage:
         self.update_latest_prices()
         threading.Timer(120.0, self.cacheclearer).start()
 #        print(self.get_miner_fee())
-        print("!!!!!!!!!!!!!!!")
+#        print("!!!!!!!!!!!!!!!")
         print(self.get_all_balances())
-        print("!!!!!!!!!!!!!!!")
+#        print("!!!!!!!!!!!!!!!")
         print(self.get_deposit_addresses())
         blockchain.move_from_hot()
         
@@ -271,6 +271,16 @@ class MySqlStorage:
     def create_reference(self, user_id):
         return 'APB' + str(user_id) + self.randomstr(6)
 
+    def tocorrectpair(self, from_coin, to_coin):
+        if to_coin == 'ZAR':
+          return 'SELL', from_coin+to_coin
+        elif from_coin == 'ZAR':
+          return 'BUY', to_coin+from_coin
+        elif to_coin == 'BTC':
+          return 'SELL', from_coin+to_coin
+        elif from_coin == 'BTC':
+          return 'BUY', to_coin+from_coin
+
     def get_tx_hashes(self):
         db = DataBase(DB_NAME)
         uniqueidlist = []
@@ -417,7 +427,7 @@ class MySqlStorage:
         pending_zar = db.query(sql)
         zaramount = float(pending_zar[0][0])
         if zaramount > 0:
-          client.post_internal_transfer_subaccounts('0',SUBACCOUNT,'ZAR',str(int(zaramount)))
+          client.post_internal_transfer_subaccounts('0',SUBACCOUNT,'ZAR',str(int(float(zaramount))))
           sql = "update wallets set balance=(balance+0)+(pending+0), pending='0' where coin='ZAR' and pending != '0'"
           success, account_id = db.execute(sql, return_id=True)
 
@@ -518,23 +528,24 @@ class MySqlStorage:
             txhashes.append(tx['hash'])
             db = DataBase(DB_NAME)
             if tx['side'] == 'Deposit':
-              minerfee = self.get_miner_fee(wallet.coin)
-              tocoinamount = COIN_SETTINGS[wallet.coin]['format'] % (int(tx['amount'])/COIN_SETTINGS[wallet.coin]['decimals']+prevbalance-minerfee)
+              minerfees = self.get_miner_fee()
+              minerfee = minerfees[wallet.coin]
+              tocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals']+prevbalance-minerfee)
               sql = "UPDATE wallets set balance='%s', hotwalet='%s'  where privatekey='%s' and email='%s' and coin='%s'" % (tocoinamount,walletbalance,wallet.privatekey,wallet.email,wallet.coin)
               success, account_id = db.execute(sql, return_id=True)
             
-              deposittocoinamount = COIN_SETTINGS[wallet.coin]['format'] % (int(tx['amount'])/COIN_SETTINGS[wallet.coin]['decimals'])
+              deposittocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals'])
               sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','complete', '%s', 'user')" % (
                     wallet.email, wallet.coin, tx['side'], deposittocoinamount, tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
 
               sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Fee','%s','0','complete', '%s', 'user')" % (
-                    wallet.email, wallet.coin, (COIN_SETTINGS[wallet.coin]['format'] % (int(minerfee))), tx['hash']
+                    wallet.email, wallet.coin, (COIN_FORMATS[wallet.coin]['format'] % (int(float(minerfee)))), tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
             else:
-              deposittocoinamount = COIN_SETTINGS[wallet.coin]['format'] % (int(tx['amount'])/COIN_SETTINGS[wallet.coin]['decimals'])
+              deposittocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals'])
               sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','complete', '%s', 'system')" % (
                     wallet.email, wallet.coin, tx['side'], deposittocoinamount, tx['hash']
               )
@@ -661,7 +672,59 @@ class MySqlStorage:
         
         return result
 
-    def create_trade(self, insert_trade: InsertTrade) -> Trade:
+    def create_trade(self, insert_trade: InsertTrade, user: User) -> Trade:
+        db = DataBase(DB_NAME)
+        wallets = self.get_wallets(user)
+        userwallets = {}
+        for wallet in wallets:
+          userwallets[wallet[2]] = wallet
+        from_asset=insert_trade.fromAsset
+        to_asset=insert_trade.toAsset
+        from_amount=insert_trade.fromAmount
+        to_amount=insert_trade.toAmount
+      
+        if from_asset in userwallets:
+          if to_asset not in userwallets:
+            new_wallet = NewWallet(coin=to_asset)
+            self.create_wallet(new_wallet,user)
+          sql = "UPDATE wallets set balance=((balance+0)-%s)  where email='%s' and coin='%s'" % (from_amount,user.email,from_asset)
+          success, account_id = db.execute(sql, return_id=True)
+          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','complete', '', 'user')" % (
+                user.email, from_asset, ('-' + str(from_amount)),insert_trade.rate
+          )
+          success, account_id = db.execute(sql, return_id=True)
+          sql = "UPDATE wallets set balance=((balance+0)+%s)  where email='%s' and coin='%s'" % (to_amount,user.email,to_asset)
+          success, account_id = db.execute(sql, return_id=True)
+          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','complete', '', 'user')" % (
+                user.email, to_asset, to_amount,insert_trade.rate
+          )
+          success, account_id = db.execute(sql, return_id=True)
+          
+          sql = "INSERT INTO trades (email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status) VALUES ('%s','%s','%s','%s','%s','%s','%s','complete')" % (
+                user.email,insert_trade.type,from_asset,to_asset, from_amount,to_amount,insert_trade.rate
+          )
+          success, account_id = db.execute(sql, return_id=True)
+          
+          try:
+            client = self.get_valr()
+            side, pair = self.tocorrectpair(from_asset,to_asset)
+            print(side, pair, to_amount)
+            if side == 'SELL':
+                order = client.post_market_order(side=side, pair=pair,
+                          quote_amount=(COIN_FORMATS[to_asset]['format'] % float(to_amount)),subaccount_id=SUBACCOUNT)
+            else:
+                order = client.post_market_order(side=side, pair=pair,
+                          base_amount=(COIN_FORMATS[to_asset]['format'] % float(to_amount)),subaccount_id=SUBACCOUNT)
+
+          except Exception as e:
+            print(e)
+          
+        else:
+          return Error(error = "Wallet not exist")
+        # valr 
+
+
+        
         trade = Trade(
             user_id=insert_trade.userId,
             type=insert_trade.type,

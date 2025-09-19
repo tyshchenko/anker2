@@ -32,7 +32,10 @@ from blockchain import blockchain
 
 from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS
 
-from storage import storage
+if DATABASE_TYPE == 'postgresql':
+    from postgres_storage import storage
+elif DATABASE_TYPE == 'mysql':
+    from storage import storage
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
@@ -110,7 +113,7 @@ class Application(tornado.web.Application):
             print(onewallet.address)
             walletbalance = blockchain.get_balance(onewallet)
             print(walletbalance)
-            if int(walletbalance) > COIN_SETTINGS[onewallet.coin]['min_send_amount']:
+            if int(float(walletbalance)) > COIN_SETTINGS[onewallet.coin]['min_send_amount']:
               print("FORWARD " + onewallet.coin)
               blockchain.forward_to_hot(onewallet)
               
@@ -595,8 +598,14 @@ class TradesHandler(BaseHandler):
     def post(self):
         try:
             body = json.loads(self.request.body.decode())
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
             trade_data = InsertTrade(**body)
-            trade = storage.create_trade(trade_data)
+            
+            trade = storage.create_trade(trade_data, user)
             self.write(trade.dict(by_alias=True))
         except ValidationError as e:
             print(e)
