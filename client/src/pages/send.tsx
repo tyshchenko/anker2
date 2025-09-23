@@ -283,6 +283,13 @@ export default function SendPage() {
     return amount.toFixed(4);
   };
 
+  const formatMaxBalance = (amount: number, symbol: string) => {
+    if (symbol === 'BTC') return (Math.floor(amount*10000000)/10000000).toFixed(7);
+    if (symbol === 'ETH') return (Math.floor(amount*1000000)/1000000).toFixed(6);
+    if (['ZAR', 'USD'].includes(symbol)) return (Math.floor(amount*100)/100).toFixed(2);
+    return (Math.floor(amount*10000)/10000).toFixed(4);
+  };
+
   // Generate mock transaction ID based on crypto type
   const generateTransactionId = (symbol: string) => {
     const chars = '0123456789abcdef';
@@ -608,7 +615,7 @@ export default function SendPage() {
                         variant="ghost"
                         size="sm"
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs"
-                        onClick={() => setAmount(wallet.balance.toString())}
+                        onClick={() => setAmount(formatMaxBalance(wallet.balance,wallet.symbol))}
                         data-testid="button-max"
                       >
                         MAX

@@ -179,7 +179,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   };
 
   const handleMaxAmount = () => {
-    setAmount(availableBalance.toFixed(2));
+    setAmount((Math.floor(availableBalance*100)/100).toFixed(2));
   };
 
   return (

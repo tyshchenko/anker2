@@ -39,7 +39,7 @@ interface Trade {
   created_at: string;
 }
 
-const FEE_RATE = 0.05; // 5%
+const FEE_RATE = 0.01; // 1%
 
 interface MarketData {
   pair: string;
