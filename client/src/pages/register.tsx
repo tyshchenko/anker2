@@ -27,11 +27,12 @@ type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, loginWithFacebook } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
 
   const {
     register,
@@ -59,6 +60,68 @@ export default function RegisterPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFacebookLogin = () => {
+    setIsFacebookLoading(true);
+    
+    // Load Facebook SDK and initialize
+    if (!window.FB) {
+      // Create script element to load Facebook SDK
+      const script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.onload = () => {
+        window.FB.init({
+          appId: '1073079074120623', // Demo App ID - replace with your actual Facebook App ID
+          cookie: true,
+          xfbml: true,
+          version: 'v18.0'
+        });
+        loginToFacebook();
+      };
+      document.head.appendChild(script);
+    } else {
+      loginToFacebook();
+    }
+  };
+
+  const loginToFacebook = () => {
+    window.FB.login((response: any) => {
+      if (response.authResponse) {
+        // Get user profile information
+        window.FB.api('/me', { fields: 'name,email,picture' }, async (userInfo: any) => {
+          try {
+            await loginWithFacebook({
+              accessToken: response.authResponse.accessToken,
+              email: userInfo.email || `${userInfo.id}@facebook.com`,
+              name: userInfo.name,
+              picture: userInfo.picture?.data?.url
+            });
+            
+            toast({
+              title: "Success",
+              description: "Successfully signed in with Facebook!",
+            });
+            setLocation("/");
+          } catch (error: any) {
+            toast({
+              title: "Facebook Login Failed",
+              description: error.message || "An error occurred during Facebook login",
+              variant: "destructive",
+            });
+          } finally {
+            setIsFacebookLoading(false);
+          }
+        });
+      } else {
+        toast({
+          title: "Facebook Login Cancelled",
+          description: "Facebook login was cancelled",
+          variant: "destructive",
+        });
+        setIsFacebookLoading(false);
+      }
+    }, { scope: 'email' });
   };
 
   return (
@@ -210,6 +273,22 @@ export default function RegisterPage() {
               />
             </svg>
             Continue with Google
+          </Button>
+
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={handleFacebookLogin}
+            disabled={isFacebookLoading}
+            data-testid="button-facebook-register"
+          >
+            <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
+              <path
+                fill="#1877F2"
+                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+              />
+            </svg>
+            {isFacebookLoading ? "Connecting..." : "Continue with Facebook"}
           </Button>
 
           <div className="text-center text-sm">

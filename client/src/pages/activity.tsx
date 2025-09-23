@@ -214,6 +214,16 @@ function TransactionRow({ transaction }: TransactionRowProps) {
   };
 
   const getDescription = () => {
+    if (transaction.type === 'convert') {
+      return `Convert ${transaction.pair}`;
+    }
+    if (transaction.type === 'withdraw') {
+      return `Withdraw to Bank Account`;
+    }
+    if (transaction.type === 'deposit') {
+      return `Deposit from Bank Account`;
+    }
+
     return `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} ${transaction.pair}`;
   };
 

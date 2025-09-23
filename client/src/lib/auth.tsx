@@ -35,6 +35,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   loginWithGoogle: (googleData: { token: string; email: string; name: string; picture?: string }) => Promise<void>;
+  loginWithFacebook: (facebookData: { accessToken: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
   setUnauthenticated: () => void;
 }
@@ -150,12 +151,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsAuthenticated(true);
+      if (data.sessionId) {
+        localStorage.setItem('sessionId', data.sessionId);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
       setIsAuthenticated(false);
+    },
+  });
+
+  const facebookAuthMutation = useMutation({
+    mutationFn: async (facebookData: { accessToken: string; email: string; name: string; picture?: string }) => {
+      const response = await apiRequest("POST", "/api/auth/facebook", facebookData);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Store session ID for future requests
+      if (data.sessionId) {
+        localStorage.setItem('sessionId', data.sessionId);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
   });
 
@@ -171,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     onSuccess: () => {
+      localStorage.removeItem('sessionId');
       setIsAuthenticated(false);
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -197,6 +216,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await googleAuthMutation.mutateAsync(googleData);
   };
 
+  const loginWithFacebook = async (facebookData: { accessToken: string; email: string; name: string; picture?: string }) => {
+    await facebookAuthMutation.mutateAsync(facebookData);
+  };
+
   const logout = async () => {
     await logoutMutation.mutateAsync();
   };
@@ -218,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     loginWithGoogle,
+    loginWithFacebook,
     logout,
     setUnauthenticated,
   };
