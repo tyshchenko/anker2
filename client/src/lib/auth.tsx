@@ -36,6 +36,7 @@ interface AuthContextType {
   register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   loginWithGoogle: (googleData: { token: string; email: string; name: string; picture?: string }) => Promise<void>;
   loginWithFacebook: (facebookData: { accessToken: string; email: string; name: string; picture?: string }) => Promise<void>;
+  loginWithX: (xData: { accessToken: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
   setUnauthenticated: () => void;
 }
@@ -169,11 +170,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return response.json();
     },
     onSuccess: (data) => {
-      // Store session ID for future requests
+      setIsAuthenticated(true);
       if (data.sessionId) {
         localStorage.setItem('sessionId', data.sessionId);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
+    },
+  });
+
+  const xAuthMutation = useMutation({
+    mutationFn: async (xData: { accessToken: string; email: string; name: string; picture?: string }) => {
+      const response = await apiRequest("POST", "/api/auth/x", xData);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setIsAuthenticated(true);
+      if (data.sessionId) {
+        localStorage.setItem('sessionId', data.sessionId);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: () => {
+      setIsAuthenticated(false);
     },
   });
 
@@ -220,6 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await facebookAuthMutation.mutateAsync(facebookData);
   };
 
+  const loginWithX = async (xData: { accessToken: string; email: string; name: string; picture?: string }) => {
+    await xAuthMutation.mutateAsync(xData);
+  };
+
   const logout = async () => {
     await logoutMutation.mutateAsync();
   };
@@ -242,6 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     loginWithGoogle,
     loginWithFacebook,
+    loginWithX,
     logout,
     setUnauthenticated,
   };

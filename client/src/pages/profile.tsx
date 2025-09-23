@@ -86,16 +86,16 @@ export default function ProfilePage() {
     firstName: user?.first_name || '',
     lastName: user?.last_name || '',
     email: user?.email || '',
-    phone: '+27 82 123 4567', // Default value, can be updated
-    country: 'South Africa',
-    language: 'English', 
-    timezone: 'Africa/Johannesburg',
-    verificationLevel: 'unverified', // Default, can be synced with user.verificationStatus
-    twoFactorEnabled: false,
-    emailNotifications: true,
-    smsNotifications: false,
-    tradingNotifications: true,
-    securityAlerts: true
+    phone: user?.phone || '',
+    country: user?.country || '',
+    language: user?.language || '',
+    timezone: user?.timezone || '',
+    verificationLevel: user?.verification_level as 'unverified' | 'basic' | 'advanced' || 'unverified',
+    twoFactorEnabled: user?.two_factor_enabled || false,
+    emailNotifications: user?.email_notifications || false,
+    smsNotifications: user?.sms_notifications || false,
+    tradingNotifications: user?.trading_notifications || false,
+    securityAlerts: user?.security_alerts || false
   });
   
   const [activeTab, setActiveTab] = useState('personal');
@@ -117,6 +117,16 @@ export default function ProfilePage() {
         firstName: user.first_name || '',
         lastName: user.last_name || '',
         email: user.email || '',
+        phone: user.phone || '',
+        country: user.country || '',
+        language: user.language || '',
+        timezone: user.timezone || '',
+        verificationLevel: user.verification_level as 'unverified' | 'basic' | 'advanced' || 'unverified',
+        twoFactorEnabled: user.two_factor_enabled || false,
+        emailNotifications: user.email_notifications || false,
+        smsNotifications: user.sms_notifications || false,
+        tradingNotifications: user.trading_notifications || false,
+        securityAlerts: user.security_alerts || false
       }));
     }
   }, [user]);
@@ -133,19 +143,18 @@ export default function ProfilePage() {
 
   // Fetch user's bank accounts
   const { data: bankAccounts = [], isLoading: isLoadingBankAccounts } = useQuery<BankAccount[]>({
-    queryKey: ["/api/bank-accounts", userId],
+    queryKey: ["/api/bankaccounts"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bank-accounts/${userId}`);
+      const response = await apiRequest("GET", "/api/bankaccounts");
       const data = await response.json();
-      return data.data || [];
+      return data.bank_accounts || [];
     },
-    enabled: !!userId,
   });
 
   // Create bank account mutation
   const createBankAccountMutation = useMutation({
     mutationFn: async (bankAccountData: InsertBankAccount) => {
-      const response = await apiRequest("POST", "/api/bank-accounts", bankAccountData);
+      const response = await apiRequest("POST", "/api/bankaccount/create", bankAccountData);
       return response.json();
     },
     onSuccess: () => {
@@ -153,7 +162,7 @@ export default function ProfilePage() {
         title: "Bank Account Added",
         description: "Your bank account has been added and is ready for withdrawals.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bankaccounts"] });
       setShowAddBankForm(false);
       setNewBankData({ bankName: "", accountNumber: "", accountName: "", branchNumber: "" });
     },
@@ -167,23 +176,22 @@ export default function ProfilePage() {
     },
   });
 
-  // Delete bank account mutation
+  // Delete bank account mutation (disabled - no backend endpoint available)
   const deleteBankAccountMutation = useMutation({
     mutationFn: async (accountId: string) => {
-      const response = await apiRequest("DELETE", `/api/bank-accounts/${accountId}`);
-      return response.json();
+      throw new Error("Bank account deletion is not currently supported");
     },
     onSuccess: () => {
       toast({
         title: "Bank Account Removed",
         description: "Your bank account has been successfully removed.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/bank-accounts", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bankaccounts"] });
     },
     onError: (error: any) => {
-      const errorMessage = error.message || "Failed to remove bank account";
+      const errorMessage = "Bank account deletion is not currently supported";
       toast({
-        title: "Error",
+        title: "Notice",
         description: errorMessage,
         variant: "destructive",
       });
