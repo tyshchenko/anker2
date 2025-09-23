@@ -10,7 +10,7 @@ import threading
 import pymysqlpool #pymysql-pool
 from valr_python import Client
 
-from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData,Error
+from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData,Error,Transaction
 
 from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS
 from blockchain import blockchain
@@ -445,7 +445,7 @@ class MySqlStorage:
             
             sql = "update wallets set balance=(balance+0)+(pending+0), pending='0' where coin='%s' and pending != '0'" % coin
             print(sql)
-#            success, account_id = db.execute(sql, return_id=True)
+            success, account_id = db.execute(sql, return_id=True)
 
 
 
@@ -494,6 +494,35 @@ class MySqlStorage:
           self.create_wallet(new_zar_wallet,user)
           wallets = db.query(sql)
         return wallets
+        
+    def get_zarwallet(self, user: User) -> Optional[List[Wallet]]:
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s' and coin='ZAR'" % user.email
+        db = DataBase(DB_NAME)
+        wallets = db.query(sql)
+        if not wallets:
+          new_zar_wallet = NewWallet(coin='ZAR')
+          self.create_wallet(new_zar_wallet,user)
+          wallets = db.query(sql)
+        if wallets:
+          return self.to_wallet(wallets[0])
+        else:
+          return None
+
+    def to_wallet(self, walletdata) -> Optional[Wallet]:
+        miner_fee = self.get_miner_fee()
+        wallet = Wallet(
+                        email = walletdata[1],
+                        coin = walletdata[2],
+                        fee = miner_fee[walletdata[2]],
+                        address = walletdata[3],
+                        balance = str(walletdata[4]),
+                        pending = str(walletdata[8]),
+                        is_active = walletdata[5],
+                        created = walletdata[6].isoformat() if walletdata[6] else None,
+                        updated = walletdata[7].isoformat() if walletdata[7] else None
+                    )
+        return wallet
+
 
     def get_all_wallets(self, coins) -> Optional[List[FullWallet]]:
         sql = "select id,email,coin,address,balance,is_active,privatekey,created,updated,hotwalet,pending from wallets where is_active=1 and privatekey>'' and coin IN('%s')" % ("','".join(coins))
@@ -536,18 +565,18 @@ class MySqlStorage:
               success, account_id = db.execute(sql, return_id=True)
             
               deposittocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals'])
-              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','complete', '%s', 'user')" % (
+              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','completed', '%s', 'user')" % (
                     wallet.email, wallet.coin, tx['side'], deposittocoinamount, tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
 
-              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Fee','%s','0','complete', '%s', 'user')" % (
+              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Fee','%s','0','completed', '%s', 'user')" % (
                     wallet.email, wallet.coin, (COIN_FORMATS[wallet.coin]['format'] % (int(float(minerfee)))), tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
             else:
               deposittocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals'])
-              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','complete', '%s', 'system')" % (
+              sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','%s','%s','0','completed', '%s', 'system')" % (
                     wallet.email, wallet.coin, tx['side'], deposittocoinamount, tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
@@ -558,7 +587,17 @@ class MySqlStorage:
         return txhashes
 
     def get_bankaccounts(self, user: User) -> Optional[BankAccount]:
-        sql = "select id,email,account_name,account_number,branch_code,created,updated from bank_accounts where email='%s'" % user.email
+        sql = "select id,email,account_name,account_number,branch_code,created_at,updated_at from bank_accounts where email='%s'" % user.email
+        db = DataBase(DB_NAME)
+        bankaccounts = db.query(sql)
+        if bankaccounts:
+          return bankaccounts[0]
+        else:
+          return None
+
+    def get_bankaccount(self, user: User, bankAccountId) -> Optional[BankAccount]:
+        sql = "select id,email,account_name,account_number,branch_code,created_at,updated_at from bank_accounts where email='%s' and id='%s'" % (user.email, bankAccountId)
+        print(sql)
         db = DataBase(DB_NAME)
         bankaccounts = db.query(sql)
         if bankaccounts:
@@ -621,13 +660,8 @@ class MySqlStorage:
 
     def create_bank_account(self, new_bank_account: NewBankAccount, user: User) -> dict:
         """Create a new bank account for user"""
-        # Check if user already has a bank account
-        check_sql = "SELECT id FROM bank_accounts WHERE email='%s'" % user.email
         db = DataBase(DB_NAME)
-        existing = db.query(check_sql)
-        if existing:
-            raise ValueError("User already has a bank account")
-        
+
         # Insert new bank account
         sql = "INSERT INTO bank_accounts (email, account_name, account_number, branch_code) VALUES ('%s','%s','%s','%s')" % (
             user.email, new_bank_account.accountName, new_bank_account.accountNumber, new_bank_account.branchCode
@@ -636,7 +670,7 @@ class MySqlStorage:
         
         if success:
             # Fetch the created account
-            fetch_sql = "SELECT id, email, account_name, account_number, branch_code, created, updated FROM bank_accounts WHERE id=%s" % account_id
+            fetch_sql = "SELECT id, email, account_name, account_number, branch_code, created_at, updated_at FROM bank_accounts WHERE id=%s" % account_id
             account_data = db.query(fetch_sql)
             if account_data:
                 account_row = account_data[0]
@@ -654,7 +688,7 @@ class MySqlStorage:
 
     def get_bank_accounts(self, user: User) -> List[dict]:
         """Get all bank accounts for user"""
-        sql = "SELECT id, email, account_name, account_number, branch_code, created, updated FROM bank_accounts WHERE email='%s'" % user.email
+        sql = "SELECT id, email, account_name, account_number, branch_code, created_at, updated_at FROM bank_accounts WHERE email='%s'" % user.email
         db = DataBase(DB_NAME)
         accounts = db.query(sql)
         
@@ -690,18 +724,18 @@ class MySqlStorage:
             self.create_wallet(new_wallet,user)
           sql = "UPDATE wallets set balance=((balance+0)-%s)  where email='%s' and coin='%s'" % (from_amount,user.email,from_asset)
           success, account_id = db.execute(sql, return_id=True)
-          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','complete', '', 'user')" % (
+          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','completed', '', 'user')" % (
                 user.email, from_asset, ('-' + str(from_amount)),insert_trade.rate
           )
           success, account_id = db.execute(sql, return_id=True)
           sql = "UPDATE wallets set balance=((balance+0)+%s)  where email='%s' and coin='%s'" % (to_amount,user.email,to_asset)
           success, account_id = db.execute(sql, return_id=True)
-          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','complete', '', 'user')" % (
+          sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Trade','%s','%s','completed', '', 'user')" % (
                 user.email, to_asset, to_amount,insert_trade.rate
           )
           success, account_id = db.execute(sql, return_id=True)
           
-          sql = "INSERT INTO trades (email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status) VALUES ('%s','%s','%s','%s','%s','%s','%s','complete')" % (
+          sql = "INSERT INTO trades (email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status) VALUES ('%s','%s','%s','%s','%s','%s','%s','completed')" % (
                 user.email,insert_trade.type,from_asset,to_asset, from_amount,to_amount,insert_trade.rate
           )
           success, account_id = db.execute(sql, return_id=True)
@@ -742,7 +776,7 @@ class MySqlStorage:
         return trade
 
     def get_user_trades(self, user: User) -> List[Trade]:
-        sql = "SELECT id, email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status, created, updated FROM trades WHERE email='%s'" % user.email
+        sql = "SELECT id, email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status, created_at, updated_at FROM trades WHERE email='%s'" % user.email
         db = DataBase(DB_NAME)
         trades = db.query(sql)
         
@@ -759,37 +793,163 @@ class MySqlStorage:
                       rate=trade[7],
                       fee='0',
                       status=trade[8],
-                      created_at=account_row[9].isoformat() if account_row[9] else None
+                      created_at=trade[9].isoformat() if trade[9] else None
                   )
                 )
 
         return sorted(result, key=lambda t: t.createdAt, reverse=True)
 
-    def get_user_transactions(self, user_id: str) -> List[Trade]:
-        sql = "SELECT id, email, tradetype, fromcoin, tocoin, fromamount, toamount, price, status, created, updated FROM trades WHERE email='%s'" % user.email
+    def get_user_transactions(self, user: User) -> List[Transaction]:
+        sql = "SELECT id, email, coin, side, amount, price, status, txhash, txtype, created_at, updated_at FROM transactions WHERE txtype='user' and email='%s'" % user.email
         db = DataBase(DB_NAME)
         trades = db.query(sql)
         
         result = []
         if trades:
             for trade in trades:
-                result.append(Trade(
+                result.append(Transaction(
                       user_id=str(trade[1]),
-                      type=trade[2],
-                      from_asset=trade[3],
-                      to_asset=trade[4],
-                      from_amount=trade[5],
-                      to_amount=trade[6],
-                      rate=trade[7],
-                      fee='0',
-                      status=trade[8],
-                      created_at=account_row[9].isoformat() if account_row[9] else None
+                      coin=trade[2],
+                      side=trade[3],
+                      amount=trade[4],
+                      price=trade[5],
+                      txhash=trade[7],
+                      txtype=trade[8],
+                      status=trade[6],
+                      created_at=trade[9].isoformat() if trade[9] else None
                   )
                 )
 
         return sorted(result, key=lambda t: t.createdAt, reverse=True)
       
-      
+    def send_from_wallet(self, user: User,wallet: Wallet,send_data):
+        db = DataBase(DB_NAME)
+        sql = "UPDATE wallets set balance=((balance+0)-%s)  where email='%s' and coin='%s'" % (send_data.amount,user.email,send_data.fromAsset)
+        success, account_id = db.execute(sql, return_id=True)
+        sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Send To','%s','0','completed', '', 'user')" % (
+              user.email, send_data.fromAsset, ('-' + str(send_data.amount))
+        )
+        success, account_id = db.execute(sql, return_id=True)
+        client = self.get_valr()
+
+        formatedamount =  COIN_FORMATS[wallet.coin]['format'] % (float(send_data.amount))
+        client.post_internal_transfer_subaccounts(SUBACCOUNT,'0',send_data.fromAsset,formatedamount)
+        
+        blockchain.sendcrypto(send_data.recipientAddress, user.email, send_data.amount, send_data.fromAsset)
+        return True
+
+    def fillfield(self,value, size):
+        value = str(value)
+        return value.zfill(size)
+
+    #amount in cents
+    def sendMoney(self, account='001624849', name='VALR', branch='051001', amount = 100, account_type = '1',reference_number = 'AnkerSwap'):
+        USERID = 'OUC44'
+        INTEST = 'L' #'L' production, 'T' test
+        db = DataBase('arb')
+        sequence = 1
+        uatsequence = 1
+        maxindex = db.query("SELECT max(uatsequence) FROM sboutput limit 1; ")
+        if maxindex and maxindex[0][0] and int(maxindex[0][0])<99999:
+          sequence = int(maxindex[0][0]) + 1
+    #    maxindex = db.query("SELECT max(uatsequence)  FROM sboutput WHERE DATE(created) = DATE(NOW()) limit 1; ")
+        maxindex = db.query("SELECT max(uatsequence) FROM sboutput limit 1; ")
+        if maxindex and maxindex[0][0] and int(maxindex[0][0])<99999:
+          uatsequence = int(maxindex[0][0]) + 1
+          
+    #    uatsequence = 7
+        print(sequence)
+        print(uatsequence)
+        uatsequence = sequence
+        
+        a = datetime.now()
+        creation_date = a.strftime("%Y%m%d")
+        creation_time = a.strftime("%H%M%S")
+        input_header ='FHSSVS' + USERID + self.fillfield(uatsequence,5) + creation_date + creation_time + creation_date + INTEST + ''.ljust(234)
+        
+        subbatch = '001'
+        input_detail = ''
+        summaccounts = 0
+        summsumm = 0
+        our_branch_code = '000909'
+        our_account = '070220808'.rjust(13,'0')
+        our_account_type = '1'
+        our_name = 'ANKERPLATFORM PTY LTD'
+        our_reference = ('ANKERPAY PAYMENTS').ljust(30)
+        credit_debit_contra = 'D'
+
+        transaction = self.fillfield(1,5)
+        credit_debit = 'C'
+        transaction_reference_number = str(uatsequence).rjust(10,'0')
+        
+
+        #usercode = 'ACT010'.ljust(16) #can be blank
+        usercode = ''.ljust(16) #can be blank
+        reference = reference_number.ljust(30)
+        CDI = ''.ljust(13) #CDI = '0000070220808'
+        CDI_ref = ''.ljust(25) #CDI_ref = 'CDIREF12345'.ljust(25)
+        summaccounts += int(account)
+        summsumm += int(amount)
+        
+        description = reference_number.ljust(30)
+        class_of_entry = '81'
+        pay_alert = 'Einfo@ankerpay.com'.ljust(65)
+        input_detail = input_detail + 'SD' + self.fillfield(uatsequence,5) + subbatch + transaction + credit_debit + branch.rjust(6,'0') + account.rjust(13,'0') + account_type + name.ljust(30) + usercode + self.fillfield(amount,15) + reference + CDI + CDI_ref + 'Y' + transaction_reference_number + description + class_of_entry + pay_alert + '\n'
+          
+        SAN = summaccounts + int(our_account)
+        SAC = summsumm + summsumm
+
+        hash_total = self.fillfield(int(SAN/SAC),15)[:15]
+        print(uatsequence)
+        total_credits = '0000001'
+        debit_contra = '001'
+        totalrecords = '000000002'
+        
+        input_contra ='SC' + self.fillfield(uatsequence,5) + subbatch + credit_debit_contra + our_branch_code + our_account + our_account_type + our_name.ljust(30)  + self.fillfield(summsumm,15) + our_reference + class_of_entry + ''.ljust(165)
+
+        input_trailer ='ST' + self.fillfield(uatsequence,5) + '0000000' + total_credits + debit_contra + '000' + totalrecords + self.fillfield(0,15) + self.fillfield(summsumm,15) + self.fillfield(summsumm,15) + self.fillfield(0,15) + self.fillfield(summsumm,15) + hash_total + ''.ljust(147)
+        
+        
+        alldata = input_header + '\n' + input_detail  + input_contra + '\n' + input_trailer + '\n'
+        filename = 'ANKERPAY_OUC44_PRD_'+creation_date+creation_time+'000.txt'
+        afile  = open('/opt/APIs/standardbankmainnet/Outbox/' + filename, 'w')
+        afile.write(alldata)
+        afile.close()
+        sql = ("INSERT INTO sboutput (sequence, amount, seller, uatsequence) VALUES (%s,%s,'%s',%s)" % (sequence, amount, account, uatsequence))
+        db.execute(sql)
+
+
+
+
+    def withdraw(self, user: User,wallet: Wallet, send_data):
+        db = DataBase(DB_NAME)
+        bank = self.get_bankaccount(user, send_data.bankAccountId)
+        if True:
+          if bank:
+            sql = "UPDATE wallets set balance=((balance+0)-%s)  where email='%s' and coin='ZAR'" % (send_data.amount,user.email)
+            success, account_id = db.execute(sql, return_id=True)
+            sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','ZAR','Withdraw','%s','0','completed', '', 'user')" % (
+                  user.email,('-' + str(send_data.amount))
+            )
+            success, account_id = db.execute(sql, return_id=True)
+            # move zar from account to primary
+            client = self.get_valr()
+            formatedamount = "%.2f" % (int(float(send_data.amount)*100)/100)
+            print(formatedamount)
+            client.post_internal_transfer_subaccounts(SUBACCOUNT,'0','ZAR',formatedamount)
+            # create withdraw file
+            
+            self.sendMoney(bank[3], bank[2], bank[4], int(float(send_data.amount)*100), account_type = '1',reference_number = 'AnkerSwap')
+          
+            return True
+          else:
+            sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','ZAR','Withdraw','%s','0','failed', '', 'user')" % (
+                  user.email,('-' + str(send_data.amount))
+            )
+            success, account_id = db.execute(sql, return_id=True)
+            return False
+          
+
     def get_market_data(self, pair: str, timeframe: str, charttype: str) -> List[OhlcvMarketData]:
         if charttype == 'OHLCV':
           timedata = self.ohlcv_market_data.get(timeframe, None)

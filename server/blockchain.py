@@ -176,6 +176,28 @@ class Blockchain:
             return '0'
         else:
           return '0'
+  
+    def sendcrypto(self, address, email, amount, coin):
+          data = {
+              "address": address,
+              "amount": amount,
+              "coin": coin,
+              "email": email,
+            }
+
+          print(data)
+          details = "test"
+          btcam = "0"
+          err = 0
+          if True:
+            resutl = requests.post("http://127.0.0.1:8086/api/txsexchange", data=data, verify=False)
+            print(resutl.text)
+            res = resutl.json()
+            details = res["done"]
+          
+          
+
+          return details
         
     def move_from_hot(self):
 #        VALRDEPOSIT
@@ -565,3 +587,7 @@ blockchain = Blockchain()
 #|  8 | bobbyjonker@yahoo.com | BTC  | 1BeJVf7eArE43qdNQB1Yrcx87QVTUXgc98         | 0       |         1 | 2025-09-11 16:56:11 | 2025-09-11 16:56:11 | a5122e4e8217af2bd8f57e0e71b3b9983ffeb139ab5ce45904efbc321e958a87 |
 #|  9 | viktor@ankerid.com    | ETH  | 0xb3e02d9648cdb0750eb42106fa3482c08399db5b | 0       |         1 | 2025-09-11 17:21:48 | 2025-09-11 17:21:48 | 09dcc7d0d68feecbbf6c42c3dc1f16ffbd54cab8c78d29535207f954b6ff8bf4 |
 #| 10 | bobbyjonker@yahoo.com | ETH  | 0xa568e91fc79da57c5b617144fa8c65adfef7e8cf | 0       |         1 | 2025-09-11 17:26:07 | 2025-09-11 17:26:07 | 2eac5433ae9e28e17a06b663cd3548d5ef46fa9a73ecc5423416c6699bd3c701 |
+#UPDATE wallets set pending='500' where email='bobbyjonker@yahoo.com' and coin='ZAR';
+#INSERT INTO transactions (email, coin, side, amount, price, status, txhash) VALUES ('bobbyjonker@yahoo.com','ZAR','Deposit','500.0','1','completed','20250920APB12Q4NCTZ000000000050000TR');
+
+# UPDATE wallets set balance=((balance+0)+500)  where email='bobbyjonker@yahoo.com' and coin='ZAR'

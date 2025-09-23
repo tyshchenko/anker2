@@ -66,6 +66,7 @@ class Wallet(BaseModel):
     address: Optional[str] = None
     balance: str = "0"
     pending: str = "0"
+    fee: float = 0
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -119,6 +120,10 @@ class SendTransaction(BaseModel):
     
     model_config = {"populate_by_name": True}
 
+class WithdrawTransaction(BaseModel):
+    bankAccountId: str
+    type: str
+    amount: str
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -143,6 +148,18 @@ class Trade(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+class Transaction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    userId: str = Field(..., alias="user_id")
+    coin: str
+    side: str
+    amount: float = Field(..., alias="amount")
+    price: float = Field(..., alias="price")
+    txhash: str
+    txtype: str
+    status: Literal["pending", "completed", "failed"] = "pending"
+    createdAt: datetime = Field(default_factory=datetime.now, alias="created_at")
+    model_config = {"populate_by_name": True}
 
 class InsertTrade(BaseModel):
     userId: str = Field(..., alias="user_id")

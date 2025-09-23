@@ -27,7 +27,7 @@ except ImportError:
 from tornado.options import define, options
 
 from auth_utils import auth_utils
-from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction
+from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction,WithdrawTransaction
 from blockchain import blockchain
 
 from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS
@@ -70,6 +70,7 @@ class Application(tornado.web.Application):
             (r"/api/bankaccounts", BankAccountsHandler),
             (r"/api/bankaccount/create", BankAccountCreateHandler),
             (r"/api/send", SendHandler),
+            (r"/api/withdraw", WithdrawHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -435,11 +436,14 @@ class WalletsHandler(BaseHandler):
             print(miner_fee)
             if wallets:
                 for wallet in wallets:
+                    coinminer_fee = 0
+                    if wallet[2] in miner_fee:
+                      coinminer_fee = miner_fee[wallet[2]]
                     wallet_data.append({
                         "id": str(wallet[0]),
                         "email": wallet[1],
                         "coin": wallet[2],
-                        "fee": miner_fee[wallet[2]],
+                        "fee": coinminer_fee,
                         "address": wallet[3],
                         "balance": str(wallet[4]),
                         "pending": str(wallet[8]),
@@ -654,17 +658,22 @@ class SendHandler(BaseHandler):
         try:
             body = json.loads(self.request.body.decode())
             send_data = SendTransaction(**body)
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
             
             # Validate user has sufficient balance
-            user_wallets = storage.get_user_wallets(send_data.userId)
+            user_wallets = storage.get_wallets(user)
             sender_wallet = None
             for wallet in user_wallets:
-                if wallet.coin.upper() == send_data.fromAsset.upper():
-                    sender_wallet = wallet
+                if wallet[2].upper() == send_data.fromAsset.upper():
+                    sender_wallet = storage.to_wallet(wallet)
                     break
             
             if not sender_wallet:
-                self.set_status(400)
+                self.set_status(409)
                 self.write({"error": f"No {send_data.fromAsset} wallet found"})
                 return
             
@@ -672,7 +681,7 @@ class SendHandler(BaseHandler):
             send_amount = float(send_data.amount)
             
             if send_amount > available_balance:
-                self.set_status(400)
+                self.set_status(408)
                 self.write({"error": "Insufficient balance"})
                 return
             
@@ -687,7 +696,7 @@ class SendHandler(BaseHandler):
             
             # Update sender wallet balance (subtract the sent amount)
             new_balance = available_balance - send_amount
-            storage.update_wallet_balance_by_user_coin(send_data.userId, send_data.fromAsset, str(new_balance))
+            storage.send_from_wallet(user,sender_wallet,send_data)
             
             response = {
                 "status": "success",
@@ -696,10 +705,67 @@ class SendHandler(BaseHandler):
                 "amount": send_data.amount,
                 "fromAsset": send_data.fromAsset,
                 "recipientAddress": send_data.recipientAddress,
-                "memo": send_data.memo
+                "memo": ''
             }
             
             self.write(response)
+            
+        except ValidationError as e:
+            print(e)
+            self.set_status(400)
+            self.write({"error": "Invalid send data", "details": e.errors()})
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+
+class WithdrawHandler(BaseHandler):
+    def post(self):
+        try:
+          
+            body = json.loads(self.request.body.decode())
+            send_data = WithdrawTransaction(**body)
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # Validate user has sufficient balance
+            user_wallet = storage.get_zarwallet(user)
+            
+            if not user_wallet:
+                self.set_status(409)
+                self.write({"error": f"No ZAR wallet found"})
+                return
+            
+            available_balance = float(user_wallet.balance)
+            send_amount = float(send_data.amount)
+            
+            if send_amount > available_balance:
+                self.set_status(408)
+                self.write({"error": "Insufficient balance"})
+                return
+            
+            # Update sender wallet balance (subtract the sent amount)
+            new_balance = available_balance - send_amount
+            allsent = storage.withdraw(user,user_wallet,send_data)
+            if allsent:
+              response = {
+                  "status": "success",
+                  "message": "Transaction Successful!",
+                  "transactionId": '',
+                  "amount": send_data.amount,
+                  "fromAsset": 'ZAR'
+              }
+              
+              self.write(response)
+            else:
+              self.set_status(441)
+              self.write({"error": "Invalid bank account"})
+              
             
         except ValidationError as e:
             print(e)
