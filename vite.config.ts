@@ -29,9 +29,15 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    allowedHosts: [
-      "debd2d78-c03b-4953-aaac-38c821ac56c4-00-3a4h2nv9wprx1.spock.replit.dev",
-    ],
+    port: 5000,
+    host: "0.0.0.0",
+    allowedHosts: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
 
 });
