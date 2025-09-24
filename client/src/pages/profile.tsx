@@ -39,7 +39,7 @@ import {
   Loader2,
   Trash2
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { fetchWithAuth } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -60,19 +60,20 @@ interface UserProfile {
 
 interface BankAccount {
   id: string;
-  accountName: string;
-  accountNumber: string;
-  bankName: string;
-  branchNumber: string;
+  email: string;
+  account_name: string;
+  account_number: string;
+  branch_code: string;
+  created?: string;
+  updated?: string;
+  isVerified?: boolean;
   isWhitelisted?: boolean;
 }
 
-interface InsertBankAccount {
-  userId: string;
+interface NewBankAccount {
   accountName: string;
   accountNumber: string;
-  bankName: string;
-  branchNumber: string;
+  branchCode: string;
 }
 
 export default function ProfilePage() {
@@ -103,10 +104,9 @@ export default function ProfilePage() {
   // Bank account form state
   const [showAddBankForm, setShowAddBankForm] = useState(false);
   const [newBankData, setNewBankData] = useState({
-    bankName: "",
-    accountNumber: "",
     accountName: "",
-    branchNumber: ""
+    accountNumber: "",
+    branchCode: ""
   });
 
   // Update profile state when user data changes
@@ -142,35 +142,51 @@ export default function ProfilePage() {
   const userId = user?.id || "demo-user-123"; // Fallback for demo
 
   // Fetch user's bank accounts
-  const { data: bankAccounts = [], isLoading: isLoadingBankAccounts } = useQuery<BankAccount[]>({
-    queryKey: ["/api/bankaccounts"],
+  const { data: bankAccountsData, isLoading: isLoadingBankAccounts } = useQuery({
+    queryKey: ['/api/bankaccounts'],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/bankaccounts");
-      const data = await response.json();
-      return data.bank_accounts || [];
+      const response = await fetchWithAuth('/api/bankaccounts');
+      if (!response.ok) throw new Error('Failed to fetch bank accounts');
+      return response.json();
     },
   });
 
+  // Safely extract bank accounts array from API response
+  const bankAccounts: BankAccount[] = Array.isArray(bankAccountsData) 
+    ? bankAccountsData 
+    : Array.isArray(bankAccountsData?.bank_accounts) 
+    ? bankAccountsData.bank_accounts 
+    : Array.isArray(bankAccountsData?.data) 
+    ? bankAccountsData.data 
+    : [];
+
   // Create bank account mutation
   const createBankAccountMutation = useMutation({
-    mutationFn: async (bankAccountData: InsertBankAccount) => {
-      const response = await apiRequest("POST", "/api/bankaccount/create", bankAccountData);
+    mutationFn: async (bankData: NewBankAccount) => {
+      const response = await fetchWithAuth('/api/bankaccount/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bankData),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create bank account');
+      }
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Bank Account Added",
-        description: "Your bank account has been added and is ready for withdrawals.",
+        description: "Your bank account has been added successfully and is pending verification.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/bankaccounts"] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bankaccounts'] });
       setShowAddBankForm(false);
-      setNewBankData({ bankName: "", accountNumber: "", accountName: "", branchNumber: "" });
+      setNewBankData({ accountName: "", accountNumber: "", branchCode: "" });
     },
     onError: (error: any) => {
-      const errorMessage = error.message || "Failed to add bank account";
       toast({
-        title: "Error",
-        description: errorMessage,
+        title: "Failed to Add Bank Account",
+        description: error.message || "An error occurred while adding your bank account.",
         variant: "destructive",
       });
     },
@@ -203,19 +219,10 @@ export default function ProfilePage() {
   };
 
   const handleAddBank = () => {
-    if (!userId) {
-      toast({
-        title: "Error",
-        description: "User not found. Please try logging in again.",
-        variant: "destructive",
-      });
+    if (!newBankData.accountName || !newBankData.accountNumber || !newBankData.branchCode) {
       return;
     }
-
-    createBankAccountMutation.mutate({
-      userId,
-      ...newBankData,
-    });
+    createBankAccountMutation.mutate(newBankData);
   };
 
   const handleDeleteBank = (accountId: string) => {
@@ -562,17 +569,16 @@ export default function ProfilePage() {
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <p className="font-medium">{account.bankName}</p>
-                                        {account.isWhitelisted && (
-                                          <Badge className="bg-green-100 text-green-700 text-xs">Whitelisted</Badge>
-                                        )}
+                                        <p className="font-medium">{account.account_name}</p>
+                                        <Badge variant="secondary" className="text-blue-600 bg-blue-50 text-xs">
+                                          Active
+                                        </Badge>
                                       </div>
                                       <p className="text-sm text-muted-foreground">
-                                        {maskAccountNumber(account.accountNumber)}
+                                        {maskAccountNumber(account.account_number)}
                                       </p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {account.accountName}
-                                      </p>
+                                      <p className="text-xs text-muted-foreground">Branch: {account.branch_code}</p>
+                                      <p className="text-xs text-muted-foreground">Added: {account.created ? new Date(account.created).toLocaleDateString() : 'Recently'}</p>
                                     </div>
                                     <Button
                                       variant="outline"
@@ -601,60 +607,67 @@ export default function ProfilePage() {
                             </div>
                           ) : (
                             <div className="mt-4 space-y-4 border-t pt-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <Label htmlFor="bankName">Bank Name</Label>
-                                  <Input
-                                    id="bankName"
-                                    value={newBankData.bankName}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, bankName: e.target.value }))}
-                                    placeholder="e.g. Standard Bank"
-                                  />
-                                </div>
+                              <div className="space-y-3">
                                 <div>
                                   <Label htmlFor="accountName">Account Holder Name</Label>
                                   <Input
                                     id="accountName"
                                     value={newBankData.accountName}
                                     onChange={(e) => setNewBankData(prev => ({ ...prev, accountName: e.target.value }))}
-                                    placeholder="Full name on account"
+                                    placeholder="Full name as per bank account"
+                                    data-testid="input-account-name"
                                   />
                                 </div>
+                                
+                                <div>
+                                  <Label htmlFor="branchCode">Branch Code</Label>
+                                  <Input
+                                    id="branchCode"
+                                    value={newBankData.branchCode}
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/[^0-9]/g, '');
+                                      if (value.length <= 6) {
+                                        setNewBankData(prev => ({ ...prev, branchCode: value }));
+                                      }
+                                    }}
+                                    placeholder="e.g., 051001"
+                                    className="font-mono"
+                                    data-testid="input-branch-code"
+                                  />
+                                </div>
+                                
                                 <div>
                                   <Label htmlFor="accountNumber">Account Number</Label>
                                   <Input
                                     id="accountNumber"
                                     value={newBankData.accountNumber}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                                    placeholder="Account number"
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="branchNumber">Branch Number</Label>
-                                  <Input
-                                    id="branchNumber"
-                                    value={newBankData.branchNumber}
-                                    onChange={(e) => setNewBankData(prev => ({ ...prev, branchNumber: e.target.value }))}
-                                    placeholder="Branch code"
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/[^0-9]/g, '');
+                                      setNewBankData(prev => ({ ...prev, accountNumber: value }));
+                                    }}
+                                    placeholder="Your bank account number"
+                                    className="font-mono"
+                                    data-testid="input-account-number"
                                   />
                                 </div>
                               </div>
                               <div className="flex space-x-2">
                                 <Button 
                                   onClick={handleAddBank}
-                                  disabled={createBankAccountMutation.isPending}
+                                  disabled={!newBankData.accountName || !newBankData.accountNumber || !newBankData.branchCode || createBankAccountMutation.isPending}
                                   className="flex-1"
+                                  data-testid="button-save-bank"
                                 >
-                                  {createBankAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                  Add Account
+                                  {createBankAccountMutation.isPending ? "Adding..." : "Add Account"}
                                 </Button>
                                 <Button 
                                   variant="outline" 
                                   onClick={() => {
                                     setShowAddBankForm(false);
-                                    setNewBankData({ bankName: "", accountNumber: "", accountName: "", branchNumber: "" });
+                                    setNewBankData({ accountName: "", accountNumber: "", branchCode: "" });
                                   }}
                                   className="flex-1"
+                                  data-testid="button-cancel-add-bank"
                                 >
                                   Cancel
                                 </Button>
