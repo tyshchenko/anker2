@@ -235,8 +235,7 @@ class RegisterHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            if user and user.id:
-                storage.create_session(user.id, session_token, expires_at)
+            storage.create_session(user.id, session_token, expires_at)
 
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -283,8 +282,7 @@ class LoginHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            if user and user.id:
-                storage.create_session(user.id, session_token, expires_at)
+            storage.create_session(user.id, session_token, expires_at)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -382,8 +380,7 @@ class GoogleAuthHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            if user and user.id:
-                storage.create_session(user.id, session_token, expires_at)
+            storage.create_session(user.id, session_token, expires_at)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -855,15 +852,12 @@ class WithdrawHandler(BaseHandler):
                 return
             
             # Validate user has sufficient balance
-            user_wallets = storage.get_zarwallet(user)
+            user_wallet = storage.get_zarwallet(user)
             
-            if not user_wallets:
+            if not user_wallet:
                 self.set_status(409)
                 self.write({"error": f"No ZAR wallet found"})
                 return
-            
-            # Get the first ZAR wallet
-            user_wallet = user_wallets[0] if isinstance(user_wallets, list) else user_wallets
             
             available_balance = float(user_wallet.balance)
             send_amount = float(send_data.amount)
@@ -875,7 +869,7 @@ class WithdrawHandler(BaseHandler):
             
             # Update sender wallet balance (subtract the sent amount)
             new_balance = available_balance - send_amount
-            allsent = storage.withdraw(user, user_wallet, send_data)
+            allsent = storage.withdraw(user,user_wallet,send_data)
             if allsent:
               response = {
                   "status": "success",
