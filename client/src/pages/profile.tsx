@@ -39,7 +39,7 @@ import {
   Loader2,
   Trash2
 } from "lucide-react";
-import { fetchWithAuth } from "@/lib/queryClient";
+import { fetchWithAuth, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -141,12 +141,124 @@ export default function ProfilePage() {
 
   const userId = user?.id || "demo-user-123"; // Fallback for demo
 
+  // Profile update mutations
+  const updateProfileMutation = useMutation({
+    mutationFn: async (profileData: Partial<UserProfile>) => {
+      const response = await apiRequest('/api/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/profile'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update profile.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateNotificationsMutation = useMutation({
+    mutationFn: async (notifications: { 
+      emailNotifications: boolean;
+      smsNotifications: boolean;
+      tradingNotifications: boolean;
+      securityAlerts: boolean;
+    }) => {
+      const response = await apiRequest('/api/profile/notifications', {
+        method: 'PUT',
+        body: JSON.stringify(notifications),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Preferences Updated",
+        description: "Your notification preferences have been saved.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update notification preferences.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (passwordData: { currentPassword: string; newPassword: string }) => {
+      const response = await apiRequest('/api/profile/password', {
+        method: 'PUT',
+        body: JSON.stringify(passwordData),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully.",
+      });
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Password Change Failed",
+        description: error.message || "Failed to change password.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggle2FAMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await apiRequest('/api/profile/2fa', {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "2FA Updated",
+        description: profile.twoFactorEnabled ? "Two-factor authentication enabled." : "Two-factor authentication disabled.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "2FA Update Failed",
+        description: error.message || "Failed to update two-factor authentication.",
+        variant: "destructive",
+      });
+      // Revert the change on error
+      setProfile(prev => ({ ...prev, twoFactorEnabled: !prev.twoFactorEnabled }));
+    },
+  });
+
   // Fetch user's bank accounts
   const { data: bankAccountsData, isLoading: isLoadingBankAccounts } = useQuery({
     queryKey: ['/api/bankaccounts'],
     queryFn: async () => {
       const response = await fetchWithAuth('/api/bankaccounts');
       if (!response.ok) throw new Error('Failed to fetch bank accounts');
+      return response.json();
+    },
+  });
+
+  // Fetch user verification status
+  const { data: verificationData, isLoading: isLoadingVerification } = useQuery({
+    queryKey: ['/api/profile/verification'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/profile/verification');
+      if (!response.ok) throw new Error('Failed to fetch verification status');
       return response.json();
     },
   });
@@ -216,6 +328,63 @@ export default function ProfilePage() {
 
   const handleProfileUpdate = (field: keyof UserProfile, value: any) => {
     setProfile(prev => ({ ...prev, [field]: value }));
+    
+    // Auto-save notification preferences when changed
+    if (['emailNotifications', 'smsNotifications', 'tradingNotifications', 'securityAlerts'].includes(field)) {
+      const updatedNotifications = {
+        emailNotifications: field === 'emailNotifications' ? value : profile.emailNotifications,
+        smsNotifications: field === 'smsNotifications' ? value : profile.smsNotifications,
+        tradingNotifications: field === 'tradingNotifications' ? value : profile.tradingNotifications,
+        securityAlerts: field === 'securityAlerts' ? value : profile.securityAlerts
+      };
+      updateNotificationsMutation.mutate(updatedNotifications);
+    }
+    
+    // Auto-save 2FA changes
+    if (field === 'twoFactorEnabled') {
+      toggle2FAMutation.mutate(value);
+    }
+  };
+
+  const handleSavePersonalInfo = () => {
+    const personalData = {
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      phone: profile.phone,
+      country: profile.country
+    };
+    updateProfileMutation.mutate(personalData);
+  };
+
+  const handleSavePreferences = () => {
+    const preferencesData = {
+      language: profile.language,
+      timezone: profile.timezone
+    };
+    updateProfileMutation.mutate(preferencesData);
+  };
+
+  const handleChangePassword = () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "New password and confirmation must match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!passwordData.currentPassword || !passwordData.newPassword) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all password fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    changePasswordMutation.mutate({
+      currentPassword: passwordData.currentPassword,
+      newPassword: passwordData.newPassword
+    });
   };
 
   const handleAddBank = () => {
@@ -397,7 +566,17 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <div className="mt-6">
-                        <Button data-testid="button-save-personal">Save Changes</Button>
+                        <Button 
+                          onClick={handleSavePersonalInfo}
+                          disabled={updateProfileMutation.isPending}
+                          data-testid="button-save-personal"
+                        >
+                          {updateProfileMutation.isPending ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                          ) : (
+                            'Save Changes'
+                          )}
+                        </Button>
                       </div>
                     </Card>
                   </div>
@@ -406,38 +585,73 @@ export default function ProfilePage() {
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Verification Status</h2>
                     <Card className="p-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                            <div>
-                              <p className="font-medium">Email Verification</p>
-                              <p className="text-sm text-muted-foreground">Email address verified</p>
-                            </div>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                      {isLoadingVerification ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                          <span className="ml-2 text-muted-foreground">Loading verification status...</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                            <div>
-                              <p className="font-medium">Identity Verification</p>
-                              <p className="text-sm text-muted-foreground">Government ID verified</p>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {verificationData?.email_verified ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">Email Verification</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {verificationData?.email_verified ? 'Email address verified' : 'Email verification pending'}
+                                </p>
+                              </div>
                             </div>
+                            <Badge className={verificationData?.email_verified ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                              {verificationData?.email_verified ? 'Verified' : 'Pending'}
+                            </Badge>
                           </div>
-                          <Badge className="bg-green-100 text-green-700">Verified</Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <AlertTriangle className="w-5 h-5 text-orange-500" />
-                            <div>
-                              <p className="font-medium">Address Verification</p>
-                              <p className="text-sm text-muted-foreground">Proof of residence required</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {verificationData?.identity_verified ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">Identity Verification</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {verificationData?.identity_verified ? 'Government ID verified' : 'Identity verification required'}
+                                </p>
+                              </div>
                             </div>
+                            <Badge className={verificationData?.identity_verified ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                              {verificationData?.identity_verified ? 'Verified' : 'Pending'}
+                            </Badge>
                           </div>
-                          <Button variant="outline" size="sm">Upload Document</Button>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {verificationData?.address_verified ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">Address Verification</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {verificationData?.address_verified ? 'Proof of residence verified' : 'Proof of residence required'}
+                                </p>
+                              </div>
+                            </div>
+                            {verificationData?.address_verified ? (
+                              <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : (
+                              <Button variant="outline" size="sm" data-testid="button-upload-document">
+                                Upload Document
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </Card>
                   </div>
                 </div>
@@ -538,7 +752,17 @@ export default function ProfilePage() {
                             data-testid="input-confirm-password"
                           />
                         </div>
-                        <Button data-testid="button-change-password">Update Password</Button>
+                        <Button 
+                          onClick={handleChangePassword}
+                          disabled={changePasswordMutation.isPending}
+                          data-testid="button-change-password"
+                        >
+                          {changePasswordMutation.isPending ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Updating...</>
+                          ) : (
+                            'Update Password'
+                          )}
+                        </Button>
                       </div>
                     </Card>
 
@@ -786,7 +1010,17 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <div className="mt-6">
-                        <Button data-testid="button-save-preferences">Save Preferences</Button>
+                        <Button 
+                          onClick={handleSavePreferences}
+                          disabled={updateProfileMutation.isPending}
+                          data-testid="button-save-preferences"
+                        >
+                          {updateProfileMutation.isPending ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                          ) : (
+                            'Save Preferences'
+                          )}
+                        </Button>
                       </div>
                     </Card>
                   </div>
