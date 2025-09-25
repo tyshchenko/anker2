@@ -549,7 +549,12 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                   onChange={(e) => setAmountSell(e.target.value.replace(/[^0-9.]/g, ""))}
                   data-testid="input-amount-sell"
                 />
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Available: {formatAmount(fromSell, getUserBalance(fromSell))} {fromSell}
+                </div>
               </div>
+
+              <QuickAmountButtons />
 
               <OrderSummary quote={sellQuote} from={fromSell} to={toSell} ordertype='sell' />
 
@@ -643,7 +648,12 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                   onChange={(e) => setAmountConvert(e.target.value.replace(/[^0-9.]/g, ""))}
                   data-testid="input-amount-convert"
                 />
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Available: {formatAmount(fromConvert, getUserBalance(fromConvert))} {fromConvert}
+                </div>
               </div>
+
+              <QuickAmountButtons />
 
               <OrderSummary quote={convertQuote} from={fromConvert} to={toConvert} ordertype='convert' />
 
