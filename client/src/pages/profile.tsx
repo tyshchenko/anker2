@@ -146,7 +146,7 @@ export default function ProfilePage() {
   // Profile update mutations
   const updateProfileMutation = useMutation({
     mutationFn: async (profileData: Partial<UserProfile>) => {
-      const response = await apiRequest('PUT', '/api/profile', profileData);
+      const response = await apiRequest('POST', '/api/profile', profileData);
       return response;
     },
     onSuccess: () => {
@@ -172,7 +172,7 @@ export default function ProfilePage() {
       tradingNotifications: boolean;
       securityAlerts: boolean;
     }) => {
-      const response = await apiRequest('PUT', '/api/profile/notifications', notifications);
+      const response = await apiRequest('POST', '/api/profile/notifications', notifications);
       return response;
     },
     onSuccess: () => {
@@ -192,7 +192,7 @@ export default function ProfilePage() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (passwordData: { currentPassword: string; newPassword: string }) => {
-      const response = await apiRequest('PUT', '/api/profile/password', passwordData);
+      const response = await apiRequest('POST', '/api/profile/password', passwordData);
       return response;
     },
     onSuccess: () => {
@@ -213,7 +213,7 @@ export default function ProfilePage() {
 
   const toggle2FAMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const response = await apiRequest('PUT', '/api/profile/2fa', { enabled });
+      const response = await apiRequest('POST', '/api/profile/2fa', { enabled });
       return response;
     },
     onSuccess: () => {

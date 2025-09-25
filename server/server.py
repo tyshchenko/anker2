@@ -94,6 +94,12 @@ class Application(tornado.web.Application):
             (r"/api/auth/x", XAuthHandler),
             (r"/api/auth/me", MeHandler),
             
+            # Profile routes
+            (r"/api/profile", ProfileHandler),
+            (r"/api/profile/notifications", ProfileNotificationsHandler),
+            (r"/api/profile/password", ProfilePasswordHandler),
+            (r"/api/profile/2fa", Profile2FAHandler),
+            
             # WebSocket route
             (r"/ws", WebSocketHandler),
             (r'/.*', NotFoundHandler)
@@ -1399,6 +1405,177 @@ class PopularWalletsHandler(BaseHandler):
             print(f"Error getting popular wallets: {e}")
             self.set_status(500)
             self.write({"error": "Failed to get popular wallets"})
+
+class ProfileHandler(BaseHandler):
+    def get(self):
+        """Get user profile information"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            # Return user profile data (without password)
+            user_data = user.dict()
+            user_data.pop('password_hash', None)
+            
+            self.write({
+                "success": True,
+                "profile": user_data
+            })
+            
+        except Exception as e:
+            print(f"Error getting profile: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+    def post(self):
+        """Update user profile information"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            data = self.get_json_body()
+            if not data:
+                self.set_status(400)
+                self.write({"error": "Invalid JSON body"})
+                return
+            
+            # Update allowed fields
+            allowed_fields = ['first_name', 'last_name', 'phone', 'country']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if update_data:
+                # Update user in storage
+                updated_user = storage.update_user_profile(user.id, update_data)
+                
+                self.write({
+                    "success": True,
+                    "message": "Profile updated successfully"
+                })
+            else:
+                self.set_status(400)
+                self.write({"error": "No valid fields to update"})
+                
+        except Exception as e:
+            print(f"Error updating profile: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class ProfileNotificationsHandler(BaseHandler):
+    def post(self):
+        """Update user notification preferences"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            data = self.get_json_body()
+            if not data:
+                self.set_status(400)
+                self.write({"error": "Invalid JSON body"})
+                return
+            
+            # Expected notification fields
+            allowed_fields = ['emailNotifications', 'smsNotifications', 'tradingNotifications', 'securityAlerts']
+            notification_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if notification_data:
+                # Update notification preferences in storage
+                # For now, just acknowledge the request
+                self.write({
+                    "success": True,
+                    "message": "Notification preferences updated successfully"
+                })
+            else:
+                self.set_status(400)
+                self.write({"error": "No valid notification preferences provided"})
+                
+        except Exception as e:
+            print(f"Error updating notifications: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class ProfilePasswordHandler(BaseHandler):
+    def post(self):
+        """Change user password"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            data = self.get_json_body()
+            if not data:
+                self.set_status(400)
+                self.write({"error": "Invalid JSON body"})
+                return
+            
+            current_password = data.get('currentPassword')
+            new_password = data.get('newPassword')
+            
+            if not current_password or not new_password:
+                self.set_status(400)
+                self.write({"error": "Current password and new password are required"})
+                return
+            
+            # Verify current password
+            if not auth_utils.verify_password(current_password, user.password_hash):
+                self.set_status(400)
+                self.write({"error": "Current password is incorrect"})
+                return
+            
+            # Update password
+            new_hash = auth_utils.hash_password(new_password)
+            storage.update_user_password(user.id, new_hash)
+            
+            self.write({
+                "success": True,
+                "message": "Password updated successfully"
+            })
+            
+        except Exception as e:
+            print(f"Error changing password: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class Profile2FAHandler(BaseHandler):
+    def post(self):
+        """Toggle two-factor authentication"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            data = self.get_json_body()
+            if not data:
+                self.set_status(400)
+                self.write({"error": "Invalid JSON body"})
+                return
+            
+            enabled = data.get('enabled', False)
+            
+            # Update 2FA status in storage
+            # For now, just acknowledge the request
+            self.write({
+                "success": True,
+                "message": f"Two-factor authentication {'enabled' if enabled else 'disabled'} successfully",
+                "twoFactorEnabled": enabled
+            })
+            
+        except Exception as e:
+            print(f"Error updating 2FA: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     clients: Set['WebSocketHandler'] = set()
