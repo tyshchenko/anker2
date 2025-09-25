@@ -73,22 +73,20 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
 
   const handleFileSelect = async (type: "id" | "poa" | "selfie", file: File) => {
     try {
-      // Get upload URL from backend
-      const response = await apiRequest("POST", "/api/objects/upload");
-      const data = await response.json();
-      
       // Upload file directly to storage
-      const uploadResponse = await fetch(data.url, {
-        method: 'GET',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+      
+      const uploadResponse = await fetch("/api/objects/upload", {
+        method: 'POST',
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
         throw new Error('Upload failed');
       }
+      const data = await uploadResponse.json();
 
       // Update document state
       setDocuments(prev => prev.map(doc => 
@@ -313,24 +311,6 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
               }).filter(Boolean)}
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="flex-1"
-                data-testid="button-cancel-verification"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!canSubmit || submitVerificationMutation.isPending}
-                className="flex-1"
-                data-testid="button-submit-verification"
-              >
-                {submitVerificationMutation.isPending ? "Submitting..." : "Submit for Review"}
-              </Button>
-            </div>
           </div>
         )}
       </DialogContent>

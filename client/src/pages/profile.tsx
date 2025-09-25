@@ -596,9 +596,18 @@ export default function ProfilePage() {
                                 </p>
                               </div>
                             </div>
-                            <Badge className={verificationData?.email_verified ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
-                              {verificationData?.email_verified ? 'Verified' : 'Pending'}
-                            </Badge>
+                            {verificationData?.email_verified ? (
+                              <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setShowVerificationModal(true)}
+                                data-testid="button-upload-document"
+                              >
+                                Verify
+                              </Button>
+                            )}
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
@@ -614,9 +623,18 @@ export default function ProfilePage() {
                                 </p>
                               </div>
                             </div>
-                            <Badge className={verificationData?.identity_verified ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
-                              {verificationData?.identity_verified ? 'Verified' : 'Pending'}
-                            </Badge>
+                            {verificationData?.identity_verified ? (
+                              <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setShowVerificationModal(true)}
+                                data-testid="button-upload-document"
+                              >
+                                Upload Document
+                              </Button>
+                            )}
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
