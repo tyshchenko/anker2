@@ -79,6 +79,18 @@ wheels = [
 ]
 
 [[package]]
+name = "aiohttp-retry"
+version = "2.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9d/61/ebda4d8e3d8cfa1fd3db0fb428db2dd7461d5742cea35178277ad180b033/aiohttp_retry-2.9.1.tar.gz", hash = "sha256:8eb75e904ed4ee5c2ec242fefe85bf04240f685391c4879d8f541d6028ff01f1", size = 13608 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/99/84ba7273339d0f3dfa57901b846489d2e5c2cd731470167757f1935fffbd/aiohttp_retry-2.9.1-py3-none-any.whl", hash = "sha256:66d2759d1921838256a05a3f80ad7e724936f083e35be5abb5e16eed6be6dc54", size = 9981 },
+]
+
+[[package]]
 name = "aiosignal"
 version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1268,6 +1280,7 @@ dependencies = [
     { name = "telebot" },
     { name = "tornado" },
     { name = "tronpy" },
+    { name = "twilio" },
     { name = "urllib3" },
     { name = "uvloop" },
     { name = "web3" },
@@ -1295,6 +1308,7 @@ requires-dist = [
     { name = "telebot", specifier = ">=0.0.5" },
     { name = "tornado", specifier = ">=6.5.2" },
     { name = "tronpy", specifier = ">=0.6.1" },
+    { name = "twilio", specifier = ">=9.8.2" },
     { name = "urllib3", specifier = ">=2.5.0" },
     { name = "uvloop", specifier = ">=0.21.0" },
     { name = "web3", specifier = ">=7.13.0" },
@@ -1475,6 +1489,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/1a/684febe7adaf33830f149212883cf22f8e3a3b9496ffa6d24a673ec1a206/tronpy-0.6.1.tar.gz", hash = "sha256:fb022a6890e722d3e545a0ef5a98b516600a4867eab180265a194500f8be3103", size = 150323 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5d/b9/b605dee41f45c71d2d5dce3efc01dc1b942ae8236fba61ce1a658ba7b2e7/tronpy-0.6.1-py3-none-any.whl", hash = "sha256:f07bb0faf3461ec0db3754283d32f4e5bdfec9d165dc8168dbb3a628b12da933", size = 51109 },
+]
+
+[[package]]
+name = "twilio"
+version = "9.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "aiohttp-retry" },
+    { name = "pyjwt" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/36/dc7dcca1a023dcbbfd713299473eeeb84c08c9716a45cfbd01daef59541c/twilio-9.8.2.tar.gz", hash = "sha256:2fe695414dad7169fc605ff074ca070bcdce181471ae8d42f3d484120d531fd1", size = 938463 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/07/4f4d04cc2a640cd1d11d2ed0a071e0d67e1b98ba5873544473bf8dca177c/twilio-9.8.2-py2.py3-none-any.whl", hash = "sha256:7f7e39112b2eaf7f64442f8899113f2ffd78cd2c925f6da586040b5f6ff3d99c", size = 1827713 },
 ]
 
 [[package]]

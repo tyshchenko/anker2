@@ -24,6 +24,25 @@ try:
 except ImportError:
     telebot = None
 
+# Optional Twilio import for SMS
+try:
+    from twilio.rest import Client
+    TWILIO_AVAILABLE = True
+except ImportError:
+    TWILIO_AVAILABLE = False
+    Client = None
+
+# Twilio configuration (will need to be set via environment variables)
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')
+
+# Email configuration (placeholder for future implementation)
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS', '')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+
 from tornado.options import define, options
 
 from auth_utils import auth_utils
@@ -78,9 +97,9 @@ class Application(tornado.web.Application):
             (r"/api/objects/upload", ObjectUploadHandler),
             (r"/api/verification/phone/send", PhoneVerificationSendHandler),
             (r"/api/verification/phone/verify", PhoneVerificationVerifyHandler),
+            (r"/api/verification/email/send", EmailVerificationSendHandler),
+            (r"/api/verification/email/verify", EmailVerificationVerifyHandler),
             
-            # File upload/download routes
-            (r"/upload/(.+)/(.+)", FileDownloadHandler),
             (r"/api/users/(.+)/deposit", DepositHandler),
             
             # Crypto metadata and token routes
@@ -102,6 +121,9 @@ class Application(tornado.web.Application):
             (r"/api/profile/notifications", ProfileNotificationsHandler),
             (r"/api/profile/password", ProfilePasswordHandler),
             (r"/api/profile/2fa", Profile2FAHandler),
+            
+            # File upload/download routes (must be before catch-all)
+            (r"/upload/([^/]+)/([^/]+)", FileDownloadHandler),
             
             # WebSocket route
             (r"/ws", WebSocketHandler),
@@ -1039,8 +1061,34 @@ class PhoneVerificationSendHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # For demo purposes, simulate sending SMS
+            # Generate verification code
             verification_code = f"{random.randint(100000, 999999)}"
+            
+            # Try to send SMS via Twilio if available
+            if TWILIO_AVAILABLE and TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+                try:
+                    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                    message = client.messages.create(
+                        body=f"Your verification code is: {verification_code}",
+                        from_=TWILIO_PHONE_NUMBER,
+                        to=phone_number
+                    )
+                    
+                    # Store verification code in session or database
+                    # For demo, we'll return it in response
+                    self.write({
+                        "success": True,
+                        "message": f"Verification code sent to {phone_number}",
+                        "phone_number": phone_number,
+                        "message_sid": message.sid,
+                        "expires_in": 300  # 5 minutes
+                    })
+                    return
+                except Exception as twilio_error:
+                    print(f"Twilio error: {twilio_error}")
+                    # Fall through to demo mode
+            
+            # Demo mode - return verification code in response
             
             self.write({
                 "success": True,
@@ -1671,6 +1719,72 @@ class FileDownloadHandler(BaseHandler):
                 
         except Exception as e:
             print(f"Error in file download: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class EmailVerificationSendHandler(BaseHandler):
+    def post(self):
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # Generate verification code
+            verification_code = f"{random.randint(100000, 999999)}"
+            
+            # For demo purposes, simulate sending email
+            # In production, you would use SMTP to send actual emails
+            # using smtplib or similar email service
+            
+            # Store verification code in session or database
+            # For demo, we'll return it in response
+            
+            self.write({
+                "success": True,
+                "message": f"Verification code sent to {user.email}",
+                "email": user.email,
+                "verification_code": verification_code,  # Remove in production
+                "expires_in": 300  # 5 minutes
+            })
+            
+        except Exception as e:
+            print(f"Error sending email verification: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class EmailVerificationVerifyHandler(BaseHandler):
+    def post(self):
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            body = json.loads(self.request.body.decode())
+            code = body.get('code')
+            
+            if not code:
+                self.set_status(400)
+                self.write({"error": "Verification code is required"})
+                return
+            
+            # In production, verify the code against stored value
+            # For demo purposes, accept any 6-digit code
+            if len(code) == 6 and code.isdigit():
+                self.write({
+                    "success": True,
+                    "message": "Email verified successfully",
+                    "email": user.email
+                })
+            else:
+                self.set_status(400)
+                self.write({"error": "Invalid verification code"})
+            
+        except Exception as e:
+            print(f"Error verifying email code: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
