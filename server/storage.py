@@ -76,9 +76,10 @@ class MySqlStorage:
         threading.Timer(120.0, self.cacheclearer).start()
 #        print(self.get_miner_fee())
 #        print("!!!!!!!!!!!!!!!")
-        print(self.get_all_balances())
-#        print("!!!!!!!!!!!!!!!")
-        print(self.get_deposit_addresses())
+        # Commented out to avoid startup crashes if API credentials missing
+        # print(self.get_all_balances())
+        # print("!!!!!!!!!!!!!!!")
+        # print(self.get_deposit_addresses())
         blockchain.move_from_hot()
         
 
@@ -404,10 +405,13 @@ class MySqlStorage:
 
 
     def get_all_balances(self):
-        client = self.get_valr()
-        allbalances = client.get_nonzero_balances()
-
-        return allbalances
+        try:
+            client = self.get_valr()
+            allbalances = client.get_nonzero_balances()
+            return allbalances
+        except Exception as e:
+            print(f"Warning: Could not fetch balances from VALR API: {e}")
+            return []  # Return empty list if API credentials not available
 
     def get_deposit_addresses(self):
         client = self.get_valr()
