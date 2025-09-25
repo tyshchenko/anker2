@@ -137,6 +137,20 @@ function formatAmount(asset: string, amount: number): string {
   return amount.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
+// Get decimal places for an asset
+function getAssetDecimals(asset: string): number {
+  if (asset === "BTC") return 6;
+  if (asset === "ETH") return 5;
+  if (["USDT", "USD", "EUR", "GBP", "ZAR"].includes(asset)) return 2;
+  return 4;
+}
+
+// Round down to specified decimal places
+function floorToDecimals(amount: number, decimals: number): number {
+  const multiplier = Math.pow(10, decimals);
+  return Math.floor(amount * multiplier) / multiplier;
+}
+
 function calculateQuote(from: string, to: string, fromAmount: number, marketData: MarketData[]) {
   const rate = getExchangeRate(from, to, marketData);
   
@@ -268,12 +282,31 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
   };
 
   const handleQuickAmount = (amount: string) => {
+    let finalAmount = amount;
+    
+    if (amount === "Max") {
+      // Get the appropriate asset for the current tab
+      const fromAsset = activeTab === "buy" ? fromBuy : 
+                       activeTab === "sell" ? fromSell : 
+                       fromConvert;
+      
+      // Get user's balance for this asset
+      const userBalance = getUserBalance(fromAsset);
+      
+      // Round down to proper decimal places for this asset
+      const decimals = getAssetDecimals(fromAsset);
+      const maxAmount = floorToDecimals(userBalance, decimals);
+      
+      // Convert to string without scientific notation
+      finalAmount = maxAmount.toFixed(decimals).replace(/\.?0+$/, '');
+    }
+    
     if (activeTab === "buy") {
-      setAmountBuy(amount);
+      setAmountBuy(finalAmount);
     } else if (activeTab === "sell") {
-      setAmountSell(amount);
+      setAmountSell(finalAmount);
     } else {
-      setAmountConvert(amount);
+      setAmountConvert(finalAmount);
     }
   };
 
@@ -321,7 +354,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
           variant="outline"
           size="sm"
           className="text-xs"
-          onClick={() => handleQuickAmount(amount === "Max" ? "10000" : amount)}
+          onClick={() => handleQuickAmount(amount)}
           data-testid={`button-quick-${amount.toLowerCase()}`}
         >
           {amount === "Max" ? "Max" : `R${amount}`}
