@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { fetchWithAuth, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { VerificationModal } from "@/components/verification/verification-modal";
 
 interface UserProfile {
   firstName: string;
@@ -100,6 +101,7 @@ export default function ProfilePage() {
   });
   
   const [activeTab, setActiveTab] = useState('personal');
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   
   // Bank account form state
   const [showAddBankForm, setShowAddBankForm] = useState(false);
@@ -255,9 +257,9 @@ export default function ProfilePage() {
 
   // Fetch user verification status
   const { data: verificationData, isLoading: isLoadingVerification } = useQuery({
-    queryKey: ['/api/profile/verification'],
+    queryKey: ['/api/auth/verification-status'],
     queryFn: async () => {
-      const response = await fetchWithAuth('/api/profile/verification');
+      const response = await fetchWithAuth('/api/auth/verification-status');
       if (!response.ok) throw new Error('Failed to fetch verification status');
       return response.json();
     },
@@ -645,7 +647,12 @@ export default function ProfilePage() {
                             {verificationData?.address_verified ? (
                               <Badge className="bg-green-100 text-green-700">Verified</Badge>
                             ) : (
-                              <Button variant="outline" size="sm" data-testid="button-upload-document">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setShowVerificationModal(true)}
+                                data-testid="button-upload-document"
+                              >
                                 Upload Document
                               </Button>
                             )}
@@ -1030,6 +1037,12 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Verification Modal */}
+      <VerificationModal 
+        open={showVerificationModal} 
+        onOpenChange={setShowVerificationModal} 
+      />
     </div>
   );
 }
