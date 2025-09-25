@@ -146,10 +146,7 @@ export default function ProfilePage() {
   // Profile update mutations
   const updateProfileMutation = useMutation({
     mutationFn: async (profileData: Partial<UserProfile>) => {
-      const response = await apiRequest('/api/profile', {
-        method: 'PUT',
-        body: JSON.stringify(profileData),
-      });
+      const response = await apiRequest('PUT', '/api/profile', profileData);
       return response;
     },
     onSuccess: () => {
@@ -175,10 +172,7 @@ export default function ProfilePage() {
       tradingNotifications: boolean;
       securityAlerts: boolean;
     }) => {
-      const response = await apiRequest('/api/profile/notifications', {
-        method: 'PUT',
-        body: JSON.stringify(notifications),
-      });
+      const response = await apiRequest('PUT', '/api/profile/notifications', notifications);
       return response;
     },
     onSuccess: () => {
@@ -198,10 +192,7 @@ export default function ProfilePage() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (passwordData: { currentPassword: string; newPassword: string }) => {
-      const response = await apiRequest('/api/profile/password', {
-        method: 'PUT',
-        body: JSON.stringify(passwordData),
-      });
+      const response = await apiRequest('PUT', '/api/profile/password', passwordData);
       return response;
     },
     onSuccess: () => {
@@ -222,10 +213,7 @@ export default function ProfilePage() {
 
   const toggle2FAMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      const response = await apiRequest('/api/profile/2fa', {
-        method: 'PUT',
-        body: JSON.stringify({ enabled }),
-      });
+      const response = await apiRequest('PUT', '/api/profile/2fa', { enabled });
       return response;
     },
     onSuccess: () => {
