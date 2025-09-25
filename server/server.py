@@ -80,6 +80,11 @@ class Application(tornado.web.Application):
             (r"/api/verification/phone/verify", PhoneVerificationVerifyHandler),
             (r"/api/users/(.+)/deposit", DepositHandler),
             
+            # Crypto metadata and token routes
+            (r"/api/cryptocurrencies", CryptocurrenciesHandler),
+            (r"/api/tokens/search", TokenSearchHandler),
+            (r"/api/wallets/popular", PopularWalletsHandler),
+            
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
             (r"/api/auth/login", LoginHandler),
@@ -1080,6 +1085,320 @@ class DepositHandler(BaseHandler):
             self.set_status(500)
             self.write({"error": str(e)})
 
+
+# Crypto metadata and tokens handlers
+class CryptocurrenciesHandler(BaseHandler):
+    def get(self):
+        """Get cryptocurrency metadata (logos, colors, icons)"""
+        try:
+            # Define comprehensive crypto metadata
+            crypto_metadata = {
+                "BTC": {
+                    "id": "btc-wallet",
+                    "name": "Bitcoin",
+                    "symbol": "BTC",
+                    "icon": "₿",
+                    "logoUrl": "/assets/BTC_1757408297384.png",
+                    "color": "bg-orange-500",
+                    "textColor": "text-orange-600",
+                    "description": "The first and largest cryptocurrency by market cap",
+                    "decimals": 8,
+                    "is_active": True
+                },
+                "ETH": {
+                    "id": "eth-wallet", 
+                    "name": "Ethereum",
+                    "symbol": "ETH",
+                    "icon": "Ξ",
+                    "logoUrl": "/assets/ETH_1757408297384.png",
+                    "color": "bg-blue-500",
+                    "textColor": "text-blue-600",
+                    "description": "A decentralized platform for smart contracts",
+                    "decimals": 18,
+                    "is_active": True
+                },
+                "USDT": {
+                    "id": "usdt-wallet",
+                    "name": "Tether",
+                    "symbol": "USDT", 
+                    "icon": "₮",
+                    "logoUrl": "/assets/tether-usdt-logo_1757408297385.png",
+                    "color": "bg-green-500",
+                    "textColor": "text-green-600",
+                    "description": "A stablecoin pegged to the US dollar",
+                    "decimals": 6,
+                    "is_active": True
+                },
+                "BNB": {
+                    "id": "bnb-wallet",
+                    "name": "BNB",
+                    "symbol": "BNB",
+                    "icon": "◉",
+                    "logoUrl": "/assets/BNB_1757408614597.png",
+                    "color": "bg-yellow-500",
+                    "textColor": "text-yellow-600",
+                    "description": "Binance's native token",
+                    "decimals": 18,
+                    "is_active": True
+                },
+                "XRP": {
+                    "id": "xrp-wallet",
+                    "name": "XRP",
+                    "symbol": "XRP",
+                    "icon": "◉",
+                    "logoUrl": "/assets/XRP_1757408614597.png",
+                    "color": "bg-blue-600",
+                    "textColor": "text-blue-700",
+                    "description": "Digital payment protocol for financial institutions",
+                    "decimals": 6,
+                    "is_active": True
+                },
+                "DOGE": {
+                    "id": "doge-wallet",
+                    "name": "Dogecoin",
+                    "symbol": "DOGE",
+                    "icon": "Ð",
+                    "logoUrl": "/assets/Dogecoin_1757409584282.png",
+                    "color": "bg-yellow-400",
+                    "textColor": "text-yellow-500",
+                    "description": "The meme cryptocurrency",
+                    "decimals": 8,
+                    "is_active": True
+                },
+                "SOL": {
+                    "id": "sol-wallet",
+                    "name": "Solana",
+                    "symbol": "SOL",
+                    "icon": "◉",
+                    "logoUrl": "/assets/SOL_1757408614598.png",
+                    "color": "bg-purple-500",
+                    "textColor": "text-purple-600",
+                    "description": "High-performance blockchain supporting smart contracts",
+                    "decimals": 9,
+                    "is_active": True
+                },
+                "ADA": {
+                    "id": "ada-wallet",
+                    "name": "Cardano",
+                    "symbol": "ADA",
+                    "icon": "◉",
+                    "logoUrl": "/assets/Cardano_1757409292578.png",
+                    "color": "bg-blue-400",
+                    "textColor": "text-blue-500",
+                    "description": "Research-driven blockchain platform",
+                    "decimals": 6,
+                    "is_active": True
+                },
+                "MATIC": {
+                    "id": "matic-wallet",
+                    "name": "Polygon",
+                    "symbol": "MATIC",
+                    "icon": "◉",
+                    "logoUrl": "/assets/Polygon_1757409292577.png",
+                    "color": "bg-purple-600",
+                    "textColor": "text-purple-700",
+                    "description": "Ethereum scaling solution",
+                    "decimals": 18,
+                    "is_active": True
+                },
+                "ZAR": {
+                    "id": "zar-wallet",
+                    "name": "South African Rand",
+                    "symbol": "ZAR",
+                    "icon": "R",
+                    "color": "bg-green-700",
+                    "textColor": "text-green-800",
+                    "description": "South African currency",
+                    "decimals": 2,
+                    "is_active": True
+                },
+                "USD": {
+                    "id": "usd-wallet",
+                    "name": "US Dollar",
+                    "symbol": "USD",
+                    "icon": "$",
+                    "color": "bg-green-600",
+                    "textColor": "text-green-700",
+                    "description": "United States dollar",
+                    "decimals": 2,
+                    "is_active": True
+                },
+                "EUR": {
+                    "id": "eur-wallet",
+                    "name": "Euro",
+                    "symbol": "EUR",
+                    "icon": "€",
+                    "color": "bg-blue-700",
+                    "textColor": "text-blue-800",
+                    "description": "European Union currency",
+                    "decimals": 2,
+                    "is_active": True
+                },
+                "GBP": {
+                    "id": "gbp-wallet",
+                    "name": "British Pound",
+                    "symbol": "GBP",
+                    "icon": "£",
+                    "color": "bg-red-600",
+                    "textColor": "text-red-700",
+                    "description": "United Kingdom currency",
+                    "decimals": 2,
+                    "is_active": True
+                }
+            }
+
+            self.write({"cryptocurrencies": crypto_metadata})
+        except Exception as e:
+            print(f"Error getting cryptocurrencies: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get cryptocurrency metadata"})
+
+class TokenSearchHandler(BaseHandler):
+    def get(self):
+        """Search for tokens based on query parameter"""
+        try:
+            query = self.get_argument("q", "").lower()
+            
+            # Mock token search results
+            all_tokens = [
+                {
+                    "address": "So11111111111111111111111111111111111111112",
+                    "symbol": "SOL",
+                    "name": "Wrapped SOL",
+                    "decimals": 9,
+                    "price": 142.56,
+                    "change24h": 2.34,
+                    "volume24h": 45672891,
+                    "marketCap": 67890123456,
+                    "verified": True
+                },
+                {
+                    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                    "symbol": "USDC",
+                    "name": "USD Coin",
+                    "decimals": 6,
+                    "price": 1.0,
+                    "change24h": 0.01,
+                    "volume24h": 123456789,
+                    "marketCap": 34567890123,
+                    "verified": True
+                },
+                {
+                    "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+                    "symbol": "RAY",
+                    "name": "Raydium",
+                    "decimals": 6,
+                    "price": 2.45,
+                    "change24h": -1.23,
+                    "volume24h": 8765432,
+                    "marketCap": 456789012,
+                    "verified": True
+                },
+                {
+                    "address": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+                    "symbol": "BONK",
+                    "name": "Bonk",
+                    "decimals": 5,
+                    "price": 0.0000234,
+                    "change24h": 45.67,
+                    "volume24h": 23456789,
+                    "marketCap": 1234567890,
+                    "verified": False
+                },
+                {
+                    "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+                    "symbol": "SAMO",
+                    "name": "Samoyedcoin",
+                    "decimals": 9,
+                    "price": 0.0123,
+                    "change24h": -5.67,
+                    "volume24h": 987654,
+                    "marketCap": 12345678,
+                    "verified": False
+                }
+            ]
+            
+            # Filter based on query
+            if query:
+                filtered_tokens = [
+                    token for token in all_tokens
+                    if query in token["symbol"].lower() or query in token["name"].lower()
+                ]
+            else:
+                filtered_tokens = all_tokens
+            
+            self.write({"tokens": filtered_tokens})
+        except Exception as e:
+            print(f"Error searching tokens: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to search tokens"})
+
+class PopularWalletsHandler(BaseHandler):
+    def get(self):
+        """Get popular wallet options for token swapping"""
+        try:
+            popular_wallets = [
+                {
+                    "name": "MetaMask",
+                    "description": "Most popular Ethereum wallet",
+                    "icon": "🦊",
+                    "color": "bg-orange-500",
+                    "url": "https://metamask.io/",
+                    "supported": ["ETH", "ERC-20", "BSC"],
+                    "users": "30M+"
+                },
+                {
+                    "name": "Trust Wallet",
+                    "description": "Multi-chain mobile wallet",
+                    "icon": "🛡️",
+                    "color": "bg-blue-600",
+                    "url": "https://trustwallet.com/",
+                    "supported": ["BTC", "ETH", "BNB", "SOL"],
+                    "users": "25M+"
+                },
+                {
+                    "name": "Phantom",
+                    "description": "Leading Solana wallet",
+                    "icon": "👻",
+                    "color": "bg-purple-600",
+                    "url": "https://phantom.app/",
+                    "supported": ["SOL", "SPL"],
+                    "users": "3M+"
+                },
+                {
+                    "name": "Coinbase Wallet",
+                    "description": "Self-custody wallet by Coinbase",
+                    "icon": "💼",
+                    "color": "bg-blue-500",
+                    "url": "https://wallet.coinbase.com/",
+                    "supported": ["ETH", "SOL", "BTC"],
+                    "users": "10M+"
+                },
+                {
+                    "name": "Solflare",
+                    "description": "Native Solana wallet",
+                    "icon": "☀️",
+                    "color": "bg-yellow-500",
+                    "url": "https://solflare.com/",
+                    "supported": ["SOL", "SPL"],
+                    "users": "1M+"
+                },
+                {
+                    "name": "Rainbow",
+                    "description": "Ethereum wallet with NFT focus",
+                    "icon": "🌈",
+                    "color": "bg-gradient-to-r from-purple-500 to-pink-500",
+                    "url": "https://rainbow.me/",
+                    "supported": ["ETH", "ERC-20", "NFTs"],
+                    "users": "2M+"
+                }
+            ]
+            
+            self.write({"wallets": popular_wallets})
+        except Exception as e:
+            print(f"Error getting popular wallets: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get popular wallets"})
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     clients: Set['WebSocketHandler'] = set()

@@ -15,8 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Banknote } from "lucide-react";
 
-// Demo user ID for development
-const DEMO_USER_ID = "demo-user-123";
+// Remove demo user ID - use actual authenticated user
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -32,7 +31,10 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
 
   const depositMutation = useMutation({
     mutationFn: async (data: { amount: string; phoneReference: string }) => {
-      const response = await fetch(`/api/users/${DEMO_USER_ID}/deposit`, {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+      const response = await fetch(`/api/users/${user.id}/deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -55,7 +57,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
       });
 
       // Refresh balance data
-      queryClient.invalidateQueries({ queryKey: ['/api/users', DEMO_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['/api/wallets'] });
 
       // Reset form and close modal
       setAmount("");

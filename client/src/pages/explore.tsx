@@ -48,6 +48,19 @@ interface TokenData {
 }
 
 // Static token metadata (logos, names, icons)
+// Hook to fetch cryptocurrency metadata from API
+const useCryptocurrencies = () => {
+  return useQuery({
+    queryKey: ['/api/cryptocurrencies'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/cryptocurrencies');
+      if (!response.ok) throw new Error('Failed to fetch cryptocurrencies');
+      return response.json();
+    },
+  });
+};
+
+// Fallback token metadata (replaced by API)
 const TOKEN_METADATA: Record<string, { name: string; icon: string; logoUrl?: string }> = {
   'BTC': { name: 'Bitcoin', icon: '₿', logoUrl: btcLogo },
   'ETH': { name: 'Ethereum', icon: 'Ξ', logoUrl: ethLogo },

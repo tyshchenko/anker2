@@ -25,67 +25,17 @@ import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
 
-// Mock wallet data
-const WALLETS = [
-  {
-    id: 'btc-wallet',
-    name: 'Bitcoin Wallet',
-    symbol: 'BTC',
-    icon: '₿',
-    logoUrl: btcLogo,
-    balance: 0.0234567,
-    balanceZAR: 28125.45,
-    fee: 0.001,
-    color: 'bg-orange-500',
-    textColor: 'text-orange-600'
-  },
-  {
-    id: 'eth-wallet',
-    name: 'Ethereum Wallet',
-    symbol: 'ETH',
-    icon: 'Ξ',
-    logoUrl: ethLogo,
-    balance: 1.247891,
-    balanceZAR: 80423.12,
-    fee: 0.002,
-    color: 'bg-blue-500',
-    textColor: 'text-blue-600'
-  },
-  {
-    id: 'usdt-wallet',
-    name: 'Tether Wallet',
-    symbol: 'USDT',
-    icon: '₮',
-    logoUrl: usdtLogo,
-    balance: 2500.00,
-    balanceZAR: 46250.00,
-    fee: 1.0,
-    color: 'bg-green-500',
-    textColor: 'text-green-600'
-  },
-  {
-    id: 'zar-wallet',
-    name: 'ZAR Wallet',
-    symbol: 'ZAR',
-    icon: 'R',
-    balance: 15420.75,
-    balanceZAR: 15420.75,
-    fee: 0,
-    color: 'bg-purple-500',
-    textColor: 'text-purple-600'
-  },
-  {
-    id: 'usd-wallet',
-    name: 'USD Wallet',
-    symbol: 'USD',
-    icon: '$',
-    balance: 850.00,
-    balanceZAR: 15725.00,
-    fee: 0,
-    color: 'bg-green-600',
-    textColor: 'text-green-700'
-  }
-];
+// Hook to fetch cryptocurrency metadata from API
+const useCryptocurrencies = () => {
+  return useQuery({
+    queryKey: ['/api/cryptocurrencies'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/cryptocurrencies');
+      if (!response.ok) throw new Error('Failed to fetch cryptocurrencies');
+      return response.json();
+    },
+  });
+};
 
 export default function SendPage() {
   const [, setLocation] = useLocation();
@@ -95,6 +45,7 @@ export default function SendPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
+  const { data: cryptoMetadata } = useCryptocurrencies();
   
   // Fetch market data for accurate rate calculations
   const { data: marketData = [] } = useQuery({
@@ -119,7 +70,7 @@ export default function SendPage() {
   // Get real wallets and create a mapping with accurate rates
   const realWallets = walletsData?.wallets ? 
     walletsData.wallets.map(wallet => {
-      const mockWallet = WALLETS.find(mock => mock.symbol.toLowerCase() === wallet.coin.toLowerCase());
+      const cryptoData = cryptoMetadata?.cryptocurrencies?.[wallet.coin];
       const balance = parseFloat(wallet.balance);
       const zarPrice = getZARPrice(wallet.coin);
       const balanceZAR = balance * zarPrice;
@@ -128,16 +79,16 @@ export default function SendPage() {
         id: `${wallet.coin.toLowerCase()}-wallet`,
         name: `${wallet.coin} Wallet`,
         symbol: wallet.coin,
-        icon: mockWallet?.icon || wallet.coin[0],
-        logoUrl: mockWallet?.logoUrl,
+        icon: cryptoData?.icon || wallet.coin[0],
+        logoUrl: cryptoData?.logoUrl,
         balance,
         balanceZAR,
         fee: parseFloat(wallet.fee || '0'),
         address: wallet.address || `${wallet.coin}-WALLET-001`,
-        color: mockWallet?.color || 'bg-gray-500',
-        textColor: mockWallet?.textColor || 'text-gray-600'
+        color: cryptoData?.color || 'bg-gray-500',
+        textColor: cryptoData?.textColor || 'text-gray-600'
       };
-    }) : WALLETS;
+    }) : [];
 
   // Check if wallet parameter was passed in URL
   const urlParams = new URLSearchParams(window.location.search);
