@@ -582,9 +582,10 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
+                          {/* Email Verification */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
-                              {verificationData?.email_verified ? (
+                              {verificationData?.verification_status?.email?.status === 'verified' ? (
                                 <CheckCircle className="w-5 h-5 text-green-600" />
                               ) : (
                                 <AlertTriangle className="w-5 h-5 text-orange-500" />
@@ -592,39 +593,82 @@ export default function ProfilePage() {
                               <div>
                                 <p className="font-medium">Email Verification</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {verificationData?.email_verified ? 'Email address verified' : 'Email verification pending'}
+                                  {verificationData?.verification_status?.email?.status === 'verified' 
+                                    ? `Email address verified: ${verificationData?.verification_status?.email?.email}` 
+                                    : 'Email verification pending'}
                                 </p>
                               </div>
                             </div>
-                            {verificationData?.email_verified ? (
+                            {verificationData?.verification_status?.email?.status === 'verified' ? (
                               <Badge className="bg-green-100 text-green-700">Verified</Badge>
                             ) : (
                               <Button 
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => setShowVerificationModal(true)}
-                                data-testid="button-upload-document"
+                                data-testid="button-verify-email"
                               >
-                                Verify
+                                Verify Email
                               </Button>
                             )}
                           </div>
+
+                          {/* Phone Verification */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
-                              {verificationData?.identity_verified ? (
+                              {verificationData?.verification_status?.phone?.status === 'verified' ? (
                                 <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                              )}
+                              <div>
+                                <p className="font-medium">Phone Verification</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {verificationData?.verification_status?.phone?.status === 'verified' 
+                                    ? `Phone number verified: ${verificationData?.verification_status?.phone?.phone_number}` 
+                                    : 'Phone verification pending'}
+                                </p>
+                              </div>
+                            </div>
+                            {verificationData?.verification_status?.phone?.status === 'verified' ? (
+                              <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setShowVerificationModal(true)}
+                                data-testid="button-verify-phone"
+                              >
+                                Verify Phone
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Identity Verification */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {verificationData?.verification_status?.identity?.status === 'verified' ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : verificationData?.verification_status?.identity?.status === 'pending' ? (
+                                <AlertTriangle className="w-5 h-5 text-blue-500" />
                               ) : (
                                 <AlertTriangle className="w-5 h-5 text-orange-500" />
                               )}
                               <div>
                                 <p className="font-medium">Identity Verification</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {verificationData?.identity_verified ? 'Government ID verified' : 'Identity verification required'}
+                                  {verificationData?.verification_status?.identity?.status === 'verified' 
+                                    ? 'Government ID verified' 
+                                    : verificationData?.verification_status?.identity?.status === 'pending'
+                                    ? 'Identity verification under review'
+                                    : 'Identity verification required'}
                                 </p>
                               </div>
                             </div>
-                            {verificationData?.identity_verified ? (
+                            {verificationData?.verification_status?.identity?.status === 'verified' ? (
                               <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : verificationData?.verification_status?.identity?.status === 'pending' ? (
+                              <Badge className="bg-blue-100 text-blue-700">Under Review</Badge>
                             ) : (
                               <Button 
                                 variant="outline" 
@@ -632,26 +676,36 @@ export default function ProfilePage() {
                                 onClick={() => setShowVerificationModal(true)}
                                 data-testid="button-upload-document"
                               >
-                                Upload Document
+                                Upload Documents
                               </Button>
                             )}
                           </div>
+
+                          {/* Address Verification */}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
-                              {verificationData?.address_verified ? (
+                              {verificationData?.verification_status?.address?.status === 'verified' ? (
                                 <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : verificationData?.verification_status?.address?.status === 'pending' ? (
+                                <AlertTriangle className="w-5 h-5 text-blue-500" />
                               ) : (
                                 <AlertTriangle className="w-5 h-5 text-orange-500" />
                               )}
                               <div>
                                 <p className="font-medium">Address Verification</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {verificationData?.address_verified ? 'Proof of residence verified' : 'Proof of residence required'}
+                                  {verificationData?.verification_status?.address?.status === 'verified' 
+                                    ? 'Proof of residence verified' 
+                                    : verificationData?.verification_status?.address?.status === 'pending'
+                                    ? 'Address verification under review'
+                                    : 'Proof of residence required'}
                                 </p>
                               </div>
                             </div>
-                            {verificationData?.address_verified ? (
+                            {verificationData?.verification_status?.address?.status === 'verified' ? (
                               <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                            ) : verificationData?.verification_status?.address?.status === 'pending' ? (
+                              <Badge className="bg-blue-100 text-blue-700">Under Review</Badge>
                             ) : (
                               <Button 
                                 variant="outline" 

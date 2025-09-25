@@ -10,6 +10,7 @@ import { FileDropzone } from "@/components/ui/file-dropzone";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { PhoneVerification } from "./phone-verification";
+import { EmailVerification } from "./email-verification";
 
 interface VerificationModalProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [documents, setDocuments] = useState<DocumentUpload[]>([
     { type: "id", uploaded: false },
     { type: "poa", uploaded: false },
@@ -183,7 +185,7 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
               <p className="text-sm text-muted-foreground">Checking verification status...</p>
             </div>
           </div>
-        ) : verificationStatus?.identity_verified && verificationStatus?.address_verified && verificationStatus?.phone_verified ? (
+        ) : verificationStatus?.identity_verified && verificationStatus?.address_verified && verificationStatus?.phone_verified && verificationStatus?.email_verified ? (
           // User is fully verified
           <div className="text-center py-8">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -194,6 +196,10 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
               Your account has been successfully verified. You can now access all platform features.
             </p>
             <div className="space-y-2 mb-6">
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm">Email Verified</span>
+              </div>
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <span className="text-sm">Phone Verified</span>
@@ -217,6 +223,12 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
             <div className="bg-muted/50 p-4 rounded-lg">
               <h3 className="font-semibold mb-2">Verification Required:</h3>
               <div className="space-y-2">
+                {!verificationStatus?.email_verified && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Email verification needed</span>
+                  </div>
+                )}
                 {!verificationStatus?.phone_verified && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
@@ -250,6 +262,18 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
             </div>
 
             <div className="space-y-6">
+              {/* Email Verification Section */}
+              {!verificationStatus?.email_verified && (
+                <div>
+                  <EmailVerification 
+                    onComplete={() => setEmailVerified(true)}
+                    isCompleted={emailVerified}
+                    email={verificationStatus?.verification_status?.email?.email}
+                  />
+                  <Separator className="mt-6" />
+                </div>
+              )}
+
               {/* Phone Verification Section */}
               {!verificationStatus?.phone_verified && (
                 <div>
