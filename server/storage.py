@@ -76,10 +76,9 @@ class MySqlStorage:
         threading.Timer(120.0, self.cacheclearer).start()
 #        print(self.get_miner_fee())
 #        print("!!!!!!!!!!!!!!!")
-        # Commented out to avoid startup crashes if API credentials missing
-        # print(self.get_all_balances())
-        # print("!!!!!!!!!!!!!!!")
-        # print(self.get_deposit_addresses())
+        print(self.get_all_balances())
+#        print("!!!!!!!!!!!!!!!")
+        print(self.get_deposit_addresses())
         blockchain.move_from_hot()
         
 
