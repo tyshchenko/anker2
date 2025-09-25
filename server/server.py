@@ -78,6 +78,9 @@ class Application(tornado.web.Application):
             (r"/api/objects/upload", ObjectUploadHandler),
             (r"/api/verification/phone/send", PhoneVerificationSendHandler),
             (r"/api/verification/phone/verify", PhoneVerificationVerifyHandler),
+            
+            # File upload/download routes
+            (r"/upload/([^/]+)/([^/]+)", FileDownloadHandler),
             (r"/api/users/(.+)/deposit", DepositHandler),
             
             # Crypto metadata and token routes
@@ -968,19 +971,44 @@ class ObjectUploadHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # For demo purposes, simulate file upload
-            # In production, you would handle actual file uploads
-            file_id = f"file_{int(time.time())}"
+            # Get uploaded file from request
+            if not hasattr(self.request, 'files') or 'file' not in self.request.files:
+                self.set_status(400)
+                self.write({"error": "No file uploaded"})
+                return
+            
+            file_info = self.request.files['file'][0]
+            file_name = file_info['filename']
+            file_body = file_info['body']
+            
+            # Create user-specific upload directory
+            user_folder = user.email.replace('@', '_').replace('.', '_')  # Safe folder name
+            upload_dir = Path(f"uploads/{user_folder}")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename to avoid conflicts
+            timestamp = int(time.time())
+            name, ext = os.path.splitext(file_name)
+            unique_filename = f"{name}_{timestamp}{ext}"
+            
+            # Save file to user's directory
+            file_path = upload_dir / unique_filename
+            with open(file_path, 'wb') as f:
+                f.write(file_body)
+            
+            # Return successful response with download URL
+            download_url = f"/upload/{user_folder}/{unique_filename}"
             
             self.write({
                 "success": True,
-                "file_id": file_id,
-                "url": f"/uploads/{file_id}",
+                "filename": unique_filename,
+                "url": download_url,
+                "uploadURL": download_url,  # For compatibility with existing code
                 "message": "File uploaded successfully"
             })
             
         except Exception as e:
-            print(e)
+            print(f"Error uploading file: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -1574,6 +1602,66 @@ class Profile2FAHandler(BaseHandler):
             
         except Exception as e:
             print(f"Error updating 2FA: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class FileDownloadHandler(BaseHandler):
+    def get(self, user_folder, filename):
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # Check if user can only access their own folder
+            user_folder_name = user.email.replace('@', '_').replace('.', '_')
+            if user_folder != user_folder_name:
+                self.set_status(403)
+                self.write({"error": "Access denied - you can only access your own files"})
+                return
+            
+            # Construct file path
+            file_path = Path(f"uploads/{user_folder}/{filename}")
+            
+            # Check if file exists and is within the user's directory
+            if not file_path.exists():
+                self.set_status(404)
+                self.write({"error": "File not found"})
+                return
+            
+            # Resolve path to prevent directory traversal attacks
+            try:
+                resolved_path = file_path.resolve()
+                expected_base = Path(f"uploads/{user_folder}").resolve()
+                if not str(resolved_path).startswith(str(expected_base)):
+                    self.set_status(403)
+                    self.write({"error": "Access denied"})
+                    return
+            except Exception:
+                self.set_status(403)
+                self.write({"error": "Invalid file path"})
+                return
+            
+            # Serve the file
+            try:
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                
+                # Set appropriate headers
+                self.set_header('Content-Type', 'application/octet-stream')
+                self.set_header('Content-Disposition', f'attachment; filename="{filename}"')
+                self.set_header('Content-Length', len(file_content))
+                
+                self.write(file_content)
+                
+            except Exception as e:
+                print(f"Error reading file: {e}")
+                self.set_status(500)
+                self.write({"error": "Error reading file"})
+                
+        except Exception as e:
+            print(f"Error in file download: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
