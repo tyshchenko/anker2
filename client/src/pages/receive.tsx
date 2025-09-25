@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
@@ -19,11 +20,24 @@ import {
 import { ArrowLeft, Download, Copy, QrCode, CheckCircle } from "lucide-react";
 import { useWallets } from "@/hooks/useWallets";
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/queryClient";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
 
-// Mock wallet data
+// Hook to fetch cryptocurrency metadata from API
+const useCryptocurrencies = () => {
+  return useQuery({
+    queryKey: ['/api/cryptocurrencies'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/cryptocurrencies');
+      if (!response.ok) throw new Error('Failed to fetch cryptocurrencies');
+      return response.json();
+    },
+  });
+};
+
+// Fallback data
 const WALLETS = [
   {
     id: 'btc-wallet',
@@ -88,24 +102,25 @@ export default function ReceivePage() {
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
+  const { data: cryptoMetadata } = useCryptocurrencies();
 
   // Get real wallets and create a mapping
   const realWallets = walletsData?.wallets ? 
     walletsData.wallets.map(wallet => {
-      const mockWallet = WALLETS.find(mock => mock.symbol.toLowerCase() === wallet.coin.toLowerCase());
+      const cryptoData = cryptoMetadata?.cryptocurrencies?.[wallet.coin];
       return {
         id: `${wallet.coin.toLowerCase()}-wallet`,
         name: `${wallet.coin} Wallet`,
         symbol: wallet.coin,
-        icon: mockWallet?.icon || wallet.coin[0],
-        logoUrl: mockWallet?.logoUrl || undefined,
+        icon: cryptoData?.icon || wallet.coin[0],
+        logoUrl: cryptoData?.logoUrl || undefined,
         balance: parseFloat(wallet.balance),
         balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
         address: wallet.address || `${wallet.coin}-WALLET-001`,
-        color: mockWallet?.color || 'bg-gray-500',
-        textColor: mockWallet?.textColor || 'text-gray-600'
+        color: cryptoData?.color || 'bg-gray-500',
+        textColor: cryptoData?.textColor || 'text-gray-600'
       };
-    }) : WALLETS;
+    }) : [];
   
   // Check if wallet parameter was passed in URL
   const urlParams = new URLSearchParams(window.location.search);

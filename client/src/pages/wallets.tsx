@@ -23,7 +23,19 @@ import solLogo from "@assets/SOL_1757408614598.png";
 import polygonLogo from "@assets/Polygon_1757409292577.png";
 import cardanoLogo from "@assets/Cardano_1757409292578.png";
 
-// Mock wallet data
+// Hook to fetch cryptocurrency metadata from API
+const useCryptocurrencies = () => {
+  return useQuery({
+    queryKey: ['/api/cryptocurrencies'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/cryptocurrencies');
+      if (!response.ok) throw new Error('Failed to fetch cryptocurrencies');
+      return response.json();
+    },
+  });
+};
+
+// Fallback static data (will be removed once API is fully integrated)
 const WALLETS = [
   {
     id: 'btc-wallet',
@@ -373,6 +385,7 @@ export default function WalletsPage() {
   
   // Fetch user wallets data
   const { data: walletsData, isLoading: walletsLoading } = useWallets();
+  const { data: cryptoMetadata, isLoading: isCryptoLoading } = useCryptocurrencies();
   
   // Fetch market prices for ZAR conversion
   const { data: marketData } = useQuery({
@@ -405,9 +418,10 @@ export default function WalletsPage() {
   // Real wallets from the server
   const realWallets = walletsData?.wallets || [];
   
-  // Convert server wallet data to display format and merge with static UI data
+  // Convert server wallet data to display format and merge with crypto metadata
   const displayWallets = realWallets.map(wallet => {
-    // Find matching static UI data for this coin
+    // Find matching crypto metadata from API for this coin
+    const cryptoData = cryptoMetadata?.cryptocurrencies?.[wallet.coin];
     const staticWallet = WALLETS.find(w => w.symbol === wallet.coin);
     
     // Calculate ZAR balance using real market prices
@@ -417,17 +431,17 @@ export default function WalletsPage() {
     
     return {
       id: wallet.id,
-      name: staticWallet?.name || `${wallet.coin} Wallet`,
+      name: cryptoData?.name || staticWallet?.name || `${wallet.coin} Wallet`,
       symbol: wallet.coin,
-      icon: staticWallet?.icon || wallet.coin[0],
-      logoUrl: staticWallet?.logoUrl,
+      icon: cryptoData?.icon || staticWallet?.icon || wallet.coin[0],
+      logoUrl: cryptoData?.logoUrl || staticWallet?.logoUrl,
       balance,
       fee: parseFloat(wallet.fee || '0'),
       balanceZAR,
       pending: parseFloat(wallet.pending || '0'),
       address: wallet.address,
-      color: staticWallet?.color || 'bg-gray-500',
-      textColor: staticWallet?.textColor || 'text-gray-600',
+      color: cryptoData?.color || staticWallet?.color || 'bg-gray-500',
+      textColor: cryptoData?.textColor || staticWallet?.textColor || 'text-gray-600',
       is_active: wallet.is_active
     };
   }).filter(wallet => {
