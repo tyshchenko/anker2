@@ -422,6 +422,7 @@ export default function WalletsPage() {
       icon: staticWallet?.icon || wallet.coin[0],
       logoUrl: staticWallet?.logoUrl,
       balance,
+      fee: parseFloat(wallet.fee || '0'),
       balanceZAR,
       pending: parseFloat(wallet.pending || '0'),
       address: wallet.address,
