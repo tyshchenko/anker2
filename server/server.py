@@ -32,24 +32,13 @@ except ImportError:
     TWILIO_AVAILABLE = False
     Client = None
 
-# Twilio configuration (will need to be set via environment variables)
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
-TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')
-
-# Email configuration (placeholder for future implementation)
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
-EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS', '')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
-
 from tornado.options import define, options
 
 from auth_utils import auth_utils
 from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction,WithdrawTransaction
 from blockchain import blockchain
 
-from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS
+from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD
 
 if DATABASE_TYPE == 'postgresql':
     from postgres_storage import storage
@@ -974,10 +963,11 @@ class VerificationStatusHandler(BaseHandler):
                 "verification_status": {
                     "identity": {"status": "pending", "documents_required": ["id_document", "proof_of_address"]},
                     "phone": {"status": "not_verified", "phone_number": None},
-                    "email": {"status": "verified", "email": user.email}
+                    "email": {"status": "verified", "email": user.email},
+                    "address": {"status": "not_verified", "address": None}
                 },
                 "email_verified":False,
-                "identity_verified":True,
+                "identity_verified":False,
                 "address_verified":False,
                 "phone_verified":True,
             })
@@ -1061,7 +1051,7 @@ class PhoneVerificationSendHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # Generate verification code
+            # For demo purposes, simulate sending SMS
             verification_code = f"{random.randint(100000, 999999)}"
             
             # Try to send SMS via Twilio if available
