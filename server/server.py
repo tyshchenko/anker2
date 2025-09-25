@@ -80,7 +80,7 @@ class Application(tornado.web.Application):
             (r"/api/verification/phone/verify", PhoneVerificationVerifyHandler),
             
             # File upload/download routes
-            (r"/upload/([^/]+)/([^/]+)", FileDownloadHandler),
+            (r"/upload/(.+)/(.+)", FileDownloadHandler),
             (r"/api/users/(.+)/deposit", DepositHandler),
             
             # Crypto metadata and token routes
@@ -953,7 +953,11 @@ class VerificationStatusHandler(BaseHandler):
                     "identity": {"status": "pending", "documents_required": ["id_document", "proof_of_address"]},
                     "phone": {"status": "not_verified", "phone_number": None},
                     "email": {"status": "verified", "email": user.email}
-                }
+                },
+                "email_verified":False,
+                "identity_verified":True,
+                "address_verified":False,
+                "phone_verified":True,
             })
             
         except Exception as e:
@@ -980,6 +984,11 @@ class ObjectUploadHandler(BaseHandler):
             file_info = self.request.files['file'][0]
             file_name = file_info['filename']
             file_body = file_info['body']
+            file_type = self.get_argument('type', None)
+            if not file_type:
+                self.set_status(403)
+                self.write({"error": "No type provided"})
+                return
             
             # Create user-specific upload directory
             user_folder = user.email.replace('@', '_').replace('.', '_')  # Safe folder name
