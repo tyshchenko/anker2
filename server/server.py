@@ -72,11 +72,21 @@ class Application(tornado.web.Application):
             (r"/api/send", SendHandler),
             (r"/api/withdraw", WithdrawHandler),
             
+            # Verification routes
+            (r"/api/verification/submit", VerificationSubmitHandler),
+            (r"/api/auth/verification-status", VerificationStatusHandler),
+            (r"/api/objects/upload", ObjectUploadHandler),
+            (r"/api/verification/phone/send", PhoneVerificationSendHandler),
+            (r"/api/verification/phone/verify", PhoneVerificationVerifyHandler),
+            (r"/api/users/(.+)/deposit", DepositHandler),
+            
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
             (r"/api/auth/login", LoginHandler),
             (r"/api/auth/logout", LogoutHandler),
             (r"/api/auth/google", GoogleAuthHandler),
+            (r"/api/auth/facebook", FacebookAuthHandler),
+            (r"/api/auth/x", XAuthHandler),
             (r"/api/auth/me", MeHandler),
             
             # WebSocket route
@@ -225,7 +235,8 @@ class RegisterHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            if user and user.id:
+                storage.create_session(user.id, session_token, expires_at)
 
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -272,7 +283,8 @@ class LoginHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            if user and user.id:
+                storage.create_session(user.id, session_token, expires_at)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -370,7 +382,8 @@ class GoogleAuthHandler(BaseHandler):
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
-            storage.create_session(user.id, session_token, expires_at)
+            if user and user.id:
+                storage.create_session(user.id, session_token, expires_at)
             
             # Set secure cookie
             self.set_secure_cookie("session_token", session_token, expires_days=7)
@@ -383,6 +396,114 @@ class GoogleAuthHandler(BaseHandler):
                 "success": True,
                 "user": user_data,
                 "message": "Google authentication successful"
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class FacebookAuthHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            facebook_token = body.get('accessToken')
+            user_email = body.get('email')
+            user_name = body.get('name')
+            
+            if not facebook_token or not user_email:
+                self.set_status(400)
+                self.write({"error": "Facebook token and email are required"})
+                return
+            
+            # For demo purposes, we'll accept any Facebook token
+            # In production, you would verify the token with Facebook's API
+            
+            # Check if user exists by email
+            user = storage.get_user_by_email(user_email)
+            
+            if not user:
+                # Create new user
+                insert_user = InsertUser(
+                    email=user_email,
+                    first_name=user_name.split(' ')[0] if user_name else None,
+                    last_name=' '.join(user_name.split(' ')[1:]) if user_name and ' ' in user_name else None,
+                    profile_image_url=body.get('picture')
+                )
+                user = storage.create_user(insert_user)
+            
+            # Create session
+            session_token = auth_utils.generate_session_token()
+            expires_at = datetime.now() + timedelta(days=7)
+            if user and user.id:
+                storage.create_session(user.id, session_token, expires_at)
+            
+            # Set secure cookie
+            self.set_secure_cookie("session_token", session_token, expires_days=7)
+            
+            # Return user data
+            user_data = user.dict()
+            user_data.pop('password_hash', None)
+            
+            self.write({
+                "success": True,
+                "user": user_data,
+                "message": "Facebook authentication successful"
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class XAuthHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            x_token = body.get('accessToken')
+            user_email = body.get('email')
+            user_name = body.get('name')
+            
+            if not x_token or not user_email:
+                self.set_status(400)
+                self.write({"error": "X (Twitter) token and email are required"})
+                return
+            
+            # For demo purposes, we'll accept any X token
+            # In production, you would verify the token with X's API
+            
+            # Check if user exists by email
+            user = storage.get_user_by_email(user_email)
+            
+            if not user:
+                # Create new user
+                insert_user = InsertUser(
+                    email=user_email,
+                    first_name=user_name.split(' ')[0] if user_name else None,
+                    last_name=' '.join(user_name.split(' ')[1:]) if user_name and ' ' in user_name else None,
+                    profile_image_url=body.get('picture')
+                )
+                user = storage.create_user(insert_user)
+            
+            # Create session
+            session_token = auth_utils.generate_session_token()
+            expires_at = datetime.now() + timedelta(days=7)
+            if user and user.id:
+                storage.create_session(user.id, session_token, expires_at)
+            
+            # Set secure cookie
+            self.set_secure_cookie("session_token", session_token, expires_days=7)
+            
+            # Return user data
+            user_data = user.dict()
+            user_data.pop('password_hash', None)
+            
+            self.write({
+                "success": True,
+                "user": user_data,
+                "message": "X authentication successful"
             })
             
         except Exception as e:
@@ -734,12 +855,15 @@ class WithdrawHandler(BaseHandler):
                 return
             
             # Validate user has sufficient balance
-            user_wallet = storage.get_zarwallet(user)
+            user_wallets = storage.get_zarwallet(user)
             
-            if not user_wallet:
+            if not user_wallets:
                 self.set_status(409)
                 self.write({"error": f"No ZAR wallet found"})
                 return
+            
+            # Get the first ZAR wallet
+            user_wallet = user_wallets[0] if isinstance(user_wallets, list) else user_wallets
             
             available_balance = float(user_wallet.balance)
             send_amount = float(send_data.amount)
@@ -751,7 +875,7 @@ class WithdrawHandler(BaseHandler):
             
             # Update sender wallet balance (subtract the sent amount)
             new_balance = available_balance - send_amount
-            allsent = storage.withdraw(user,user_wallet,send_data)
+            allsent = storage.withdraw(user, user_wallet, send_data)
             if allsent:
               response = {
                   "status": "success",
@@ -771,6 +895,192 @@ class WithdrawHandler(BaseHandler):
             print(e)
             self.set_status(400)
             self.write({"error": "Invalid send data", "details": e.errors()})
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class VerificationSubmitHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # For demo purposes, accept any verification data
+            verification_type = body.get('type', 'identity')
+            documents = body.get('documents', [])
+            
+            # Simulate verification submission
+            self.write({
+                "success": True,
+                "message": "Verification documents submitted successfully",
+                "status": "pending",
+                "type": verification_type
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class VerificationStatusHandler(BaseHandler):
+    def get(self):
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # For demo purposes, return a basic verification status
+            self.write({
+                "success": True,
+                "verification_status": {
+                    "identity": {"status": "pending", "documents_required": ["id_document", "proof_of_address"]},
+                    "phone": {"status": "not_verified", "phone_number": None},
+                    "email": {"status": "verified", "email": user.email}
+                }
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class ObjectUploadHandler(BaseHandler):
+    def post(self):
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # For demo purposes, simulate file upload
+            # In production, you would handle actual file uploads
+            file_id = f"file_{int(time.time())}"
+            
+            self.write({
+                "success": True,
+                "file_id": file_id,
+                "url": f"/uploads/{file_id}",
+                "message": "File uploaded successfully"
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class PhoneVerificationSendHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            phone_number = body.get('phoneNumber')
+            
+            if not phone_number:
+                self.set_status(400)
+                self.write({"error": "Phone number is required"})
+                return
+            
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # For demo purposes, simulate sending SMS
+            verification_code = f"{random.randint(100000, 999999)}"
+            
+            self.write({
+                "success": True,
+                "message": f"Verification code sent to {phone_number}",
+                "phone_number": phone_number,
+                "code": verification_code  # In production, don't return the code!
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class PhoneVerificationVerifyHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            phone_number = body.get('phoneNumber')
+            verification_code = body.get('code')
+            
+            if not phone_number or not verification_code:
+                self.set_status(400)
+                self.write({"error": "Phone number and verification code are required"})
+                return
+            
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            # For demo purposes, accept any 6-digit code
+            if len(verification_code) == 6 and verification_code.isdigit():
+                self.write({
+                    "success": True,
+                    "message": "Phone number verified successfully",
+                    "phone_number": phone_number,
+                    "verified": True
+                })
+            else:
+                self.set_status(400)
+                self.write({"error": "Invalid verification code"})
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class DepositHandler(BaseHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode())
+            user_id = self.path_args[0] if self.path_args else None
+            
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Authentication required"})
+                return
+            
+            amount = body.get('amount')
+            currency = body.get('currency', 'ZAR')
+            
+            if not amount:
+                self.set_status(400)
+                self.write({"error": "Amount is required"})
+                return
+            
+            # For demo purposes, simulate a successful deposit
+            transaction_id = f"dep_{currency.lower()}_{int(time.time())}"
+            
+            self.write({
+                "success": True,
+                "message": "Deposit processed successfully",
+                "transaction_id": transaction_id,
+                "amount": amount,
+                "currency": currency,
+                "status": "completed"
+            })
+            
         except Exception as e:
             print(e)
             self.set_status(500)
