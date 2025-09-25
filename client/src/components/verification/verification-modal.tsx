@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Home, Camera, Upload, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Home, Camera, Upload, Check, CheckCircle } from "lucide-react";
 import { FileDropzone } from "@/components/ui/file-dropzone";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,6 +33,16 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
     { type: "poa", uploaded: false },
     { type: "selfie", uploaded: false },
   ]);
+
+  // Check verification status
+  const { data: verificationStatus, isLoading: isLoadingStatus } = useQuery({
+    queryKey: ["/api/auth/verification-status"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/auth/verification-status");
+      return response.json();
+    },
+    enabled: open, // Only fetch when modal is open
+  });
 
   const submitVerificationMutation = useMutation({
     mutationFn: async (data: { idDocumentPath: string; proofOfAddressPath: string; selfiePath: string }) => {
@@ -167,90 +178,161 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <h3 className="font-semibold mb-2">What you'll need:</h3>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Valid South African mobile number</li>
-              <li>• South African ID, passport, or driver's license</li>
-              <li>• Proof of address (bank statement, utility bill, municipal bill - max 3 months old)</li>
-              <li>• Selfie photo holding your ID document</li>
-              <li>• Processing time: 24-48 hours</li>
-            </ul>
+        {isLoadingStatus ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">Checking verification status...</p>
+            </div>
           </div>
-
+        ) : verificationStatus?.identity_verified && verificationStatus?.address_verified && verificationStatus?.phone_verified ? (
+          // User is fully verified
+          <div className="text-center py-8">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Account Fully Verified</h3>
+            <p className="text-muted-foreground mb-6">
+              Your account has been successfully verified. You can now access all platform features.
+            </p>
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm">Phone Verified</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm">Identity Verified</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm">Address Verified</span>
+              </div>
+            </div>
+            <Button onClick={() => onOpenChange(false)} className="w-full">
+              Close
+            </Button>
+          </div>
+        ) : (
+          // User needs verification
           <div className="space-y-6">
-            {/* Phone Verification Section */}
-            <div>
-              <PhoneVerification 
-                onComplete={() => setPhoneVerified(true)}
-                isCompleted={phoneVerified}
-              />
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Verification Required:</h3>
+              <div className="space-y-2">
+                {!verificationStatus?.phone_verified && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Phone verification needed</span>
+                  </div>
+                )}
+                {!verificationStatus?.identity_verified && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Identity document upload needed</span>
+                  </div>
+                )}
+                {!verificationStatus?.address_verified && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span>Proof of address upload needed</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <Separator />
-          </div>
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">What you'll need:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Valid South African mobile number</li>
+                <li>• South African ID, passport, or driver's license</li>
+                <li>• Proof of address (bank statement, utility bill, municipal bill - max 3 months old)</li>
+                <li>• Selfie photo holding your ID document</li>
+                <li>• Processing time: 24-48 hours</li>
+              </ul>
+            </div>
 
-          <div className="space-y-6">
-            {documents.map((doc, index) => {
-              const Icon = getDocumentIcon(doc.type);
-              return (
-                <div key={doc.type}>
-                  <div className="flex items-start gap-4 p-4 border rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className={`p-2 rounded-full ${doc.uploaded ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'}`}>
-                        {doc.uploaded ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+            <div className="space-y-6">
+              {/* Phone Verification Section */}
+              {!verificationStatus?.phone_verified && (
+                <div>
+                  <PhoneVerification 
+                    onComplete={() => setPhoneVerified(true)}
+                    isCompleted={phoneVerified}
+                  />
+                  <Separator className="mt-6" />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              {documents.map((doc, index) => {
+                // Skip documents that are already verified
+                if (doc.type === "id" && verificationStatus?.identity_verified) return null;
+                if (doc.type === "poa" && verificationStatus?.address_verified) return null;
+                if (doc.type === "selfie" && verificationStatus?.identity_verified) return null;
+
+                const Icon = getDocumentIcon(doc.type);
+                return (
+                  <div key={doc.type}>
+                    <div className="flex items-start gap-4 p-4 border rounded-lg">
+                      <div className="flex-shrink-0">
+                        <div className={`p-2 rounded-full ${doc.uploaded ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'}`}>
+                          {doc.uploaded ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <Label className="text-base font-medium">
+                            {getDocumentName(doc.type)}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {getDocumentDescription(doc.type)}
+                          </p>
+                        </div>
+
+                        <FileDropzone
+                          onFileSelect={(file) => handleFileSelect(doc.type, file)}
+                          accept={doc.type === "selfie" ? "image/*" : "image/*,.pdf"}
+                          maxSizeMB={10}
+                          label={`Upload ${getDocumentName(doc.type)}`}
+                          description={getDocumentDescription(doc.type)}
+                          uploaded={doc.uploaded}
+                          fileName={doc.fileName}
+                          onRemove={() => handleRemoveFile(doc.type)}
+                        />
                       </div>
                     </div>
                     
-                    <div className="flex-1 space-y-2">
-                      <div>
-                        <Label className="text-base font-medium">
-                          {getDocumentName(doc.type)}
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {getDocumentDescription(doc.type)}
-                        </p>
-                      </div>
-
-                      <FileDropzone
-                        onFileSelect={(file) => handleFileSelect(doc.type, file)}
-                        accept={doc.type === "selfie" ? "image/*" : "image/*,.pdf"}
-                        maxSizeMB={10}
-                        label={`Upload ${getDocumentName(doc.type)}`}
-                        description={getDocumentDescription(doc.type)}
-                        uploaded={doc.uploaded}
-                        fileName={doc.fileName}
-                        onRemove={() => handleRemoveFile(doc.type)}
-                      />
-                    </div>
+                    {index < documents.filter(d => 
+                      !((d.type === "id" || d.type === "selfie") && verificationStatus?.identity_verified) &&
+                      !(d.type === "poa" && verificationStatus?.address_verified)
+                    ).length - 1 && <Separator />}
                   </div>
-                  
-                  {index < documents.length - 1 && <Separator />}
-                </div>
-              );
-            })}
-          </div>
+                );
+              }).filter(Boolean)}
+            </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-              data-testid="button-cancel-verification"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit || submitVerificationMutation.isPending}
-              className="flex-1"
-              data-testid="button-submit-verification"
-            >
-              {submitVerificationMutation.isPending ? "Submitting..." : "Submit for Review"}
-            </Button>
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="flex-1"
+                data-testid="button-cancel-verification"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitVerificationMutation.isPending}
+                className="flex-1"
+                data-testid="button-submit-verification"
+              >
+                {submitVerificationMutation.isPending ? "Submitting..." : "Submit for Review"}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
