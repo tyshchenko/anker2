@@ -540,21 +540,36 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
 
               <div>
                 <Label htmlFor="amount-sell">Amount ({fromSell})</Label>
-                <Input
-                  id="amount-sell"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00000000"
-                  value={amountSell}
-                  onChange={(e) => setAmountSell(e.target.value.replace(/[^0-9.]/g, ""))}
-                  data-testid="input-amount-sell"
-                />
+                <div className="relative">
+                  <Input
+                    id="amount-sell"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00000000"
+                    value={amountSell}
+                    onChange={(e) => setAmountSell(e.target.value.replace(/[^0-9.]/g, ""))}
+                    className="pr-16"
+                    data-testid="input-amount-sell"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2 text-xs font-medium hover:bg-muted"
+                    onClick={() => {
+                      const balance = getUserBalance(fromSell);
+                      const maxAmount = floorToDecimals(balance, getAssetDecimals(fromSell));
+                      setAmountSell(maxAmount.toString());
+                    }}
+                    data-testid="button-max-sell"
+                  >
+                    Max
+                  </Button>
+                </div>
                 <div className="mt-2 text-xs text-muted-foreground">
                   Available: {formatAmount(fromSell, getUserBalance(fromSell))} {fromSell}
                 </div>
               </div>
-
-              <QuickAmountButtons />
 
               <OrderSummary quote={sellQuote} from={fromSell} to={toSell} ordertype='sell' />
 
@@ -639,21 +654,36 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
 
               <div>
                 <Label htmlFor="amount-convert">Amount ({fromConvert})</Label>
-                <Input
-                  id="amount-convert"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00000000"
-                  value={amountConvert}
-                  onChange={(e) => setAmountConvert(e.target.value.replace(/[^0-9.]/g, ""))}
-                  data-testid="input-amount-convert"
-                />
+                <div className="relative">
+                  <Input
+                    id="amount-convert"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00000000"
+                    value={amountConvert}
+                    onChange={(e) => setAmountConvert(e.target.value.replace(/[^0-9.]/g, ""))}
+                    className="pr-16"
+                    data-testid="input-amount-convert"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 px-2 text-xs font-medium hover:bg-muted"
+                    onClick={() => {
+                      const balance = getUserBalance(fromConvert);
+                      const maxAmount = floorToDecimals(balance, getAssetDecimals(fromConvert));
+                      setAmountConvert(maxAmount.toString());
+                    }}
+                    data-testid="button-max-convert"
+                  >
+                    Max
+                  </Button>
+                </div>
                 <div className="mt-2 text-xs text-muted-foreground">
                   Available: {formatAmount(fromConvert, getUserBalance(fromConvert))} {fromConvert}
                 </div>
               </div>
-
-              <QuickAmountButtons />
 
               <OrderSummary quote={convertQuote} from={fromConvert} to={toConvert} ordertype='convert' />
 
