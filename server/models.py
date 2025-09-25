@@ -202,3 +202,69 @@ class OhlcvMarketData(BaseModel):
 
 class Error(BaseModel):
     error: str
+
+class VerificationCode(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    type: str  # "email" or "phone"
+    code: str
+    contact: str  # email address or phone number
+    expires_at: datetime
+    attempts: int = 0
+    verified: bool = False
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class InsertVerificationCode(BaseModel):
+    user_id: str
+    type: str
+    code: str
+    contact: str
+    expires_at: datetime
+    attempts: int = 0
+    verified: bool = False
+
+class VerificationStatus(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    email_verified: bool = False
+    email_address: Optional[str] = None
+    phone_verified: bool = False
+    phone_number: Optional[str] = None
+    identity_status: str = "not_verified"  # not_verified, pending, verified, rejected
+    identity_documents: Optional[List[str]] = []
+    address_status: str = "not_verified"  # not_verified, pending, verified, rejected
+    address_documents: Optional[List[str]] = []
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class InsertVerificationStatus(BaseModel):
+    user_id: str
+    email_verified: bool = False
+    email_address: Optional[str] = None
+    phone_verified: bool = False
+    phone_number: Optional[str] = None
+    identity_status: str = "not_verified"
+    identity_documents: Optional[List[str]] = []
+    address_status: str = "not_verified"
+    address_documents: Optional[List[str]] = []
+
+class UserProfile(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    email_notifications: bool = True
+    sms_notifications: bool = False
+    trading_notifications: bool = True
+    security_alerts: bool = True
+    two_factor_enabled: bool = False
+    two_factor_secret: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class InsertUserProfile(BaseModel):
+    user_id: str
+    email_notifications: bool = True
+    sms_notifications: bool = False
+    trading_notifications: bool = True
+    security_alerts: bool = True
+    two_factor_enabled: bool = False
+    two_factor_secret: Optional[str] = None

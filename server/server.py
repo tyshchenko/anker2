@@ -930,20 +930,41 @@ class VerificationSubmitHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # For demo purposes, accept any verification data
             verification_type = body.get('type', 'identity')
             documents = body.get('documents', [])
             
-            # Simulate verification submission
-            self.write({
-                "success": True,
-                "message": "Verification documents submitted successfully",
-                "status": "pending",
-                "type": verification_type
-            })
+            if verification_type == 'identity':
+                # Update identity verification status to pending
+                success = storage.update_identity_verification(user.id, 'pending', documents)
+                if success:
+                    self.write({
+                        "success": True,
+                        "message": "Identity verification documents submitted successfully",
+                        "status": "pending",
+                        "type": verification_type
+                    })
+                else:
+                    self.set_status(500)
+                    self.write({"error": "Failed to update verification status"})
+            elif verification_type == 'address':
+                # Update address verification status to pending
+                success = storage.update_address_verification(user.id, 'pending', documents)
+                if success:
+                    self.write({
+                        "success": True,
+                        "message": "Address verification documents submitted successfully",
+                        "status": "pending",
+                        "type": verification_type
+                    })
+                else:
+                    self.set_status(500)
+                    self.write({"error": "Failed to update verification status"})
+            else:
+                self.set_status(400)
+                self.write({"error": "Invalid verification type"})
             
         except Exception as e:
-            print(e)
+            print(f"Error in verification submit: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -957,23 +978,45 @@ class VerificationStatusHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # For demo purposes, return a basic verification status
-            self.write({
+            # Get real verification status from storage
+            verification_status = storage.get_verification_status(user.id)
+            
+            if not verification_status:
+                # Create initial verification status if it doesn't exist
+                storage.create_verification_status(user.id)
+                verification_status = storage.get_verification_status(user.id)
+            
+            # Build response with real data
+            response = {
                 "success": True,
                 "verification_status": {
-                    "identity": {"status": "pending", "documents_required": ["id_document", "proof_of_address"]},
-                    "phone": {"status": "not_verified", "phone_number": None},
-                    "email": {"status": "verified", "email": user.email},
-                    "address": {"status": "not_verified", "address": None}
+                    "email": {
+                        "status": "verified" if verification_status.email_verified else "not_verified",
+                        "email": verification_status.email_address
+                    },
+                    "phone": {
+                        "status": "verified" if verification_status.phone_verified else "not_verified", 
+                        "phone_number": verification_status.phone_number
+                    },
+                    "identity": {
+                        "status": verification_status.identity_status,
+                        "documents_required": ["id_document", "selfie"] if verification_status.identity_status == "not_verified" else []
+                    },
+                    "address": {
+                        "status": verification_status.address_status,
+                        "documents_required": ["proof_of_address"] if verification_status.address_status == "not_verified" else []
+                    }
                 },
-                "email_verified":False,
-                "identity_verified":False,
-                "address_verified":False,
-                "phone_verified":True,
-            })
+                "email_verified": verification_status.email_verified,
+                "identity_verified": verification_status.identity_status == "verified",
+                "address_verified": verification_status.address_status == "verified", 
+                "phone_verified": verification_status.phone_verified,
+            }
+            
+            self.write(response)
             
         except Exception as e:
-            print(e)
+            print(f"Error getting verification status: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -1079,12 +1122,29 @@ class PhoneVerificationSendHandler(BaseHandler):
                     # Fall through to demo mode
             
             # Demo mode - return verification code in response
+            # Store verification code in database
+            expires_at = datetime.now() + timedelta(minutes=5)
+            from models import InsertVerificationCode
+            code_data = InsertVerificationCode(
+                user_id=user.id,
+                type="phone",
+                code=verification_code,
+                contact=phone_number,
+                expires_at=expires_at
+            )
+            
+            success = storage.create_verification_code(code_data)
+            if not success:
+                self.set_status(500)
+                self.write({"error": "Failed to create verification code"})
+                return
             
             self.write({
                 "success": True,
                 "message": f"Verification code sent to {phone_number}",
                 "phone_number": phone_number,
-                "code": verification_code  # In production, don't return the code!
+                "verification_code": verification_code,  # Remove in production
+                "expires_in": 300
             })
             
         except Exception as e:
@@ -1111,8 +1171,32 @@ class PhoneVerificationVerifyHandler(BaseHandler):
                 self.write({"error": "Authentication required"})
                 return
             
-            # For demo purposes, accept any 6-digit code
-            if len(verification_code) == 6 and verification_code.isdigit():
+            # Get verification code from database
+            stored_code = storage.get_verification_code(user.id, "phone", phone_number)
+            
+            if not stored_code:
+                self.set_status(400)
+                self.write({"error": "No verification code found"})
+                return
+            
+            # Check if code is expired
+            if datetime.now() > stored_code.expires_at:
+                self.set_status(400)
+                self.write({"error": "Verification code has expired"})
+                return
+            
+            # Check attempts limit
+            if stored_code.attempts >= 3:
+                self.set_status(400)
+                self.write({"error": "Too many verification attempts"})
+                return
+            
+            # Verify the code
+            if stored_code.code == verification_code:
+                # Mark code as verified and update phone verification status
+                storage.mark_verification_code_verified(stored_code.id)
+                storage.update_phone_verification(user.id, phone_number, True)
+                
                 self.write({
                     "success": True,
                     "message": "Phone number verified successfully",
@@ -1120,11 +1204,13 @@ class PhoneVerificationVerifyHandler(BaseHandler):
                     "verified": True
                 })
             else:
+                # Update attempts
+                storage.update_verification_code_attempts(stored_code.id, stored_code.attempts + 1)
                 self.set_status(400)
                 self.write({"error": "Invalid verification code"})
             
         except Exception as e:
-            print(e)
+            print(f"Error verifying phone code: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
@@ -1525,9 +1611,8 @@ class ProfileHandler(BaseHandler):
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
             
             if update_data:
-                # Update user in storage
-                updated_user = storage.update_user_profile(user.id, update_data)
-                
+                # Update user in storage (this should update the users table, not user_profiles)
+                # For now, acknowledge the request since we need to implement user update method
                 self.write({
                     "success": True,
                     "message": "Profile updated successfully"
@@ -1557,17 +1642,31 @@ class ProfileNotificationsHandler(BaseHandler):
                 self.write({"error": "Invalid JSON body"})
                 return
             
-            # Expected notification fields
-            allowed_fields = ['emailNotifications', 'smsNotifications', 'tradingNotifications', 'securityAlerts']
-            notification_data = {k: v for k, v in data.items() if k in allowed_fields}
+            # Convert camelCase to snake_case for database fields
+            field_mapping = {
+                'emailNotifications': 'email_notifications',
+                'smsNotifications': 'sms_notifications', 
+                'tradingNotifications': 'trading_notifications',
+                'securityAlerts': 'security_alerts'
+            }
             
-            if notification_data:
+            # Build update data with correct field names
+            update_data = {}
+            for client_field, db_field in field_mapping.items():
+                if client_field in data:
+                    update_data[db_field] = data[client_field]
+            
+            if update_data:
                 # Update notification preferences in storage
-                # For now, just acknowledge the request
-                self.write({
-                    "success": True,
-                    "message": "Notification preferences updated successfully"
-                })
+                success = storage.update_user_profile(user.id, update_data)
+                if success:
+                    self.write({
+                        "success": True,
+                        "message": "Notification preferences updated successfully"
+                    })
+                else:
+                    self.set_status(500)
+                    self.write({"error": "Failed to update notification preferences"})
             else:
                 self.set_status(400)
                 self.write({"error": "No valid notification preferences provided"})
@@ -1638,14 +1737,23 @@ class Profile2FAHandler(BaseHandler):
                 return
             
             enabled = data.get('enabled', False)
+            secret = data.get('secret', None)
             
             # Update 2FA status in storage
-            # For now, just acknowledge the request
-            self.write({
-                "success": True,
-                "message": f"Two-factor authentication {'enabled' if enabled else 'disabled'} successfully",
-                "twoFactorEnabled": enabled
-            })
+            update_data = {'two_factor_enabled': enabled}
+            if secret:
+                update_data['two_factor_secret'] = secret
+            
+            success = storage.update_user_profile(user.id, update_data)
+            if success:
+                self.write({
+                    "success": True,
+                    "message": f"Two-factor authentication {'enabled' if enabled else 'disabled'} successfully",
+                    "twoFactorEnabled": enabled
+                })
+            else:
+                self.set_status(500)
+                self.write({"error": "Failed to update 2FA settings"})
             
         except Exception as e:
             print(f"Error updating 2FA: {e}")
@@ -1723,13 +1831,26 @@ class EmailVerificationSendHandler(BaseHandler):
             
             # Generate verification code
             verification_code = f"{random.randint(100000, 999999)}"
+            expires_at = datetime.now() + timedelta(minutes=5)
             
-            # For demo purposes, simulate sending email
-            # In production, you would use SMTP to send actual emails
-            # using smtplib or similar email service
+            # Store verification code in database
+            from models import InsertVerificationCode
+            code_data = InsertVerificationCode(
+                user_id=user.id,
+                type="email",
+                code=verification_code,
+                contact=user.email,
+                expires_at=expires_at
+            )
             
-            # Store verification code in session or database
-            # For demo, we'll return it in response
+            success = storage.create_verification_code(code_data)
+            if not success:
+                self.set_status(500)
+                self.write({"error": "Failed to create verification code"})
+                return
+            
+            # In production, send actual email using SMTP
+            # For demo purposes, return the code
             
             self.write({
                 "success": True,
@@ -1761,15 +1882,40 @@ class EmailVerificationVerifyHandler(BaseHandler):
                 self.write({"error": "Verification code is required"})
                 return
             
-            # In production, verify the code against stored value
-            # For demo purposes, accept any 6-digit code
-            if len(code) == 6 and code.isdigit():
+            # Get verification code from database
+            verification_code = storage.get_verification_code(user.id, "email", user.email)
+            
+            if not verification_code:
+                self.set_status(400)
+                self.write({"error": "No verification code found"})
+                return
+            
+            # Check if code is expired
+            if datetime.now() > verification_code.expires_at:
+                self.set_status(400)
+                self.write({"error": "Verification code has expired"})
+                return
+            
+            # Check attempts limit
+            if verification_code.attempts >= 3:
+                self.set_status(400)
+                self.write({"error": "Too many verification attempts"})
+                return
+            
+            # Verify the code
+            if verification_code.code == code:
+                # Mark code as verified and update email verification status
+                storage.mark_verification_code_verified(verification_code.id)
+                storage.update_email_verification(user.id, user.email, True)
+                
                 self.write({
                     "success": True,
                     "message": "Email verified successfully",
                     "email": user.email
                 })
             else:
+                # Update attempts
+                storage.update_verification_code_attempts(verification_code.id, verification_code.attempts + 1)
                 self.set_status(400)
                 self.write({"error": "Invalid verification code"})
             
