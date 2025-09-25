@@ -79,7 +79,7 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
       
       // Upload file directly to storage
       const uploadResponse = await fetch(data.url, {
-        method: 'PUT',
+        method: 'GET',
         body: file,
         headers: {
           'Content-Type': file.type,
