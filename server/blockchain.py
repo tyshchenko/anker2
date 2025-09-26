@@ -5,7 +5,7 @@ import requests
 from ecdsa import SigningKey, SECP256k1
 import web3
 from web3.exceptions import InvalidTransaction
-from web3.middleware import ExtraDataToPOAMiddleware
+from web3.middleware import geth_poa_middleware
 from eth_account import Account
 #from solana.rpc.api import Client as SolanaClient
 #from solana.keypair import Keypair
@@ -151,7 +151,7 @@ class Blockchain:
         self.hotmove = ['BTC','ETH','BNB','TRX']
         self.eth_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['ETH']['rpc_url']))
         self.bnb_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['BNB']['rpc_url']))
-        self.bnb_client.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        self.bnb_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 #        self.sol_client = SolanaClient(COIN_SETTINGS['SOL']['rpc_url'])
         provider = HTTPProvider(timeout=30, endpoint_uri=COIN_SETTINGS['TRX']['rpc_url'])
         provider.sess.trust_env = False
@@ -276,8 +276,6 @@ class Blockchain:
         except Exception as e: print(e)
 
     def generate_main_wallet(self):
-        if not PRKEY:
-            raise Exception("PRKEY environment variable not configured")
         PRKEYb  = hex_to_bytes(PRKEY)
       
         address = self.generate_btc_address(PRKEYb)

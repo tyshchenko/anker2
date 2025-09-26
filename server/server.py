@@ -63,11 +63,7 @@ class Application(tornado.web.Application):
         threading.Timer(1800.0, self.hourlywathcher).start()
         threading.Timer(1.0, self.coin_wathcher).start()
 
-        # Only generate main wallet if blockchain keys are configured
-        try:
-            blockchain.generate_main_wallet()
-        except Exception as e:
-            print(f"Warning: Could not generate main wallet - blockchain keys not configured: {e}")
+        blockchain.generate_main_wallet()
     
 
         handlers = [
