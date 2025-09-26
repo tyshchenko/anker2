@@ -978,31 +978,32 @@ class MySqlStorage:
         try:
             db = DataBase(DB_NAME)
             sql = """INSERT INTO verification_codes 
-                     (user_id, type, code, contact, expires_at, attempts, verified) 
-                     VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+                     (user_id, type, code, contact, expires_at, attempts, verified, email) 
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
             vals = (verification_code.user_id, verification_code.type, verification_code.code, 
                    verification_code.contact, verification_code.expires_at, 
-                   verification_code.attempts, verification_code.verified)
+                   verification_code.attempts, verification_code.verified, verification_code.email)
             success = db.execute(sql, vals)
             return bool(success)
         except Exception as e:
             print(f"Error creating verification code: {e}")
             return False
 
-    def get_verification_code(self, user_id: str, code_type: str, contact: str) -> Optional[VerificationCode]:
+    def get_verification_code(self, email: str, code_type: str, contact: str) -> Optional[VerificationCode]:
         """Get the latest verification code for a user, type, and contact"""
         try:
             db = DataBase(DB_NAME)
             sql = """SELECT id, user_id, type, code, contact, expires_at, attempts, verified, created_at 
                      FROM verification_codes 
-                     WHERE user_id = '%s' AND type = '%s' AND contact = '%s' 
-                     ORDER BY created_at DESC LIMIT 1""" % (user_id, code_type, contact)
+                     WHERE email = '%s' AND type = '%s' AND contact = '%s' 
+                     ORDER BY created_at DESC LIMIT 1""" % (email, code_type, contact)
             result = db.query(sql)
             if result:
                 row = result[0]
                 return VerificationCode(
                     id=str(row[0]),
                     user_id=str(row[1]),
+                    email = email,
                     type=row[2],
                     code=row[3],
                     contact=row[4],
@@ -1039,14 +1040,14 @@ class MySqlStorage:
             return False
 
     # Verification Status Methods
-    def get_verification_status(self, user_id: str) -> Optional[VerificationStatus]:
+    def get_verification_status(self, email: str) -> Optional[VerificationStatus]:
         """Get verification status for a user"""
         try:
             db = DataBase(DB_NAME)
-            sql = """SELECT id, user_id, email_verified, email_address, phone_verified, phone_number,
+            sql = """SELECT id, user_id, email_verified, email, phone_verified, phone_number,
                             identity_status, identity_documents, address_status, address_documents,
                             created_at, updated_at 
-                     FROM verification_status WHERE user_id = '%s'""" % user_id
+                     FROM verification_status WHERE email = '%s'""" % email
             result = db.query(sql)
             if result:
                 row = result[0]
@@ -1069,81 +1070,81 @@ class MySqlStorage:
             print(f"Error getting verification status: {e}")
             return None
 
-    def create_verification_status(self, user_id: str) -> bool:
+    def create_verification_status(self, email: str) -> bool:
         """Create initial verification status for a user"""
         try:
             db = DataBase(DB_NAME)
-            sql = "INSERT INTO verification_status (user_id) VALUES ('%s')" % user_id
+            sql = "INSERT INTO verification_status (email) VALUES ('%s')" % email
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error creating verification status: {e}")
             return False
 
-    def update_email_verification(self, user_id: str, email_address: str, verified: bool = True) -> bool:
+    def update_email_verification(self, email: str, email_address: str, verified: bool = True) -> bool:
         """Update email verification status"""
         try:
             # Ensure verification status record exists
-            if not self.get_verification_status(user_id):
-                self.create_verification_status(user_id)
+            if not self.get_verification_status(email):
+                self.create_verification_status(email)
                 
             db = DataBase(DB_NAME)
             sql = """UPDATE verification_status 
-                     SET email_verified = %s, email_address = '%s', updated_at = NOW() 
-                     WHERE user_id = '%s'""" % (1 if verified else 0, email_address, user_id)
+                     SET email_verified = %s, updated_at = NOW() 
+                     WHERE email = '%s'""" % (1 if verified else 0, email)
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error updating email verification: {e}")
             return False
 
-    def update_phone_verification(self, user_id: str, phone_number: str, verified: bool = True) -> bool:
+    def update_phone_verification(self, email: str, phone_number: str, verified: bool = True) -> bool:
         """Update phone verification status"""
         try:
             # Ensure verification status record exists
-            if not self.get_verification_status(user_id):
-                self.create_verification_status(user_id)
+            if not self.get_verification_status(email):
+                self.create_verification_status(email)
                 
             db = DataBase(DB_NAME)
             sql = """UPDATE verification_status 
                      SET phone_verified = %s, phone_number = '%s', updated_at = NOW() 
-                     WHERE user_id = '%s'""" % (1 if verified else 0, phone_number, user_id)
+                     WHERE email = '%s'""" % (1 if verified else 0, phone_number, email)
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error updating phone verification: {e}")
             return False
 
-    def update_identity_verification(self, user_id: str, status: str, documents: List[str] = None) -> bool:
+    def update_identity_verification(self, email: str, status: str, documents: List[str] = None) -> bool:
         """Update identity verification status"""
         try:
             # Ensure verification status record exists
-            if not self.get_verification_status(user_id):
-                self.create_verification_status(user_id)
+            if not self.get_verification_status(email):
+                self.create_verification_status(email)
                 
             db = DataBase(DB_NAME)
             docs_str = ','.join(documents) if documents else ''
             sql = """UPDATE verification_status 
                      SET identity_status = '%s', identity_documents = '%s', updated_at = NOW() 
-                     WHERE user_id = '%s'""" % (status, docs_str, user_id)
+                     WHERE email = '%s'""" % (status, docs_str, email)
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error updating identity verification: {e}")
             return False
 
-    def update_address_verification(self, user_id: str, status: str, documents: List[str] = None) -> bool:
+    def update_address_verification(self, email: str, status: str, documents: List[str] = None) -> bool:
         """Update address verification status"""
         try:
             # Ensure verification status record exists
-            if not self.get_verification_status(user_id):
-                self.create_verification_status(user_id)
+            if not self.get_verification_status(email):
+                self.create_verification_status(email)
                 
             db = DataBase(DB_NAME)
             docs_str = ','.join(documents) if documents else ''
             sql = """UPDATE verification_status 
                      SET address_status = '%s', address_documents = '%s', updated_at = NOW() 
-                     WHERE user_id = '%s'""" % (status, docs_str, user_id)
+                     WHERE email = '%s'""" % (status, docs_str, email)
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
@@ -1151,13 +1152,13 @@ class MySqlStorage:
             return False
 
     # User Profile Methods
-    def get_user_profile(self, user_id: str) -> Optional[UserProfile]:
+    def get_user_profile(self, email: str) -> Optional[UserProfile]:
         """Get user profile settings"""
         try:
             db = DataBase(DB_NAME)
             sql = """SELECT id, user_id, email_notifications, sms_notifications, trading_notifications,
                             security_alerts, two_factor_enabled, two_factor_secret, created_at, updated_at
-                     FROM user_profiles WHERE user_id = '%s'""" % user_id
+                     FROM user_profiles WHERE email = '%s'""" % email
             result = db.query(sql)
             if result:
                 row = result[0]
@@ -1178,23 +1179,23 @@ class MySqlStorage:
             print(f"Error getting user profile: {e}")
             return None
 
-    def create_user_profile(self, user_id: str) -> bool:
+    def create_user_profile(self, email: str) -> bool:
         """Create initial user profile settings"""
         try:
             db = DataBase(DB_NAME)
-            sql = "INSERT INTO user_profiles (user_id) VALUES ('%s')" % user_id
+            sql = "INSERT INTO user_profiles (email) VALUES ('%s')" % email
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error creating user profile: {e}")
             return False
 
-    def update_user_profile(self, user_id: str, profile_data: dict) -> bool:
+    def update_user_profile(self, email: str, profile_data: dict) -> bool:
         """Update user profile settings"""
         try:
             # Ensure user profile record exists
-            if not self.get_user_profile(user_id):
-                self.create_user_profile(user_id)
+            if not self.get_user_profile(email):
+                self.create_user_profile(email)
                 
             db = DataBase(DB_NAME)
             
@@ -1213,18 +1214,18 @@ class MySqlStorage:
                 
             set_clauses.append("updated_at = NOW()")
             
-            sql = f"UPDATE user_profiles SET {', '.join(set_clauses)} WHERE user_id = '{user_id}'"
+            sql = f"UPDATE user_profiles SET {', '.join(set_clauses)} WHERE email = '{email}'"
             success = db.execute(sql)
             return bool(success)
         except Exception as e:
             print(f"Error updating user profile: {e}")
             return False
 
-    def update_user_password(self, user_id: str, password_hash: str) -> bool:
+    def update_user_password(self, email: str, password_hash: str) -> bool:
         """Update user password"""
         try:
             db = DataBase(DB_NAME)
-            sql = "UPDATE users SET password_hash = '%s', updated = NOW() WHERE id = '%s'" % (password_hash, user_id)
+            sql = "UPDATE users SET password_hash = '%s', updated = NOW() WHERE email = '%s'" % (password_hash, email)
             success = db.execute(sql)
             return bool(success)
         except Exception as e:

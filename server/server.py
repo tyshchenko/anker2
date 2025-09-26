@@ -112,7 +112,7 @@ class Application(tornado.web.Application):
             (r"/api/profile/2fa", Profile2FAHandler),
             
             # File upload/download routes (must be before catch-all)
-            (r"/upload/([^/]+)/([^/]+)", FileDownloadHandler),
+            (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
             
             # WebSocket route
             (r"/ws", WebSocketHandler),
@@ -935,7 +935,7 @@ class VerificationSubmitHandler(BaseHandler):
             
             if verification_type == 'identity':
                 # Update identity verification status to pending
-                success = storage.update_identity_verification(user.id, 'pending', documents)
+                success = storage.update_identity_verification(user.email, 'pending', documents)
                 if success:
                     self.write({
                         "success": True,
@@ -948,7 +948,7 @@ class VerificationSubmitHandler(BaseHandler):
                     self.write({"error": "Failed to update verification status"})
             elif verification_type == 'address':
                 # Update address verification status to pending
-                success = storage.update_address_verification(user.id, 'pending', documents)
+                success = storage.update_address_verification(user.email, 'pending', documents)
                 if success:
                     self.write({
                         "success": True,
@@ -979,12 +979,12 @@ class VerificationStatusHandler(BaseHandler):
                 return
             
             # Get real verification status from storage
-            verification_status = storage.get_verification_status(user.id)
+            verification_status = storage.get_verification_status(user.email)
             
             if not verification_status:
                 # Create initial verification status if it doesn't exist
-                storage.create_verification_status(user.id)
-                verification_status = storage.get_verification_status(user.id)
+                storage.create_verification_status(user.email)
+                verification_status = storage.get_verification_status(user.email)
             
             # Build response with real data
             response = {
@@ -1061,8 +1061,11 @@ class ObjectUploadHandler(BaseHandler):
                 f.write(file_body)
             
             # Return successful response with download URL
-            download_url = f"/upload/{user_folder}/{unique_filename}"
-            
+            download_url = f"/api/upload/{user_folder}/{unique_filename}"
+            if file_type == "id" or file_type == "selfie":
+              storage.update_identity_verification(user.email, 'pending', file_type)
+            if file_type == "poa":
+              storage.update_address_verification(user.email, 'pending', file_type)
             self.write({
                 "success": True,
                 "filename": unique_filename,
@@ -1128,6 +1131,7 @@ class PhoneVerificationSendHandler(BaseHandler):
             code_data = InsertVerificationCode(
                 user_id=user.id,
                 type="phone",
+                email=user.email,
                 code=verification_code,
                 contact=phone_number,
                 expires_at=expires_at
@@ -1172,7 +1176,7 @@ class PhoneVerificationVerifyHandler(BaseHandler):
                 return
             
             # Get verification code from database
-            stored_code = storage.get_verification_code(user.id, "phone", phone_number)
+            stored_code = storage.get_verification_code(user.email, "phone", phone_number)
             
             if not stored_code:
                 self.set_status(400)
@@ -1195,7 +1199,7 @@ class PhoneVerificationVerifyHandler(BaseHandler):
             if stored_code.code == verification_code:
                 # Mark code as verified and update phone verification status
                 storage.mark_verification_code_verified(stored_code.id)
-                storage.update_phone_verification(user.id, phone_number, True)
+                storage.update_phone_verification(user.email, phone_number, True)
                 
                 self.write({
                     "success": True,
@@ -1600,7 +1604,7 @@ class ProfileHandler(BaseHandler):
                 self.write({"error": "Not authenticated"})
                 return
             
-            data = self.get_json_body()
+            data = json.loads(self.request.body.decode())
             if not data:
                 self.set_status(400)
                 self.write({"error": "Invalid JSON body"})
@@ -1636,7 +1640,7 @@ class ProfileNotificationsHandler(BaseHandler):
                 self.write({"error": "Not authenticated"})
                 return
             
-            data = self.get_json_body()
+            data = json.loads(self.request.body.decode())
             if not data:
                 self.set_status(400)
                 self.write({"error": "Invalid JSON body"})
@@ -1658,7 +1662,7 @@ class ProfileNotificationsHandler(BaseHandler):
             
             if update_data:
                 # Update notification preferences in storage
-                success = storage.update_user_profile(user.id, update_data)
+                success = storage.update_user_profile(user.email, update_data)
                 if success:
                     self.write({
                         "success": True,
@@ -1686,7 +1690,7 @@ class ProfilePasswordHandler(BaseHandler):
                 self.write({"error": "Not authenticated"})
                 return
             
-            data = self.get_json_body()
+            data = json.loads(self.request.body.decode())
             if not data:
                 self.set_status(400)
                 self.write({"error": "Invalid JSON body"})
@@ -1708,7 +1712,7 @@ class ProfilePasswordHandler(BaseHandler):
             
             # Update password
             new_hash = auth_utils.hash_password(new_password)
-            storage.update_user_password(user.id, new_hash)
+            storage.update_user_password(user.email, new_hash)
             
             self.write({
                 "success": True,
@@ -1730,7 +1734,7 @@ class Profile2FAHandler(BaseHandler):
                 self.write({"error": "Not authenticated"})
                 return
             
-            data = self.get_json_body()
+            data = json.loads(self.request.body.decode())
             if not data:
                 self.set_status(400)
                 self.write({"error": "Invalid JSON body"})
@@ -1744,7 +1748,7 @@ class Profile2FAHandler(BaseHandler):
             if secret:
                 update_data['two_factor_secret'] = secret
             
-            success = storage.update_user_profile(user.id, update_data)
+            success = storage.update_user_profile(user.email, update_data)
             if success:
                 self.write({
                     "success": True,
@@ -1838,6 +1842,7 @@ class EmailVerificationSendHandler(BaseHandler):
             code_data = InsertVerificationCode(
                 user_id=user.id,
                 type="email",
+                email=user.email,
                 code=verification_code,
                 contact=user.email,
                 expires_at=expires_at
@@ -1883,7 +1888,7 @@ class EmailVerificationVerifyHandler(BaseHandler):
                 return
             
             # Get verification code from database
-            verification_code = storage.get_verification_code(user.id, "email", user.email)
+            verification_code = storage.get_verification_code(user.email, "email", user.email)
             
             if not verification_code:
                 self.set_status(400)
@@ -1906,7 +1911,7 @@ class EmailVerificationVerifyHandler(BaseHandler):
             if verification_code.code == code:
                 # Mark code as verified and update email verification status
                 storage.mark_verification_code_verified(verification_code.id)
-                storage.update_email_verification(user.id, user.email, True)
+                storage.update_email_verification(user.email, user.email, True)
                 
                 self.write({
                     "success": True,

@@ -216,6 +216,7 @@ class VerificationCode(BaseModel):
 
 class InsertVerificationCode(BaseModel):
     user_id: str
+    email: str
     type: str
     code: str
     contact: str
