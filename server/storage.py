@@ -78,7 +78,14 @@ class MySqlStorage:
 #        print("!!!!!!!!!!!!!!!")
         print(self.get_all_balances())
 #        print("!!!!!!!!!!!!!!!")
-        print(self.get_deposit_addresses())
+        # Only get deposit addresses if VALR API is configured
+        try:
+            if VALR_KEY and VALR_SECRET:
+                print(self.get_deposit_addresses())
+            else:
+                print("VALR API not configured - skipping deposit address fetch")
+        except Exception as e:
+            print(f"Warning: Could not fetch deposit addresses: {e}")
         blockchain.move_from_hot()
         
 
@@ -366,6 +373,8 @@ class MySqlStorage:
               
 
     def get_valr(self):
+        if not VALR_KEY or not VALR_SECRET:
+            raise Exception("VALR API credentials not configured")
         c = Client(api_key=VALR_KEY, api_secret=VALR_SECRET)
         c.rate_limiting_support = True
         return c
@@ -375,15 +384,19 @@ class MySqlStorage:
       if key in self.cache:
         return self.cache[key]['data']
       else:
-        client = self.get_valr()
-        prices = client.get_market_summary()
-        pricedict = {}
-        for price in prices:
-          pricedict[price['currencyPair']] = price
-          
-        jblock = {'time':int(round(time.time())), 'data':pricedict}
-        self.cache[key] = jblock
-        return pricedict
+        try:
+          client = self.get_valr()
+          prices = client.get_market_summary()
+          pricedict = {}
+          for price in prices:
+            pricedict[price['currencyPair']] = price
+            
+          jblock = {'time':int(round(time.time())), 'data':pricedict}
+          self.cache[key] = jblock
+          return pricedict
+        except Exception as e:
+          print(f"Warning: Could not fetch prices from VALR: {e}")
+          return {}
 
     def get_miner_fee(self):
       key = 'get_miner_fee'
