@@ -81,6 +81,47 @@ CREATE TABLE IF NOT EXISTS transactions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE verification_codes (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255),
+    email VARCHAR(200) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    contact VARCHAR(250) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    attempts VARCHAR(255) DEFAULT '0',
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE verification_status (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255),
+    email VARCHAR(200) NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE,
+    phone_verified BOOLEAN DEFAULT FALSE,
+    phone_number VARCHAR(200) ,
+    identity_status VARCHAR(200) DEFAULT 'not_verified',
+    identity_documents VARCHAR(200),
+    address_status VARCHAR(200) DEFAULT 'not_verified',
+    address_documents VARCHAR(200),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE user_profiles (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255),
+    email VARCHAR(200) NOT NULL,
+    email_notifications BOOLEAN DEFAULT TRUE,
+    sms_notifications BOOLEAN DEFAULT FALSE,
+    trading_notifications BOOLEAN DEFAULT TRUE,
+    security_alerts BOOLEAN DEFAULT TRUE,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    two_factor_secret  VARCHAR(200),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
