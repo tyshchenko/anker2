@@ -221,27 +221,54 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
           // User needs verification
           <div className="space-y-6">
             <div className="bg-muted/50 p-4 rounded-lg">
-              <h3 className="font-semibold mb-2">Verification Required:</h3>
+              <h3 className="font-semibold mb-2">Verification Status:</h3>
               <div className="space-y-2">
-                {!verificationStatus?.email_verified && (
+                {/* Email verification status */}
+                {verificationStatus?.verification_status?.email?.status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Email verification pending</span>
+                  </div>
+                ) : !verificationStatus?.email_verified && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span>Email verification needed</span>
                   </div>
                 )}
-                {!verificationStatus?.phone_verified && (
+                
+                {/* Phone verification status */}
+                {verificationStatus?.verification_status?.phone?.status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Phone verification pending</span>
+                  </div>
+                ) : !verificationStatus?.phone_verified && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span>Phone verification needed</span>
                   </div>
                 )}
-                {!verificationStatus?.identity_verified && (
+                
+                {/* Identity verification status */}
+                {verificationStatus?.verification_status?.identity?.status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Identity verification pending review</span>
+                  </div>
+                ) : !verificationStatus?.identity_verified && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span>Identity document upload needed</span>
                   </div>
                 )}
-                {!verificationStatus?.address_verified && (
+                
+                {/* Address verification status */}
+                {verificationStatus?.verification_status?.address?.status === 'pending' ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Address verification pending review</span>
+                  </div>
+                ) : !verificationStatus?.address_verified && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span>Proof of address upload needed</span>
@@ -288,10 +315,10 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
 
             <div className="space-y-6">
               {documents.map((doc, index) => {
-                // Skip documents that are already verified
-                if (doc.type === "id" && verificationStatus?.identity_verified) return null;
-                if (doc.type === "poa" && verificationStatus?.address_verified) return null;
-                if (doc.type === "selfie" && verificationStatus?.identity_verified) return null;
+                // Skip documents that are already verified or pending review
+                if (doc.type === "id" && (verificationStatus?.identity_verified || verificationStatus?.verification_status?.identity?.status === 'pending')) return null;
+                if (doc.type === "poa" && (verificationStatus?.address_verified || verificationStatus?.verification_status?.address?.status === 'pending')) return null;
+                if (doc.type === "selfie" && (verificationStatus?.identity_verified || verificationStatus?.verification_status?.identity?.status === 'pending')) return null;
 
                 const Icon = getDocumentIcon(doc.type);
                 return (
@@ -327,8 +354,8 @@ export function VerificationModal({ open, onOpenChange }: VerificationModalProps
                     </div>
                     
                     {index < documents.filter(d => 
-                      !((d.type === "id" || d.type === "selfie") && verificationStatus?.identity_verified) &&
-                      !(d.type === "poa" && verificationStatus?.address_verified)
+                      !((d.type === "id" || d.type === "selfie") && (verificationStatus?.identity_verified || verificationStatus?.verification_status?.identity?.status === 'pending')) &&
+                      !(d.type === "poa" && (verificationStatus?.address_verified || verificationStatus?.verification_status?.address?.status === 'pending'))
                     ).length - 1 && <Separator />}
                   </div>
                 );

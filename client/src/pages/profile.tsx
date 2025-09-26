@@ -102,6 +102,9 @@ export default function ProfilePage() {
   
   const [activeTab, setActiveTab] = useState('personal');
   const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [qrCode, setQrCode] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   
   // Bank account form state
   const [showAddBankForm, setShowAddBankForm] = useState(false);
@@ -211,6 +214,47 @@ export default function ProfilePage() {
     },
   });
 
+  const setup2FAMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/profile/2fa/setup');
+      return response;
+    },
+    onSuccess: (data: any) => {
+      setQrCode(data.qr_code);
+      setShow2FASetup(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "2FA Setup Failed",
+        description: error.message || "Failed to initialize two-factor authentication.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verify2FAMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest('POST', '/api/profile/2fa/verify', { code });
+      return response;
+    },
+    onSuccess: () => {
+      setProfile(prev => ({ ...prev, twoFactorEnabled: true }));
+      setShow2FASetup(false);
+      setVerificationCode('');
+      toast({
+        title: "2FA Enabled",
+        description: "Two-factor authentication has been successfully enabled.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggle2FAMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       const response = await apiRequest('POST', '/api/profile/2fa', { enabled });
@@ -219,7 +263,7 @@ export default function ProfilePage() {
     onSuccess: () => {
       toast({
         title: "2FA Updated",
-        description: profile.twoFactorEnabled ? "Two-factor authentication enabled." : "Two-factor authentication disabled.",
+        description: profile.twoFactorEnabled ? "Two-factor authentication disabled." : "Two-factor authentication enabled.",
       });
     },
     onError: (error: any) => {
@@ -748,17 +792,86 @@ export default function ProfilePage() {
                           )}
                           <Switch
                             checked={profile.twoFactorEnabled}
-                            onCheckedChange={(checked) => handleProfileUpdate('twoFactorEnabled', checked)}
+                            onCheckedChange={(checked) => {
+                              if (checked && !user?.two_factor_secret) {
+                                // If trying to enable but not set up, start setup
+                                setup2FAMutation.mutate();
+                              } else {
+                                handleProfileUpdate('twoFactorEnabled', checked);
+                              }
+                            }}
                             data-testid="switch-2fa"
+                            disabled={!user?.two_factor_secret && !profile.twoFactorEnabled}
                           />
                         </div>
                       </div>
-                      {!profile.twoFactorEnabled && (
+                      {!profile.twoFactorEnabled && !user?.two_factor_secret && (
                         <div className="mt-4">
-                          <Button variant="outline" data-testid="button-setup-2fa">
-                            <Key className="w-4 h-4 mr-2" />
-                            Set up 2FA
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setup2FAMutation.mutate()}
+                            disabled={setup2FAMutation.isPending}
+                            data-testid="button-setup-2fa"
+                          >
+                            {setup2FAMutation.isPending ? (
+                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Setting up...</>
+                            ) : (
+                              <><Key className="w-4 h-4 mr-2" />Set up 2FA</>
+                            )}
                           </Button>
+                        </div>
+                      )}
+                      
+                      {/* 2FA Setup Modal */}
+                      {show2FASetup && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShow2FASetup(false)}>
+                          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 max-w-full" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold mb-4">Set up Two-Factor Authentication</h3>
+                            
+                            <div className="space-y-4">
+                              <p className="text-sm text-muted-foreground">
+                                Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
+                              </p>
+                              
+                              {qrCode && (
+                                <div className="flex justify-center">
+                                  <img src={qrCode} alt="QR Code" className="w-48 h-48" />
+                                </div>
+                              )}
+                              
+                              <div>
+                                <Label htmlFor="verification-code">Enter verification code</Label>
+                                <Input
+                                  id="verification-code"
+                                  value={verificationCode}
+                                  onChange={(e) => setVerificationCode(e.target.value)}
+                                  placeholder="Enter 6-digit code"
+                                  maxLength={6}
+                                />
+                              </div>
+                              
+                              <div className="flex space-x-2">
+                                <Button 
+                                  onClick={() => verify2FAMutation.mutate(verificationCode)}
+                                  disabled={verificationCode.length !== 6 || verify2FAMutation.isPending}
+                                  className="flex-1"
+                                >
+                                  {verify2FAMutation.isPending ? (
+                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verifying...</>
+                                  ) : (
+                                    'Enable 2FA'
+                                  )}
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => setShow2FASetup(false)}
+                                  className="flex-1"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </Card>

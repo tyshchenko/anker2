@@ -548,6 +548,22 @@ class MeHandler(BaseHandler):
             user_data = user.dict()
             user_data.pop('password_hash', None)
             
+            # Get user profile with notification preferences and 2FA settings
+            user_profile = storage.get_user_profile(user.email)
+            if user_profile:
+                user_data['email_notifications'] = user_profile.email_notifications
+                user_data['sms_notifications'] = user_profile.sms_notifications
+                user_data['trading_notifications'] = user_profile.trading_notifications
+                user_data['security_alerts'] = user_profile.security_alerts
+                user_data['two_factor_enabled'] = user_profile.two_factor_enabled
+            else:
+                # Default values if no profile exists
+                user_data['email_notifications'] = False
+                user_data['sms_notifications'] = False
+                user_data['trading_notifications'] = False
+                user_data['security_alerts'] = False
+                user_data['two_factor_enabled'] = False
+            
             self.write({
                 "success": True,
                 "user": user_data
