@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ interface RegisterDialogProps {
 export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: RegisterDialogProps) {
   const { register: registerUser } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +69,11 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSocialRegister = (provider: string) => {
+    onOpenChange(false);
+    setLocation('/signup');
   };
 
   return (
@@ -224,7 +231,12 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <Button variant="outline" className="w-full" data-testid="button-google-register">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleSocialRegister('google')}
+              data-testid="button-google-register"
+            >
               <svg className="h-4 w-4" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
@@ -245,11 +257,21 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
               </svg>
             </Button>
 
-            <Button variant="outline" className="w-full" data-testid="button-facebook-register">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleSocialRegister('facebook')}
+              data-testid="button-facebook-register"
+            >
               <SiFacebook className="h-4 w-4 text-blue-600" />
             </Button>
 
-            <Button variant="outline" className="w-full" data-testid="button-x-register">
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => handleSocialRegister('x')}
+              data-testid="button-x-register"
+            >
               <BsTwitterX className="h-4 w-4" />
             </Button>
           </div>
