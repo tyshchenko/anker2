@@ -104,9 +104,11 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('personal');
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
+  const [show2FADisable, setShow2FADisable] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [disableCode, setDisableCode] = useState('');
   
   // Bank account form state
   const [showAddBankForm, setShowAddBankForm] = useState(false);
@@ -261,7 +263,11 @@ export default function ProfilePage() {
 
   const verify2FAMutation = useMutation({
     mutationFn: async (code: string) => {
-      const response = await apiRequest('POST', '/api/profile/2fa/verify', { code });
+      const response = await apiRequest('POST', '/api/profile/2fa', { 
+        enabled: true,
+        secretCode: code,
+        secret: qrCode.includes('secret=') ? qrCode.split('secret=')[1].split('&')[0] : undefined
+      });
       return response;
     },
     onSuccess: () => {
@@ -283,14 +289,20 @@ export default function ProfilePage() {
   });
 
   const toggle2FAMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      const response = await apiRequest('POST', '/api/profile/2fa', { enabled });
+    mutationFn: async ({ enabled, secretCode }: { enabled: boolean; secretCode?: string }) => {
+      const response = await apiRequest('POST', '/api/profile/2fa', { 
+        enabled,
+        secretCode 
+      });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      setProfile(prev => ({ ...prev, twoFactorEnabled: variables.enabled }));
+      setShow2FADisable(false);
+      setDisableCode('');
       toast({
         title: "2FA Updated",
-        description: profile.twoFactorEnabled ? "Two-factor authentication disabled." : "Two-factor authentication enabled.",
+        description: variables.enabled ? "Two-factor authentication enabled." : "Two-factor authentication disabled.",
       });
     },
     onError: (error: any) => {
@@ -403,7 +415,13 @@ export default function ProfilePage() {
     
     // Auto-save 2FA changes
     if (field === 'twoFactorEnabled') {
-      toggle2FAMutation.mutate(value);
+      if (value === false && profile.twoFactorEnabled) {
+        // Disabling 2FA - require verification code
+        setShow2FADisable(true);
+      } else {
+        // Enabling 2FA is handled through the setup flow
+        // This shouldn't happen as the toggle is handled differently
+      }
     }
   };
 
@@ -824,8 +842,9 @@ export default function ProfilePage() {
                               if (checked && !user?.two_factor_secret) {
                                 // If trying to enable but not set up, start setup
                                 setup2FAMutation.mutate();
-                              } else {
-                                handleProfileUpdate('twoFactorEnabled', checked);
+                              } else if (!checked && profile.twoFactorEnabled) {
+                                // If trying to disable, require verification code
+                                setShow2FADisable(true);
                               }
                             }}
                             data-testid="switch-2fa"
@@ -893,6 +912,57 @@ export default function ProfilePage() {
                                 <Button 
                                   variant="outline" 
                                   onClick={() => setShow2FASetup(false)}
+                                  className="flex-1"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 2FA Disable Modal */}
+                      {show2FADisable && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShow2FADisable(false)}>
+                          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 max-w-full" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold mb-4">Disable Two-Factor Authentication</h3>
+                            
+                            <div className="space-y-4">
+                              <p className="text-sm text-muted-foreground">
+                                To disable two-factor authentication, please enter a verification code from your authenticator app.
+                              </p>
+                              
+                              <div>
+                                <Label htmlFor="disable-code">Enter verification code</Label>
+                                <Input
+                                  id="disable-code"
+                                  value={disableCode}
+                                  onChange={(e) => setDisableCode(e.target.value)}
+                                  placeholder="Enter 6-digit code"
+                                  maxLength={6}
+                                />
+                              </div>
+                              
+                              <div className="flex space-x-2">
+                                <Button 
+                                  onClick={() => toggle2FAMutation.mutate({ enabled: false, secretCode: disableCode })}
+                                  disabled={disableCode.length !== 6 || toggle2FAMutation.isPending}
+                                  className="flex-1"
+                                  variant="destructive"
+                                >
+                                  {toggle2FAMutation.isPending ? (
+                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Disabling...</>
+                                  ) : (
+                                    'Disable 2FA'
+                                  )}
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => {
+                                    setShow2FADisable(false);
+                                    setDisableCode('');
+                                  }}
                                   className="flex-1"
                                 >
                                   Cancel
