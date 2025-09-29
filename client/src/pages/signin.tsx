@@ -61,7 +61,7 @@ export default function SignInPage() {
       script.defer = true;
       script.onload = () => {
         window.FB.init({
-          appId: '1234567890123456', // Mock Facebook App ID for development
+          appId: 'YOUR_FACEBOOK_APP_ID', // This should come from environment
           cookie: true,
           xfbml: true,
           version: 'v18.0'
@@ -122,17 +122,12 @@ export default function SignInPage() {
       setGoogleLoading(true);
 
       if (!window.google) {
-        // Simple wait for script to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (!window.google) {
-          toast({
-            title: "Error", 
-            description: "Google Sign-In is not loaded. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
       // Initialize Google Sign-In
@@ -165,28 +160,11 @@ export default function SignInPage() {
       });
 
       // Prompt for Google Sign-In
-      try {
-        window.google.accounts.id.prompt();
-      } catch (promptError) {
-        // If prompt fails, try renderButton as fallback
-        console.log('Prompt failed, trying button render');
-        window.google.accounts.id.renderButton(
-          document.createElement('div'),
-          { 
-            theme: 'outline', 
-            size: 'large',
-            type: 'standard',
-            text: 'signin_with'
-          }
-        );
-        // Manually trigger sign-in
-        window.google.accounts.id.prompt();
-      }
+      window.google.accounts.id.prompt();
     } catch (error: any) {
-      console.error('Google Sign-In Error:', error);
       toast({
         title: "Google Sign-In Error",
-        description: error.message || "Failed to initialize Google Sign-In",
+        description: "Failed to initialize Google Sign-In",
         variant: "destructive",
       });
     } finally {
@@ -197,13 +175,6 @@ export default function SignInPage() {
   const handleFacebookSignIn = async () => {
     try {
       setFacebookLoading(true);
-
-      // Wait for Facebook SDK to load
-      let retries = 0;
-      while (!window.FB && retries < 10) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        retries++;
-      }
 
       if (!window.FB) {
         toast({
@@ -216,26 +187,28 @@ export default function SignInPage() {
 
       window.FB.login(async (response: any) => {
         if (response.authResponse) {
-          try {
-            // Simulate Facebook user data for development
-            await loginWithFacebook({
-              accessToken: response.authResponse.accessToken || 'mock_facebook_token',
-              email: 'facebook.user@example.com',
-              name: 'Facebook User',
-              picture: 'https://via.placeholder.com/150'
-            });
+          // Get user info from Facebook
+          window.FB.api('/me', { fields: 'name,email,picture' }, async (userInfo: any) => {
+            try {
+              await loginWithFacebook({
+                accessToken: response.authResponse.accessToken,
+                email: userInfo.email,
+                name: userInfo.name,
+                picture: userInfo.picture?.data?.url
+              });
 
-            toast({
-              title: "Welcome!",
-              description: "You have successfully signed in with Facebook.",
-            });
-          } catch (error: any) {
-            toast({
-              title: "Facebook Sign-In Failed",
-              description: error.message || "An error occurred during Facebook sign-in",
-              variant: "destructive",
-            });
-          }
+              toast({
+                title: "Welcome!",
+                description: "You have successfully signed in with Facebook.",
+              });
+            } catch (error: any) {
+              toast({
+                title: "Facebook Sign-In Failed",
+                description: error.message || "An error occurred during Facebook sign-in",
+                variant: "destructive",
+              });
+            }
+          });
         } else {
           toast({
             title: "Facebook Sign-In Cancelled",
