@@ -42,6 +42,7 @@ import {
 import { fetchWithAuth, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { VerificationModal } from "@/components/verification/verification-modal";
+import * as QRCode from "qrcode";
 
 interface UserProfile {
   firstName: string;
@@ -104,6 +105,7 @@ export default function ProfilePage() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [qrCode, setQrCode] = useState('');
+  const [qrCodeImageUrl, setQrCodeImageUrl] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   
   // Bank account form state
@@ -135,6 +137,31 @@ export default function ProfilePage() {
       }));
     }
   }, [user]);
+
+  // Generate QR code image from qrCode string
+  useEffect(() => {
+    const generateQRCodeImage = async () => {
+      if (qrCode) {
+        try {
+          const qrCodeDataUrl = await QRCode.toDataURL(qrCode, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#ffffff'
+            }
+          });
+          setQrCodeImageUrl(qrCodeDataUrl);
+        } catch (error) {
+          console.error('Failed to generate QR code:', error);
+        }
+      } else {
+        setQrCodeImageUrl('');
+      }
+    };
+
+    generateQRCodeImage();
+  }, [qrCode]);
   
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -834,9 +861,9 @@ export default function ProfilePage() {
                                 Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
                               </p>
                               
-                              {qrCode && (
+                              {qrCodeImageUrl && (
                                 <div className="flex justify-center">
-                                  <img src={qrCode} alt="QR Code" className="w-48 h-48" />
+                                  <img src={qrCodeImageUrl} alt="QR Code" className="w-48 h-48" />
                                 </div>
                               )}
                               
