@@ -24,6 +24,21 @@ import { useAuth } from "@/lib/auth";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+
+// Static wallet data for fallback
+const WALLET_LOGOS: { [key: string]: string } = {
+  BTC: btcLogo,
+  ETH: ethLogo,
+  USDT: usdtLogo,
+  XRP: xrpLogo,
+  BNB: bnbLogo,
+  DOGE: dogeLogo,
+  SOL: solLogo,
+};
 
 // Hook to fetch cryptocurrency metadata from API
 const useCryptocurrencies = () => {
@@ -474,9 +489,9 @@ export default function SendPage() {
                     {preSelectedWallet ? (
                       <div className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/50">
                         <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                          {preSelectedWallet.logoUrl ? (
+                          {WALLET_LOGOS[preSelectedWallet.symbol] ? (
                             <img 
-                              src={preSelectedWallet.logoUrl} 
+                              src={WALLET_LOGOS[preSelectedWallet.symbol]} 
                               alt={preSelectedWallet.symbol} 
                               className="w-4 h-4"
                             />
@@ -499,9 +514,9 @@ export default function SendPage() {
                             <SelectItem key={wallet.id} value={wallet.id}>
                               <div className="flex items-center space-x-3">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                                  {wallet.logoUrl ? (
+                                  {WALLET_LOGOS[wallet.symbol] ? (
                                     <img 
-                                      src={wallet.logoUrl} 
+                                      src={WALLET_LOGOS[wallet.symbol]} 
                                       alt={wallet.symbol} 
                                       className="w-4 h-4"
                                     />
