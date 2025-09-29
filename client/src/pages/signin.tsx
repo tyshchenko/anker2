@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +30,17 @@ export default function SignInPage() {
   const [facebookLoading, setFacebookLoading] = useState(false);
   const [xLoading, setXLoading] = useState(false);
   
-  const { login, loginWithGoogle, loginWithFacebook, loginWithX } = useAuth();
+  const [, setLocation] = useLocation();
+  const { login, loginWithGoogle, loginWithFacebook, loginWithX, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
+    // Redirect authenticated users to home
+    if (isAuthenticated) {
+      setLocation("/");
+      return;
+    }
+
     // Load Google Identity Services script
     if (!window.google) {
       const script = document.createElement('script');

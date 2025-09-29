@@ -37,7 +37,7 @@ declare global {
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
-  const { register: registerUser, loginWithGoogle, loginWithFacebook, loginWithX } = useAuth();
+  const { register: registerUser, loginWithGoogle, loginWithFacebook, loginWithX, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -55,6 +55,12 @@ export default function RegisterPage() {
   });
 
   useEffect(() => {
+    // Redirect authenticated users to home
+    if (isAuthenticated) {
+      setLocation("/");
+      return;
+    }
+
     // Load Google Identity Services script
     if (!window.google) {
       const script = document.createElement('script');
