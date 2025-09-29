@@ -4,14 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
 import { ChartPanel } from "@/components/exchange/chart-panel";
+import { TradingPanel } from "@/components/exchange/trading-panel";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Wallet, Send, Download, Eye, EyeOff, TrendingUp, Copy, CheckCircle, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Wallet, Send, Download, Eye, EyeOff, Copy, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useWallets } from "@/hooks/useWallets";
 import { fetchWithAuth } from "@/lib/queryClient";
@@ -53,26 +49,31 @@ export default function WalletDetailPage() {
   const [copied, setCopied] = useState(false);
   const [currentPair] = useState(`${coin}/ZAR`);
   
-  // Buy form state
-  const [buyAmount, setBuyAmount] = useState("");
-  const [buyTotal, setBuyTotal] = useState("");
-  
   const { user } = useAuth();
   const { toast } = useToast();
   
   // Fetch user wallets data
   const { data: walletsData, isLoading: walletsLoading } = useWallets();
   
-  // Fetch market data for this specific coin
+  // Fetch market data for all pairs
   const { data: marketData } = useQuery({
-    queryKey: ['/api/market', coin, 'ZAR'],
+    queryKey: ['/api/market'],
     queryFn: async () => {
-      const response = await fetchWithAuth(`/api/market/${coin}/ZAR`);
+      const response = await fetchWithAuth('/api/market');
       if (!response.ok) throw new Error('Failed to fetch market data');
       return response.json();
     },
     refetchInterval: 30000,
   });
+
+  // Helper function to get ZAR price for a crypto symbol (same as wallets page)
+  const getZARPrice = (symbol: string): number => {
+    if (!marketData || symbol === 'ZAR') return 1; // ZAR is 1:1 with itself
+    if (symbol === 'USD') return 18.5; // Approximate USD to ZAR rate
+    
+    const pair = marketData.find((data: any) => data.pair === `${symbol}/ZAR`);
+    return pair ? parseFloat(pair.price) : 0;
+  };
 
   // Find the specific wallet for this coin
   const wallet = useMemo(() => {
@@ -85,8 +86,8 @@ export default function WalletDetailPage() {
     const pending = parseFloat(userWallet.pending || '0');
     const fee = parseFloat(userWallet.fee || '0');
     
-    // Get current price from market data
-    const currentPrice = marketData?.price ? parseFloat(marketData.price) : 0;
+    // Get current price from market data using ZAR price function
+    const currentPrice = getZARPrice(coin);
     const balanceZAR = balance * currentPrice;
 
     return {
@@ -134,54 +135,10 @@ export default function WalletDetailPage() {
     return `${address.slice(0, 12)}...${address.slice(-12)}`;
   };
 
-  // Handle buy form
-  const handleBuyAmountChange = (value: string) => {
-    setBuyAmount(value);
-    if (value && wallet?.currentPrice) {
-      const total = parseFloat(value) * wallet.currentPrice;
-      setBuyTotal(total.toFixed(2));
-    } else {
-      setBuyTotal("");
-    }
-  };
-
-  const handleBuyTotalChange = (value: string) => {
-    setBuyTotal(value);
-    if (value && wallet?.currentPrice) {
-      const amount = parseFloat(value) / wallet.currentPrice;
-      setBuyAmount(amount.toFixed(6));
-    } else {
-      setBuyAmount("");
-    }
-  };
-
-  const handleBuy = () => {
-    if (!buyAmount || !buyTotal) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to buy",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Check verification level
-    if (user?.verification_level === 'unverified') {
-      toast({
-        title: "Verification Required",
-        description: "You need to complete identity verification before you can buy cryptocurrency. Please verify your account in the profile section.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Buy Order Placed",
-      description: `Buy order for ${buyAmount} ${coin} (R${buyTotal}) has been placed successfully.`,
-    });
-    
-    setBuyAmount("");
-    setBuyTotal("");
+  // Handle pair change from trading panel
+  const handlePairChange = (from: string, to: string, action: "buy" | "sell" | "convert") => {
+    // Could update current pair if needed, but for now just log
+    console.log(`Trading: ${action} ${from} for ${to}`);
   };
 
   if (walletsLoading) {
@@ -373,62 +330,9 @@ export default function WalletDetailPage() {
               </div>
             </div>
 
-            {/* Buy Form */}
+            {/* Trading Panel */}
             <div className="flex-1 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-semibold">Buy {coin}</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="buy-amount">Amount ({coin})</Label>
-                  <Input
-                    id="buy-amount"
-                    type="number"
-                    placeholder={`0.00 ${coin}`}
-                    value={buyAmount}
-                    onChange={(e) => handleBuyAmountChange(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="buy-total">Total (ZAR)</Label>
-                  <Input
-                    id="buy-total"
-                    type="number"
-                    placeholder="R0.00"
-                    value={buyTotal}
-                    onChange={(e) => handleBuyTotalChange(e.target.value)}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Price per {coin}:</span>
-                    <span>R{wallet.currentPrice.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Network Fee:</span>
-                    <span>{wallet.fee} {coin}</span>
-                  </div>
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={handleBuy}
-                  disabled={!buyAmount || !buyTotal}
-                >
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Buy {coin}
-                </Button>
-
-                <p className="text-xs text-muted-foreground text-center">
-                  By buying, you agree to our terms and conditions. Transactions are processed instantly.
-                </p>
-              </div>
+              <TradingPanel onPairChange={handlePairChange} />
             </div>
           </div>
         </div>
