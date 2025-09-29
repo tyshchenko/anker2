@@ -73,7 +73,7 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
 
   const handleSocialRegister = (provider: string) => {
     onOpenChange(false);
-    setLocation('/signup');
+    setLocation(`/signup?provider=${provider}`);
   };
 
   return (

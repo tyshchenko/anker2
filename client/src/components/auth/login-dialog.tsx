@@ -67,7 +67,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
 
   const handleSocialLogin = (provider: string) => {
     onOpenChange(false);
-    setLocation('/signin');
+    setLocation(`/signin?provider=${provider}`);
   };
 
   return (

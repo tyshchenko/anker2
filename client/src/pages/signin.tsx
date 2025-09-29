@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,16 @@ import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { SiFacebook } from "react-icons/si";
+import { BsTwitterX } from "react-icons/bs";
+
+// Declare social login objects for TypeScript
+declare global {
+  interface Window {
+    google: any;
+    FB: any;
+  }
+}
 
 export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,9 +27,61 @@ export default function SignInPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [facebookLoading, setFacebookLoading] = useState(false);
+  const [xLoading, setXLoading] = useState(false);
   
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginWithFacebook, loginWithX } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if there's a provider parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const provider = urlParams.get('provider');
+    
+    if (provider) {
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/signin');
+      
+      // Trigger the appropriate social login
+      switch (provider) {
+        case 'google':
+          handleGoogleSignIn();
+          break;
+        case 'facebook':
+          handleFacebookSignIn();
+          break;
+        case 'x':
+          handleXSignIn();
+          break;
+      }
+    }
+
+    // Load Google Identity Services script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // Load Facebook SDK
+    if (!window.FB) {
+      const script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        window.FB.init({
+          appId: 'YOUR_FACEBOOK_APP_ID', // This should come from environment
+          cookie: true,
+          xfbml: true,
+          version: 'v18.0'
+        });
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -47,32 +109,53 @@ export default function SignInPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    console.log("Google sign-in button clicked!");
-    setGoogleLoading(true);
-    
     try {
-      // For demo purposes, create a mock Google auth response
-      // In production, you would use the Google OAuth API
-      const mockGoogleData = {
-        token: 'mock-google-token',
-        email: 'user@gmail.com',
-        name: 'Demo User',
-        picture: 'https://via.placeholder.com/150'
-      };
-      
-      console.log("Attempting Google login with:", mockGoogleData);
-      await loginWithGoogle(mockGoogleData);
-      
-      console.log("Google login successful!");
-      toast({
-        title: "Welcome!",
-        description: "You have successfully signed in with Google.",
+      setGoogleLoading(true);
+
+      if (!window.google) {
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Initialize Google Sign-In
+      window.google.accounts.id.initialize({
+        client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com", // This should come from environment
+        callback: async (response: any) => {
+          try {
+            // Decode the JWT token to get user info
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+
+            await loginWithGoogle({
+              token: response.credential,
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture
+            });
+
+            toast({
+              title: "Welcome!",
+              description: "You have successfully signed in with Google.",
+            });
+          } catch (error: any) {
+            toast({
+              title: "Google Sign-In Failed",
+              description: error.message || "An error occurred during Google sign-in",
+              variant: "destructive",
+            });
+          }
+        },
       });
-    } catch (error) {
-      console.error("Google sign-in error:", error);
+
+      // Prompt for Google Sign-In
+      window.google.accounts.id.prompt();
+    } catch (error: any) {
       toast({
-        title: "Google sign in failed", 
-        description: "Please try again later.",
+        title: "Google Sign-In Error",
+        description: "Failed to initialize Google Sign-In",
         variant: "destructive",
       });
     } finally {
@@ -80,14 +163,133 @@ export default function SignInPage() {
     }
   };
 
-  const handleSocialSignIn = (provider: string) => {
-    if (provider === 'Google') {
-      handleGoogleSignIn();
-    } else {
+  const handleFacebookSignIn = async () => {
+    try {
+      setFacebookLoading(true);
+
+      if (!window.FB) {
+        toast({
+          title: "Error",
+          description: "Facebook SDK is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      window.FB.login(async (response: any) => {
+        if (response.authResponse) {
+          // Get user info from Facebook
+          window.FB.api('/me', { fields: 'name,email,picture' }, async (userInfo: any) => {
+            try {
+              await loginWithFacebook({
+                accessToken: response.authResponse.accessToken,
+                email: userInfo.email,
+                name: userInfo.name,
+                picture: userInfo.picture?.data?.url
+              });
+
+              toast({
+                title: "Welcome!",
+                description: "You have successfully signed in with Facebook.",
+              });
+            } catch (error: any) {
+              toast({
+                title: "Facebook Sign-In Failed",
+                description: error.message || "An error occurred during Facebook sign-in",
+                variant: "destructive",
+              });
+            }
+          });
+        } else {
+          toast({
+            title: "Facebook Sign-In Cancelled",
+            description: "Facebook sign-in was cancelled",
+            variant: "destructive",
+          });
+        }
+      }, { scope: 'email' });
+    } catch (error: any) {
       toast({
-        title: "Coming Soon",
-        description: `${provider} sign-in will be available soon.`,
+        title: "Facebook Sign-In Error",
+        description: "Failed to initialize Facebook sign-in",
+        variant: "destructive",
       });
+    } finally {
+      setFacebookLoading(false);
+    }
+  };
+
+  const handleXSignIn = async () => {
+    try {
+      setXLoading(true);
+      
+      // For X/Twitter login, we'll need to use OAuth 1.0a flow
+      // This is a simplified implementation - in real use, you'd redirect to X OAuth
+      const xAuthUrl = `https://api.twitter.com/oauth/authenticate?oauth_token=YOUR_OAUTH_TOKEN`;
+      
+      // Open popup for X OAuth
+      const popup = window.open(
+        xAuthUrl,
+        'XSignIn',
+        'width=600,height=600,scrollbars=yes,resizable=yes'
+      );
+
+      // Listen for popup to close (simplified)
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          // In real implementation, you'd get the OAuth response here
+          // For now, we'll simulate a successful sign-in
+          setTimeout(async () => {
+            try {
+              await loginWithX({
+                accessToken: 'mock_x_token',
+                email: 'user@example.com',
+                name: 'X User',
+                picture: ''
+              });
+
+              toast({
+                title: "Welcome!",
+                description: "You have successfully signed in with X.",
+              });
+            } catch (error: any) {
+              toast({
+                title: "X Sign-In Failed",
+                description: error.message || "An error occurred during X sign-in",
+                variant: "destructive",
+              });
+            }
+          }, 1000);
+        }
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "X Sign-In Error",
+        description: "Failed to initialize X sign-in",
+        variant: "destructive",
+      });
+    } finally {
+      setXLoading(false);
+    }
+  };
+
+  const handleSocialSignIn = (provider: string) => {
+    switch (provider) {
+      case 'Google':
+        handleGoogleSignIn();
+        break;
+      case 'Facebook':
+        handleFacebookSignIn();
+        break;
+      case 'X':
+        handleXSignIn();
+        break;
+      default:
+        toast({
+          title: "Coming Soon",
+          description: `${provider} sign-in will be available soon.`,
+        });
     }
   };
 
@@ -147,24 +349,36 @@ export default function SignInPage() {
                 variant="outline"
                 className="w-full h-11"
                 onClick={() => handleSocialSignIn('Facebook')}
+                disabled={facebookLoading}
                 data-testid="button-facebook-signin"
               >
-                <svg className="w-5 h-5 mr-3" fill="#1877F2" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Continue with Facebook
+                <SiFacebook className="w-5 h-5 mr-3 text-blue-600" />
+                {facebookLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Continue with Facebook'
+                )}
               </Button>
 
               <Button
                 variant="outline"
                 className="w-full h-11"
                 onClick={() => handleSocialSignIn('X')}
+                disabled={xLoading}
                 data-testid="button-x-signin"
               >
-                <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-                Continue with X
+                <BsTwitterX className="w-5 h-5 mr-3" />
+                {xLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin rounded-full mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Continue with X'
+                )}
               </Button>
             </div>
 

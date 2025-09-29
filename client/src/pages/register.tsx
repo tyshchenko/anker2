@@ -55,6 +55,28 @@ export default function RegisterPage() {
   });
 
   useEffect(() => {
+    // Check if there's a provider parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const provider = urlParams.get('provider');
+    
+    if (provider) {
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/signup');
+      
+      // Trigger the appropriate social register
+      switch (provider) {
+        case 'google':
+          handleGoogleRegister();
+          break;
+        case 'facebook':
+          handleFacebookRegister();
+          break;
+        case 'x':
+          handleXRegister();
+          break;
+      }
+    }
+
     // Load Google Identity Services script
     if (!window.google) {
       const script = document.createElement('script');
