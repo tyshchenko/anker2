@@ -107,6 +107,7 @@ class Application(tornado.web.Application):
             (r"/api/auth/facebook", FacebookAuthHandler),
             (r"/api/auth/x", XAuthHandler),
             (r"/api/auth/me", MeHandler),
+            (r"/api/auth/2fa", Auth2FAHandler),
             
             # Profile routes
             (r"/api/profile", ProfileHandler),
@@ -308,6 +309,22 @@ class LoginHandler(BaseHandler):
                 self.write({"error": "Invalid email or password"})
                 return
             
+            # Check if user has 2FA enabled
+            user_profile = storage.get_user_profile(user.email)
+            if user_profile and user_profile.two_factor_enabled:
+                # Store user info temporarily for 2FA verification
+                temp_session_token = auth_utils.generate_session_token()
+                temp_expires = datetime.now() + timedelta(minutes=5)  # Short expiry for temp session
+                storage.create_temp_session(user.id, temp_session_token, temp_expires)
+                
+                self.set_status(303)  # Special status indicating 2FA required
+                self.write({
+                    "requires_2fa": True,
+                    "temp_session": temp_session_token,
+                    "message": "Two-factor authentication required"
+                })
+                return
+            
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
@@ -323,6 +340,7 @@ class LoginHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data,
+                "sessionId": session_token,
                 "message": "Login successful"
             })
             
@@ -406,6 +424,22 @@ class GoogleAuthHandler(BaseHandler):
                     )
                     user = storage.create_user(insert_user)
             
+            # Check if user has 2FA enabled
+            user_profile = storage.get_user_profile(user.email)
+            if user_profile and user_profile.two_factor_enabled:
+                # Store user info temporarily for 2FA verification
+                temp_session_token = auth_utils.generate_session_token()
+                temp_expires = datetime.now() + timedelta(minutes=5)  # Short expiry for temp session
+                storage.create_temp_session(user.id, temp_session_token, temp_expires)
+                
+                self.set_status(303)  # Special status indicating 2FA required
+                self.write({
+                    "requires_2fa": True,
+                    "temp_session": temp_session_token,
+                    "message": "Two-factor authentication required"
+                })
+                return
+            
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
@@ -421,6 +455,7 @@ class GoogleAuthHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data,
+                "sessionId": session_token,
                 "message": "Google authentication successful"
             })
             
@@ -459,6 +494,22 @@ class FacebookAuthHandler(BaseHandler):
                 )
                 user = storage.create_user(insert_user)
             
+            # Check if user has 2FA enabled
+            user_profile = storage.get_user_profile(user.email)
+            if user_profile and user_profile.two_factor_enabled:
+                # Store user info temporarily for 2FA verification
+                temp_session_token = auth_utils.generate_session_token()
+                temp_expires = datetime.now() + timedelta(minutes=5)  # Short expiry for temp session
+                storage.create_temp_session(user.id, temp_session_token, temp_expires)
+                
+                self.set_status(303)  # Special status indicating 2FA required
+                self.write({
+                    "requires_2fa": True,
+                    "temp_session": temp_session_token,
+                    "message": "Two-factor authentication required"
+                })
+                return
+            
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
@@ -475,6 +526,7 @@ class FacebookAuthHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data,
+                "sessionId": session_token,
                 "message": "Facebook authentication successful"
             })
             
@@ -513,6 +565,22 @@ class XAuthHandler(BaseHandler):
                 )
                 user = storage.create_user(insert_user)
             
+            # Check if user has 2FA enabled
+            user_profile = storage.get_user_profile(user.email)
+            if user_profile and user_profile.two_factor_enabled:
+                # Store user info temporarily for 2FA verification
+                temp_session_token = auth_utils.generate_session_token()
+                temp_expires = datetime.now() + timedelta(minutes=5)  # Short expiry for temp session
+                storage.create_temp_session(user.id, temp_session_token, temp_expires)
+                
+                self.set_status(303)  # Special status indicating 2FA required
+                self.write({
+                    "requires_2fa": True,
+                    "temp_session": temp_session_token,
+                    "message": "Two-factor authentication required"
+                })
+                return
+            
             # Create session
             session_token = auth_utils.generate_session_token()
             expires_at = datetime.now() + timedelta(days=7)
@@ -529,6 +597,7 @@ class XAuthHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data,
+                "sessionId": session_token,
                 "message": "X authentication successful"
             })
             
@@ -571,6 +640,84 @@ class MeHandler(BaseHandler):
             self.write({
                 "success": True,
                 "user": user_data
+            })
+            
+        except Exception as e:
+            print(e)
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class Auth2FAHandler(BaseHandler):
+    def post(self):
+        """Handle 2FA verification during authentication"""
+        try:
+            body = json.loads(self.request.body.decode())
+            temp_session = body.get('temp_session')
+            code = body.get('code')
+            
+            if not temp_session or not code:
+                self.set_status(400)
+                self.write({"error": "Temporary session token and verification code are required"})
+                return
+            
+            # Get the temp session
+            session = storage.get_temp_session(temp_session)
+            if not session:
+                self.set_status(401)
+                self.write({"error": "Invalid or expired temporary session"})
+                return
+            
+            # Get user from temp session
+            user = storage.get_user_by_id(session.user_id)
+            if not user:
+                self.set_status(401)
+                self.write({"error": "User not found"})
+                return
+            
+            # Get user profile to check 2FA settings
+            user_profile = storage.get_user_profile(user.email)
+            if not user_profile or not user_profile.two_factor_enabled:
+                self.set_status(400)
+                self.write({"error": "Two-factor authentication is not enabled"})
+                return
+            
+            # Verify the 2FA code
+            import pyotp
+            totp = pyotp.TOTP(user_profile.two_factor_secret)
+            
+            if not totp.verify(code, valid_window=1):
+                self.set_status(401)
+                self.write({"error": "Invalid verification code"})
+                return
+            
+            # Delete the temporary session
+            storage.delete_temp_session(temp_session)
+            
+            # Create a real session
+            session_token = auth_utils.generate_session_token()
+            expires_at = datetime.now() + timedelta(days=7)
+            storage.create_session(user.id, session_token, expires_at)
+            
+            # Set secure cookie
+            self.set_secure_cookie("session_token", session_token, expires_days=7)
+            
+            # Return user data (without password)
+            user_data = user.dict()
+            user_data.pop('password_hash', None)
+            
+            # Add profile data
+            user_data['email_notifications'] = user_profile.email_notifications
+            user_data['sms_notifications'] = user_profile.sms_notifications
+            user_data['trading_notifications'] = user_profile.trading_notifications
+            user_data['security_alerts'] = user_profile.security_alerts
+            user_data['two_factor_enabled'] = user_profile.two_factor_enabled
+            
+            self.write({
+                "success": True,
+                "user": user_data,
+                "sessionId": session_token,
+                "message": "Two-factor authentication successful"
             })
             
         except Exception as e:

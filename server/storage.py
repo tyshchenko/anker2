@@ -67,6 +67,7 @@ class MySqlStorage:
         self.ohlcv_market_data: Dict[str, Dict[str, List[OhlcvMarketData]]] = {}
         self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
+        self.temp_sessions: Dict[str, Session] = {}
         self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
         self.activepairs = self.pairs
         self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone,language,timezone,country "
@@ -637,6 +638,33 @@ class MySqlStorage:
     def delete_session(self, session_token: str) -> bool:
         if session_token in self.sessions:
             del self.sessions[session_token]
+            return True
+        return False
+    
+    def create_temp_session(self, user_id: str, temp_session_token: str, expires_at: datetime) -> Session:
+        """Create a temporary session for 2FA verification"""
+        session = Session(
+            user_id=user_id,
+            session_token=temp_session_token,
+            expires_at=expires_at
+        )
+        self.temp_sessions[temp_session_token] = session
+        return session
+    
+    def get_temp_session(self, temp_session_token: str) -> Optional[Session]:
+        """Get a temporary session"""
+        session = self.temp_sessions.get(temp_session_token)
+        if session and session.expires_at > datetime.now():
+            return session
+        elif session:
+            # Clean up expired session
+            del self.temp_sessions[temp_session_token]
+        return None
+    
+    def delete_temp_session(self, temp_session_token: str) -> bool:
+        """Delete a temporary session"""
+        if temp_session_token in self.temp_sessions:
+            del self.temp_sessions[temp_session_token]
             return True
         return False
 
