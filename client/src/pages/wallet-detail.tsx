@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
 import { MobileHeader } from "@/components/exchange/mobile-header";
@@ -319,14 +319,28 @@ export default function WalletDetailPage() {
 
               {/* Wallet Actions */}
               <div className="grid grid-cols-2 gap-3 mt-6">
-                <Button variant="outline" size="sm" className="w-full">
-                  <Send className="w-4 h-4 mr-2" />
-                  Send
-                </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  <Download className="w-4 h-4 mr-2" />
-                  Receive
-                </Button>
+                <Link href={`/send?wallet=${coin.toLowerCase()}`}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full" 
+                    data-testid={`button-send-${wallet.id}`}
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Send
+                  </Button>
+                </Link>
+                <Link href={`/receive?wallet=${coin.toLowerCase()}`}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full" 
+                    data-testid={`button-receive-${wallet.id}`}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Receive
+                  </Button>
+                </Link>
               </div>
             </div>
 
