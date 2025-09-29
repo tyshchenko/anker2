@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,10 +12,10 @@ import bnbLogo from "@assets/BNB_1757408614597.png";
 import solLogo from "@assets/SOL_1757408614598.png";
 
 const timeframes = [
+  { label: "1H", value: "1H" },
   { label: "1D", value: "1D" },
   { label: "1W", value: "1W" },
   { label: "1M", value: "1M" },
-  { label: "3M", value: "3M" },
 ];
 
 // Fake portfolio wallets data
@@ -84,41 +85,105 @@ export function PortfolioPanel() {
   const chartInstanceRef = useRef<any>(null);
   const lineSeriesRef = useRef<any>(null);
 
-  // Generate fake growing portfolio data
+  // Fetch market data for all cryptocurrencies
+  const cryptoSymbols = ['BTC', 'ETH', 'USDT', 'BNB', 'SOL'];
+  
+  const marketDataQueries = cryptoSymbols.map(crypto => 
+    useQuery({
+      queryKey: ['market-data', crypto, 'ZAR', selectedTimeframe],
+      queryFn: () => fetch(`/api/market/${crypto}/ZAR?timeframe=${selectedTimeframe}&type=OHLCV`).then(res => res.json()),
+    })
+  );
+
+  // Fetch current prices for wallet display
+  const currentPriceQueries = cryptoSymbols.map(crypto => 
+    useQuery({
+      queryKey: ['current-price', crypto, 'ZAR'],
+      queryFn: () => fetch(`/api/market/${crypto}/ZAR?timeframe=1D&type=OHLCV`).then(res => res.json()),
+      refetchInterval: 30000, // Refresh every 30 seconds
+    })
+  );
+
+  // Calculate portfolio data based on real market prices
   const portfolioData = useMemo(() => {
-    const now = Date.now();
-    const dataPoints = [];
-    const intervals = selectedTimeframe === "1D" ? 24 : 
-                     selectedTimeframe === "1W" ? 7 * 24 : 
-                     selectedTimeframe === "1M" ? 30 * 24 : 90 * 24;
-    
-    const baseValue = 950000; // Starting portfolio value in ZAR
-    const growthRate = selectedTimeframe === "1D" ? 0.001 : 
-                      selectedTimeframe === "1W" ? 0.005 : 
-                      selectedTimeframe === "1M" ? 0.02 : 0.08; // Higher growth for longer periods
-    
-    for (let i = 0; i < intervals; i++) {
-      const timestamp = Math.floor((now - (intervals - i) * 60 * 60 * 1000) / 1000);
-      // Generate growing trend with some volatility
-      const progress = i / intervals;
-      const growth = baseValue * (1 + growthRate * progress);
-      const volatility = baseValue * 0.02 * Math.sin(i * 0.1) * Math.random();
-      const value = growth + volatility;
+    // Check if all queries have loaded
+    const allQueriesLoaded = marketDataQueries.every(query => query.data);
+    if (!allQueriesLoaded) return [];
+
+    // Get wallet balances for each crypto
+    const walletBalances = {
+      BTC: 0.25843,
+      ETH: 8.42,
+      USDT: 25000,
+      BNB: 45.67,
+      SOL: 123.45
+    };
+
+    // Combine all market data and calculate portfolio value over time
+    const combinedData: { [timestamp: string]: number } = {};
+
+    marketDataQueries.forEach((query, index) => {
+      const crypto = cryptoSymbols[index];
+      const balance = walletBalances[crypto as keyof typeof walletBalances];
       
-      dataPoints.push({
-        time: timestamp as any,
-        value: Math.max(value, baseValue * 0.95) // Ensure minimum value
-      });
+      if (query.data?.data) {
+        query.data.data.forEach((dataPoint: any) => {
+          const timestamp = dataPoint.time;
+          const price = dataPoint.close; // Using close price
+          
+          if (!combinedData[timestamp]) {
+            combinedData[timestamp] = 0;
+          }
+          
+          // Add this crypto's contribution to total portfolio value
+          combinedData[timestamp] += balance * price;
+        });
+      }
+    });
+
+    // Convert to array format for chart
+    return Object.entries(combinedData)
+      .map(([timestamp, value]) => ({
+        time: parseInt(timestamp) as any,
+        value: value
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+  }, [marketDataQueries.map(q => q.data).join(','), selectedTimeframe]);
+
+  // Show loading state while queries are loading
+  const isLoading = marketDataQueries.some(query => query.isLoading);
+  
+  // Update wallet data with real prices
+  const updatedWallets = PORTFOLIO_WALLETS.map((wallet, index) => {
+    const currentPriceQuery = currentPriceQueries[index];
+    const balance = wallet.balance;
+    
+    let currentPrice = 0;
+    let change24h = wallet.change24h;
+    
+    if (currentPriceQuery.data?.data && currentPriceQuery.data.data.length > 0) {
+      const latestData = currentPriceQuery.data.data;
+      const latest = latestData[latestData.length - 1];
+      const previous = latestData.length > 1 ? latestData[latestData.length - 2] : latest;
+      
+      currentPrice = latest.close;
+      change24h = previous.close > 0 ? ((latest.close - previous.close) / previous.close) * 100 : 0;
     }
     
-    return dataPoints.sort((a, b) => (a.time as number) - (b.time as number));
-  }, [selectedTimeframe]);
+    const balanceZAR = balance * currentPrice;
+    
+    return {
+      ...wallet,
+      balanceZAR,
+      change24h: change24h || wallet.change24h
+    };
+  });
 
   const totalValue = portfolioData.length > 0 ? portfolioData[portfolioData.length - 1].value : 0;
   const initialValue = portfolioData.length > 0 ? portfolioData[0].value : 0;
   const totalChange = totalValue - initialValue;
   const percentChange = initialValue > 0 ? (totalChange / initialValue) * 100 : 0;
-  const totalWalletValue = PORTFOLIO_WALLETS.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
+  const totalWalletValue = updatedWallets.reduce((sum, wallet) => sum + wallet.balanceZAR, 0);
 
   // Initialize chart
   useEffect(() => {
@@ -211,7 +276,7 @@ export function PortfolioPanel() {
           <div>
             <div className="text-sm text-muted-foreground mb-1">Total Portfolio Value</div>
             <h1 className="text-3xl font-bold tracking-tight" data-testid="text-portfolio-value">
-              {formatPrice(totalWalletValue)}
+              {isLoading ? "Loading..." : formatPrice(totalValue || totalWalletValue)}
             </h1>
           </div>
           <div className="text-right">
@@ -219,7 +284,7 @@ export function PortfolioPanel() {
               className={`text-2xl font-bold font-mono ${percentChange >= 0 ? "text-green-600" : "text-red-600"}`}
               data-testid="text-portfolio-change"
             >
-              {percentChange >= 0 ? "+" : ""}{formatPrice(totalChange)} ({percentChange.toFixed(2)}%)
+              {isLoading ? "..." : `${percentChange >= 0 ? "+" : ""}${formatPrice(totalChange)} (${percentChange.toFixed(2)}%)`}
             </div>
             <div className="text-sm text-muted-foreground">
               {selectedTimeframe} Performance
@@ -276,7 +341,7 @@ export function PortfolioPanel() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {PORTFOLIO_WALLETS.map((wallet) => (
+            {updatedWallets.map((wallet) => (
               <Card key={wallet.id} className="p-4 hover:shadow-lg transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
