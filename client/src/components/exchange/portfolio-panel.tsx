@@ -129,7 +129,7 @@ export function PortfolioPanel() {
       if (query.data?.data) {
         query.data.data.forEach((dataPoint: any) => {
           const timestamp = dataPoint.time;
-          const price = dataPoint.close; // Using close price
+          const price = parseFloat(dataPoint.close); // Convert string to number
           
           if (!combinedData[timestamp]) {
             combinedData[timestamp] = 0;
@@ -166,8 +166,9 @@ export function PortfolioPanel() {
       const latest = latestData[latestData.length - 1];
       const previous = latestData.length > 1 ? latestData[latestData.length - 2] : latest;
       
-      currentPrice = latest.close;
-      change24h = previous.close > 0 ? ((latest.close - previous.close) / previous.close) * 100 : 0;
+      currentPrice = parseFloat(latest.close); // Convert string to number
+      const previousPrice = parseFloat(previous.close); // Convert string to number
+      change24h = previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice) * 100 : 0;
     }
     
     const balanceZAR = balance * currentPrice;
