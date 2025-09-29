@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -21,6 +21,14 @@ import ProfilePage from "@/pages/profile";
 import SignInPage from "@/pages/signin";
 import RegisterPage from "@/pages/register";
 import CreateWalletPage from "@/pages/create-wallet";
+
+// Declare social login objects for TypeScript
+declare global {
+  interface Window {
+    google: any;
+    FB: any;
+  }
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -88,7 +96,37 @@ function Router() {
 }
 
 function App() {
-  return (
+
+  useEffect(() => {
+
+    // Load Google Identity Services script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // Load Facebook SDK
+    if (!window.FB) {
+      const script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        window.FB.init({
+          appId: 'YOUR_FACEBOOK_APP_ID', // This should come from environment
+          cookie: true,
+          xfbml: true,
+          version: 'v18.0'
+        });
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
+  
+    return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
