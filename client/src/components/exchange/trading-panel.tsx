@@ -389,7 +389,7 @@ export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) 
   );
 
   return (
-    <aside className={`${mode !== 'all' ? 'trading-panel' : 'w-full lg:w-96 bg-card border-l border-border trading-panel'}`}>
+    <aside className={`${mode !== 'all' ? '' : 'w-full lg:w-96 bg-card border-l border-border trading-panel'}`}>
       <div className="h-full flex flex-col">
         {/* Trading Tabs */}
         <div className={`p-4 border-b border-border ${mode !== 'all' ? 'hidden' : ''}`}>
