@@ -1759,16 +1759,41 @@ class Profile2FAHandler(BaseHandler):
             
             enabled = data.get('enabled', False)
             secret_code = data.get('secretCode', None)
+            secret = data.get('secret', None)
+            
+            # If enabling 2FA, validate the secret code
+            if enabled:
+                if not secret_code:
+                    self.set_status(400)
+                    self.write({"error": "2FA verification code is required"})
+                    return
+                
+                # Get user profile to retrieve two_factor_secret
+                user_profile = storage.get_user_profile(user.email)
+                if not user_profile:
+                    self.set_status(500)
+                    self.write({"error": "Failed to retrieve user profile"})
+                    return
+                
+                # Use the secret from request or existing profile
+                totp_secret = secret or user_profile.get('two_factor_secret')
+                if not totp_secret:
+                    self.set_status(400)
+                    self.write({"error": "2FA secret not found. Please setup 2FA first."})
+                    return
+                
+                # Validate TOTP code
+                import pyotp
+                totp = pyotp.TOTP(totp_secret)
+                if not totp.verify(secret_code, valid_window=1):
+                    self.set_status(400)
+                    self.write({"error": "Invalid 2FA verification code"})
+                    return
             
             # Update 2FA status in storage
             update_data = {'two_factor_enabled': enabled}
-            if not secret_code:
-                self.set_status(401)
-                self.write({"error": "Invalid 2FA code"})
-                return
-
-            # add here check if secret_code is valid, two_factor_secret you can get from storage.get_user_profile()
-
+            if secret:
+                update_data['two_factor_secret'] = secret
 
 
             success = storage.update_user_profile(user.email, update_data)
