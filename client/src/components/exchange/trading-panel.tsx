@@ -24,6 +24,7 @@ import { LoginDialog } from "@/components/auth/login-dialog";
 
 interface TradingPanelProps {
   onPairChange: (from: string, to: string, action: "buy" | "sell" | "convert") => void;
+  mode?: 'all' | 'buy' | 'sell';
 }
 
 interface Trade {
@@ -185,7 +186,7 @@ const useUserTrades = () => {
   });
 };
 
-export function TradingPanel({ onPairChange }: TradingPanelProps) {
+export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) {
   const { data: marketData = [], isLoading, error } = useMarketData();
   const { user, isAuthenticated } = useAuth();
   const { data: walletsData } = useWallets();
@@ -391,7 +392,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
     <aside className="w-full lg:w-96 bg-card border-l border-border trading-panel">
       <div className="h-full flex flex-col">
         {/* Trading Tabs */}
-        <div className="p-4 border-b border-border">
+        <div className={`p-4 border-b border-border ${mode !== 'all' ? 'hidden' : ''}`}>
           <div className="grid grid-cols-3 gap-1 p-1 bg-muted rounded-lg">
             <TabButton tab="buy" label="Buy" />
             <TabButton tab="sell" label="Sell" />
@@ -403,7 +404,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
         <div className="flex-1 p-4 space-y-4">
           {activeTab === "buy" && (
             <div className="space-y-4" data-testid="form-buy">
-              <div>
+              <div className={mode !== 'all' ? 'hidden' : ''}>
                 <Label htmlFor="pay-with">Pay with</Label>
                 <Select value={fromBuy} onValueChange={setFromBuy}>
                   <SelectTrigger data-testid="select-pay-with">
@@ -428,7 +429,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
                 </Select>
               </div>
 
-              <div>
+              <div className={mode !== 'all' ? 'hidden' : ''}>
                 <Label htmlFor="buy-asset">Buy</Label>
                 <Select value={toBuy} onValueChange={setToBuy}>
                   <SelectTrigger data-testid="select-buy-asset">
@@ -709,7 +710,7 @@ export function TradingPanel({ onPairChange }: TradingPanelProps) {
         </div>
 
         {/* Recent Activity */}
-        <div className="border-t border-border p-4">
+        <div className={`border-t border-border p-4 ${mode !== 'all' ? 'hidden' : ''}`}>
           <h3 className="text-sm font-semibold mb-3">Recent Activity</h3>
           <div className="space-y-3 max-h-40 overflow-y-auto">
             {!isAuthenticated ? (

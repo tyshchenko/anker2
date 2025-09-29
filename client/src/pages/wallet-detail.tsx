@@ -346,7 +346,7 @@ export default function WalletDetailPage() {
 
             {/* Trading Panel */}
             <div className="flex-1 p-6">
-              <TradingPanel onPairChange={handlePairChange} />
+              <TradingPanel onPairChange={handlePairChange} mode="buy" />
             </div>
           </div>
         </div>
