@@ -272,7 +272,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Welcome back</DialogTitle>
           <DialogDescription>

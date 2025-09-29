@@ -71,7 +71,7 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Create account</DialogTitle>
           <DialogDescription>
