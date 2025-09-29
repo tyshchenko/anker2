@@ -247,7 +247,7 @@ export default function WalletDetailPage() {
           </main>
 
           {/* Right Panel - Wallet Info & Buy Form */}
-          <div className="lg:w-80 bg-card border-l border-border flex flex-col">
+          <div className="w-full lg:w-96 bg-card border-l border-border flex flex-col">
             {/* Wallet Info */}
             <div className="p-6 border-b border-border">
               <div className="flex items-center justify-between mb-4">
