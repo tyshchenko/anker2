@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, setGlobalUnauthenticatedHandler } from "./queryClient";
+import { TwoFactorDialog } from "@/components/auth/two-factor-dialog";
 
 interface User {
   id: string;
@@ -46,6 +47,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [show2FAVerification, setShow2FAVerification] = useState(false);
+  const [tempSession, setTempSession] = useState('');
   
   // Query to get current user
   const { data: userResponse, isLoading, error } = useQuery({
@@ -87,6 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       try {
         const response = await apiRequest("POST", "/api/auth/login", { email, password });
+        
+        if (response.status === 303) {
+          // 2FA required
+          const data = await response.json();
+          setTempSession(data.temp_session);
+          setShow2FAVerification(true);
+          return { requires_2fa: true };
+        }
+        
         return response.json();
       } catch (error: any) {
         if (error.message?.includes('401')) {
@@ -95,9 +107,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    onSuccess: () => {
-      setIsAuthenticated(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    onSuccess: (data) => {
+      if (!data.requires_2fa) {
+        setIsAuthenticated(true);
+        if (data.sessionId) {
+          localStorage.setItem('sessionId', data.sessionId);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      }
     },
     onError: () => {
       setIsAuthenticated(false);
@@ -144,6 +161,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (googleData: { token: string; email: string; name: string; picture?: string }) => {
       try {
         const response = await apiRequest("POST", "/api/auth/google", googleData);
+        
+        if (response.status === 303) {
+          // 2FA required
+          const data = await response.json();
+          setTempSession(data.temp_session);
+          setShow2FAVerification(true);
+          return { requires_2fa: true };
+        }
+        
         return response.json();
       } catch (error: any) {
         if (error.message?.includes('401')) {
@@ -153,11 +179,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     onSuccess: (data) => {
-      setIsAuthenticated(true);
-      if (data.sessionId) {
-        localStorage.setItem('sessionId', data.sessionId);
+      if (!data.requires_2fa) {
+        setIsAuthenticated(true);
+        if (data.sessionId) {
+          localStorage.setItem('sessionId', data.sessionId);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
       setIsAuthenticated(false);
@@ -167,14 +195,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const facebookAuthMutation = useMutation({
     mutationFn: async (facebookData: { accessToken: string; email: string; name: string; picture?: string }) => {
       const response = await apiRequest("POST", "/api/auth/facebook", facebookData);
+      
+      if (response.status === 303) {
+        // 2FA required
+        const data = await response.json();
+        setTempSession(data.temp_session);
+        setShow2FAVerification(true);
+        return { requires_2fa: true };
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
-      setIsAuthenticated(true);
-      if (data.sessionId) {
-        localStorage.setItem('sessionId', data.sessionId);
+      if (!data.requires_2fa) {
+        setIsAuthenticated(true);
+        if (data.sessionId) {
+          localStorage.setItem('sessionId', data.sessionId);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
       setIsAuthenticated(false);
@@ -184,6 +223,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const xAuthMutation = useMutation({
     mutationFn: async (xData: { accessToken: string; email: string; name: string; picture?: string }) => {
       const response = await apiRequest("POST", "/api/auth/x", xData);
+      
+      if (response.status === 303) {
+        // 2FA required
+        const data = await response.json();
+        setTempSession(data.temp_session);
+        setShow2FAVerification(true);
+        return { requires_2fa: true };
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (!data.requires_2fa) {
+        setIsAuthenticated(true);
+        if (data.sessionId) {
+          localStorage.setItem('sessionId', data.sessionId);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      }
+    },
+    onError: () => {
+      setIsAuthenticated(false);
+    },
+  });
+
+  const verify2FAMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", "/api/auth/2fa", { 
+        temp_session: tempSession, 
+        code 
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -191,6 +261,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.sessionId) {
         localStorage.setItem('sessionId', data.sessionId);
       }
+      setShow2FAVerification(false);
+      setTempSession('');
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
@@ -275,6 +347,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      
+      {/* 2FA Verification Dialog */}
+      {show2FAVerification && (
+        <TwoFactorDialog 
+          isOpen={show2FAVerification}
+          onClose={() => {
+            setShow2FAVerification(false);
+            setTempSession('');
+          }}
+          onVerify={verify2FAMutation.mutate}
+          isLoading={verify2FAMutation.isPending}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
