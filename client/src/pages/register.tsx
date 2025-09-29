@@ -55,28 +55,6 @@ export default function RegisterPage() {
   });
 
   useEffect(() => {
-    // Check if there's a provider parameter in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider');
-    
-    if (provider) {
-      // Clear the URL parameter
-      window.history.replaceState({}, '', '/signup');
-      
-      // Trigger the appropriate social register
-      switch (provider) {
-        case 'google':
-          handleGoogleRegister();
-          break;
-        case 'facebook':
-          handleFacebookRegister();
-          break;
-        case 'x':
-          handleXRegister();
-          break;
-      }
-    }
-
     // Load Google Identity Services script
     if (!window.google) {
       const script = document.createElement('script');
@@ -101,6 +79,32 @@ export default function RegisterPage() {
         });
       };
       document.head.appendChild(script);
+    }
+
+    // Check if there's a provider parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const provider = urlParams.get('provider');
+    
+    if (provider) {
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/signup');
+      
+      // Delay the social register to allow scripts to load
+      const timer = setTimeout(() => {
+        switch (provider) {
+          case 'google':
+            handleGoogleRegister();
+            break;
+          case 'facebook':
+            handleFacebookRegister();
+            break;
+          case 'x':
+            handleXRegister();
+            break;
+        }
+      }, 1000); // Wait 1 second for scripts to load
+
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -127,6 +131,14 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     try {
       setIsGoogleLoading(true);
+
+      // Wait for Google script to load with retries
+      let retries = 0;
+      const maxRetries = 10;
+      while (!window.google && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
 
       if (!window.google) {
         toast({

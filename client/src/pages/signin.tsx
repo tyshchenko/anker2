@@ -34,28 +34,6 @@ export default function SignInPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if there's a provider parameter in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider');
-    
-    if (provider) {
-      // Clear the URL parameter
-      window.history.replaceState({}, '', '/signin');
-      
-      // Trigger the appropriate social login
-      switch (provider) {
-        case 'google':
-          handleGoogleSignIn();
-          break;
-        case 'facebook':
-          handleFacebookSignIn();
-          break;
-        case 'x':
-          handleXSignIn();
-          break;
-      }
-    }
-
     // Load Google Identity Services script
     if (!window.google) {
       const script = document.createElement('script');
@@ -80,6 +58,32 @@ export default function SignInPage() {
         });
       };
       document.head.appendChild(script);
+    }
+
+    // Check if there's a provider parameter in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const provider = urlParams.get('provider');
+    
+    if (provider) {
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/signin');
+      
+      // Delay the social login to allow scripts to load
+      const timer = setTimeout(() => {
+        switch (provider) {
+          case 'google':
+            handleGoogleSignIn();
+            break;
+          case 'facebook':
+            handleFacebookSignIn();
+            break;
+          case 'x':
+            handleXSignIn();
+            break;
+        }
+      }, 1000); // Wait 1 second for scripts to load
+
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -112,9 +116,17 @@ export default function SignInPage() {
     try {
       setGoogleLoading(true);
 
+      // Wait for Google script to load with retries
+      let retries = 0;
+      const maxRetries = 10;
+      while (!window.google && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        retries++;
+      }
+
       if (!window.google) {
         toast({
-          title: "Error",
+          title: "Error", 
           description: "Google Sign-In is not loaded. Please try again.",
           variant: "destructive",
         });
