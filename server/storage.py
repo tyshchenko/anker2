@@ -69,7 +69,7 @@ class MySqlStorage:
         self.sessions: Dict[str, Session] = {}
         self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
         self.activepairs = self.pairs
-        self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone "
+        self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone,language,timezone,country "
 
         self._initialize_market_data()
         self.update_latest_prices()
@@ -313,6 +313,10 @@ class MySqlStorage:
               reference = reference,
               phone = users[0][22],
               two_factor_enabled = users[0][13],
+              language = users[0][23],
+              timezone = users[0][24],
+              country = users[0][25]
+              
             )
           
           return user
@@ -1110,6 +1114,10 @@ class MySqlStorage:
                      SET phone_verified = %s, phone_number = '%s', updated_at = NOW() 
                      WHERE email = '%s'""" % (1 if verified else 0, phone_number, email)
             success = db.execute(sql)
+
+            sql = "UPDATE users SET phone = '%s' WHERE email = '%s'" % (phone_number, email)
+            success = db.execute(sql)
+
             return bool(success)
         except Exception as e:
             print(f"Error updating phone verification: {e}")
@@ -1221,6 +1229,35 @@ class MySqlStorage:
             print(f"Error updating user profile: {e}")
             return False
 
+    def update_user_fields(self, user: User, fields_data: dict) -> bool:
+        """Update user profile settings"""
+        try:
+            # Ensure user profile record exists
+
+            db = DataBase(DB_NAME)
+            
+            # Build dynamic SQL based on provided fields
+            set_clauses = []
+            
+            for key, value in fields_data.items():
+                if key in ['first_name', 'last_name', 'country', 'language', 'timezone']:
+                    set_clauses.append(f"{key} = '{value}'")
+                elif key in ['phone'] and not user.phone:
+                    set_clauses.append(f"{key} = '{value}'")
+                else:
+                    pass
+            
+            if not set_clauses:
+                return False
+            
+            sql = f"UPDATE users SET {', '.join(set_clauses)} WHERE email = '{user.email}'"
+            print(sql)
+            success = db.execute(sql)
+            return bool(success)
+        except Exception as e:
+            print(f"Error updating user profile: {e}")
+            return False
+          
     def update_user_password(self, email: str, password_hash: str) -> bool:
         """Update user password"""
         try:

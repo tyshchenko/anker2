@@ -14,6 +14,9 @@ import threading
 import requests
 import numbers
 import time
+import smtplib
+
+from email.mime.text import MIMEText
 from typing import Optional, Set
 from pydantic import ValidationError
 from datetime import datetime, timedelta
@@ -547,7 +550,7 @@ class MeHandler(BaseHandler):
             # Return user data (without password)
             user_data = user.dict()
             user_data.pop('password_hash', None)
-            
+
             # Get user profile with notification preferences and 2FA settings
             user_profile = storage.get_user_profile(user.email)
             if user_profile:
@@ -1126,16 +1129,7 @@ class PhoneVerificationSendHandler(BaseHandler):
                         to=phone_number
                     )
                     
-                    # Store verification code in session or database
-                    # For demo, we'll return it in response
-                    self.write({
-                        "success": True,
-                        "message": f"Verification code sent to {phone_number}",
-                        "phone_number": phone_number,
-                        "message_sid": message.sid,
-                        "expires_in": 300  # 5 minutes
-                    })
-                    return
+
                 except Exception as twilio_error:
                     print(f"Twilio error: {twilio_error}")
                     # Fall through to demo mode
@@ -1195,19 +1189,19 @@ class PhoneVerificationVerifyHandler(BaseHandler):
             stored_code = storage.get_verification_code(user.email, "phone", phone_number)
             
             if not stored_code:
-                self.set_status(400)
+                self.set_status(402)
                 self.write({"error": "No verification code found"})
                 return
             
             # Check if code is expired
             if datetime.now() > stored_code.expires_at:
-                self.set_status(400)
+                self.set_status(403)
                 self.write({"error": "Verification code has expired"})
                 return
             
             # Check attempts limit
             if stored_code.attempts >= 3:
-                self.set_status(400)
+                self.set_status(405)
                 self.write({"error": "Too many verification attempts"})
                 return
             
@@ -1226,7 +1220,7 @@ class PhoneVerificationVerifyHandler(BaseHandler):
             else:
                 # Update attempts
                 storage.update_verification_code_attempts(stored_code.id, stored_code.attempts + 1)
-                self.set_status(400)
+                self.set_status(408)
                 self.write({"error": "Invalid verification code"})
             
         except Exception as e:
@@ -1627,16 +1621,22 @@ class ProfileHandler(BaseHandler):
                 return
             
             # Update allowed fields
-            allowed_fields = ['first_name', 'last_name', 'phone', 'country']
+            allowed_fields = ['first_name', 'last_name', 'phone', 'country', 'language', 'timezone']
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
             
             if update_data:
                 # Update user in storage (this should update the users table, not user_profiles)
                 # For now, acknowledge the request since we need to implement user update method
-                self.write({
-                    "success": True,
-                    "message": "Profile updated successfully"
-                })
+                success = storage.update_user_fields(user, update_data)
+                if success:
+                    self.write({
+                        "success": True,
+                        "message": "Profile updated successfully"
+                    })
+                else:
+                    self.set_status(500)
+                    self.write({"error": "Failed to update Profile"})
+
             else:
                 self.set_status(400)
                 self.write({"error": "No valid fields to update"})
@@ -1871,13 +1871,22 @@ class EmailVerificationSendHandler(BaseHandler):
                 return
             
             # In production, send actual email using SMTP
+            msg = MIMEText(f"Your verification code is: {verification_code}")
+            msg['Subject'] = 'AnkerSwap verification'
+            msg['From'] = 'info@ankerswap.com'
+            msg['To'] = user.email
+
+            server = smtplib.SMTP('127.0.0.1', 25)  # Замените на сервер сервиса
+            server.starttls()
+            #server.login('your_login', 'your_password')  # Или API-ключ
+            server.send_message(msg)
+            server.quit()
             # For demo purposes, return the code
             
             self.write({
                 "success": True,
                 "message": f"Verification code sent to {user.email}",
                 "email": user.email,
-                "verification_code": verification_code,  # Remove in production
                 "expires_in": 300  # 5 minutes
             })
             
