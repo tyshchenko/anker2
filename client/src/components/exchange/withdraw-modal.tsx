@@ -52,7 +52,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     branchCode: ""
   });
 
-  const { user } = useAuth();
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: walletsData } = useWallets();
