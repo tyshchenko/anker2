@@ -139,17 +139,12 @@ export default function RegisterPage() {
       setIsGoogleLoading(true);
 
       if (!window.google) {
-        // Simple wait for script to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (!window.google) {
-          toast({
-            title: "Error",
-            description: "Google Sign-In is not loaded. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
       // Initialize Google Sign-In
