@@ -113,6 +113,7 @@ class Application(tornado.web.Application):
             (r"/api/profile/notifications", ProfileNotificationsHandler),
             (r"/api/profile/password", ProfilePasswordHandler),
             (r"/api/profile/2fa", Profile2FAHandler),
+            (r"/api/profile/2fa/setup", Profile2FASetupHandler),
             
             # File upload/download routes (must be before catch-all)
             (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
@@ -1777,6 +1778,42 @@ class Profile2FAHandler(BaseHandler):
             
         except Exception as e:
             print(f"Error updating 2FA: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class Profile2FASetupHandler(BaseHandler):
+    def post(self):
+        """Setup two-factor authentication - generate QR code and secret"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            # Generate a random secret for TOTP
+            import secrets
+            import base64
+            
+            # Generate 20 bytes (160 bits) secret, then base32 encode it
+            secret_bytes = secrets.token_bytes(20)
+            secret = base64.b32encode(secret_bytes).decode('utf-8')
+            
+            # Create QR code data for Google Authenticator
+            # Format: otpauth://totp/SERVICE:USER?secret=SECRET&issuer=ISSUER
+            qr_data = f"otpauth://totp/CryptoExchange:{user.email}?secret={secret}&issuer=CryptoExchange"
+            
+            # For demo purposes, we'll return the secret and QR data
+            # In production, you might want to store this temporarily until verification
+            self.write({
+                "success": True,
+                "secret": secret,
+                "qrCode": qr_data,
+                "message": "2FA setup initialized. Please scan the QR code with your authenticator app."
+            })
+            
+        except Exception as e:
+            print(f"Error setting up 2FA: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 
