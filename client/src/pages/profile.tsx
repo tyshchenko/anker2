@@ -581,6 +581,7 @@ export default function ProfilePage() {
                             value={profile.phone}
                             onChange={(e) => handleProfileUpdate('phone', e.target.value)}
                             data-testid="input-phone"
+                            disabled={true}
                           />
                         </div>
                         <div>

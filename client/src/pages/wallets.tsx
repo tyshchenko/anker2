@@ -434,7 +434,7 @@ export default function WalletsPage() {
       name: cryptoData?.name || staticWallet?.name || `${wallet.coin} Wallet`,
       symbol: wallet.coin,
       icon: cryptoData?.icon || staticWallet?.icon || wallet.coin[0],
-      logoUrl: cryptoData?.logoUrl || staticWallet?.logoUrl,
+      logoUrl: staticWallet?.logoUrl || cryptoData?.logoUrl,
       balance,
       fee: parseFloat(wallet.fee || '0'),
       balanceZAR,
