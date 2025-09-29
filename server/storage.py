@@ -273,7 +273,7 @@ class MySqlStorage:
         return 'APB' + str(user_id) + self.randomstr(6)
 
     def create_2fa(self):
-        return 'A' + self.randomstr(9)
+        return 'A' + self.randomstr(31)
 
     def tocorrectpair(self, from_coin, to_coin):
         if to_coin == 'ZAR':

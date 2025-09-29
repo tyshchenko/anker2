@@ -1968,7 +1968,9 @@ class Profile2FASetupHandler(BaseHandler):
             
             # Create QR code data for Google Authenticator
             # Format: otpauth://totp/SERVICE:USER?secret=SECRET&issuer=ISSUER
-            qr_data = f"otpauth://totp/AnkerSwap:{user.email}?secret={secret}&issuer=AnkerSwap"
+            #qr_data = f"otpauth://totp/AnkerSwap:{user.email}?secret={secret}&issuer=AnkerSwap"
+            qr_data = pyotp.totp.TOTP(secret).provisioning_uri(user.email, issuer_name="AnkerSwap")
+
 
             success = storage.update_user_profile(user.email, update_data)
             if success:
