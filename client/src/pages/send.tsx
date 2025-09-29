@@ -270,6 +270,16 @@ export default function SendPage() {
 
   const handleSend = () => {
     if (!user?.id || !canSubmit) return;
+
+    // Check verification level
+    if (user.verification_level === 'unverified') {
+      toast({
+        title: "Verification Required",
+        description: "You need to complete identity verification before you can send funds. Please verify your account in the profile section.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsConfirming(true);
     
