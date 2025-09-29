@@ -271,6 +271,9 @@ class MySqlStorage:
     def create_reference(self, user_id):
         return 'APB' + str(user_id) + self.randomstr(6)
 
+    def create_2fa(self):
+        return 'A' + self.randomstr(9)
+
     def tocorrectpair(self, from_coin, to_coin):
         if to_coin == 'ZAR':
           return 'SELL', from_coin+to_coin

@@ -1758,13 +1758,19 @@ class Profile2FAHandler(BaseHandler):
                 return
             
             enabled = data.get('enabled', False)
-            secret = data.get('secret', None)
+            secret_code = data.get('secretCode', None)
             
             # Update 2FA status in storage
             update_data = {'two_factor_enabled': enabled}
-            if secret:
-                update_data['two_factor_secret'] = secret
-            
+            if not secret_code:
+                self.set_status(401)
+                self.write({"error": "Invalid 2FA code"})
+                return
+
+            # add here check if secret_code is valid, two_factor_secret you can get from storage.get_user_profile()
+
+
+
             success = storage.update_user_profile(user.email, update_data)
             if success:
                 self.write({
@@ -1792,26 +1798,26 @@ class Profile2FASetupHandler(BaseHandler):
                 return
             
             # Generate a random secret for TOTP
-            import secrets
-            import base64
-            
-            # Generate 20 bytes (160 bits) secret, then base32 encode it
-            secret_bytes = secrets.token_bytes(20)
-            secret = base64.b32encode(secret_bytes).decode('utf-8')
+            secret = storage.create_2fa()
+            update_data = {'two_factor_secret': secret}
             
             # Create QR code data for Google Authenticator
             # Format: otpauth://totp/SERVICE:USER?secret=SECRET&issuer=ISSUER
-            qr_data = f"otpauth://totp/CryptoExchange:{user.email}?secret={secret}&issuer=CryptoExchange"
+            qr_data = f"otpauth://totp/AnkerSwap:{user.email}?secret={secret}&issuer=AnkerSwap"
+
+            success = storage.update_user_profile(user.email, update_data)
+            if success:
+                self.write({
+                    "success": True,
+                    "secret": secret,
+                    "qrCode": qr_data,
+                    "message": "2FA setup initialized. Please scan the QR code with your authenticator app."
+                })
+            else:
+                self.set_status(503)
+                self.write({"error": "Failed to update 2FA settings"})
             
-            # For demo purposes, we'll return the secret and QR data
-            # In production, you might want to store this temporarily until verification
-            self.write({
-                "success": True,
-                "secret": secret,
-                "qrCode": qr_data,
-                "message": "2FA setup initialized. Please scan the QR code with your authenticator app."
-            })
-            
+
         except Exception as e:
             print(f"Error setting up 2FA: {e}")
             self.set_status(500)
