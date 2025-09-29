@@ -33,13 +33,11 @@ export default function SignInPage() {
   const [, setLocation] = useLocation();
   const { login, loginWithGoogle, loginWithFacebook, loginWithX, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  // Check if there's a provider parameter in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const provider = urlParams.get('provider');
 
   useEffect(() => {
-    // Redirect authenticated users to home
-    if (isAuthenticated) {
-      setLocation("/");
-      return;
-    }
 
     // Load Google Identity Services script
     if (!window.google) {
@@ -47,6 +45,11 @@ export default function SignInPage() {
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
+      script.onload = () => {
+        if (provider && provider == 'google') {
+            handleGoogleSignIn();
+        }
+      };
       document.head.appendChild(script);
     }
 
@@ -63,36 +66,34 @@ export default function SignInPage() {
           xfbml: true,
           version: 'v18.0'
         });
+        if (provider && provider == 'facebook') {
+            handleFacebookSignIn();
+        }
       };
       document.head.appendChild(script);
     }
 
-    // Check if there's a provider parameter in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider');
     
     if (provider) {
       // Clear the URL parameter
       window.history.replaceState({}, '', '/signin');
-      
-      // Delay the social login to allow scripts to load
-      const timer = setTimeout(() => {
-        switch (provider) {
-          case 'google':
-            handleGoogleSignIn();
-            break;
-          case 'facebook':
-            handleFacebookSignIn();
-            break;
-          case 'x':
-            handleXSignIn();
-            break;
-        }
-      }, 500); // Reduced delay
-
-      return () => clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    // Redirect authenticated users to home
+    if (isAuthenticated) {
+      setLocation("/");
+      return;
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    // Redirect authenticated users to home
+    if (provider && provider == 'x') {
+            handleXSignIn();
+    }
+  }, [provider]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
