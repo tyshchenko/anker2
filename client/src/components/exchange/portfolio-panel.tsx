@@ -104,7 +104,9 @@ export function PortfolioPanel() {
         try {
           const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=${selectedTimeframe}&type=OHLCV`);
           if (!res.ok) throw new Error('API Error');
-          return res.json();
+          const apiData = await res.json();
+          // Convert API response to expected format
+          return { data: convertApiDataToChartFormat(apiData) };
         } catch (error) {
           // Return fallback data when API fails
           return { data: generateFallbackData(crypto, selectedTimeframe) };
@@ -123,7 +125,9 @@ export function PortfolioPanel() {
         try {
           const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=1D&type=OHLCV`);
           if (!res.ok) throw new Error('API Error');
-          return res.json();
+          const apiData = await res.json();
+          // Convert API response to expected format
+          return { data: convertApiDataToChartFormat(apiData) };
         } catch (error) {
           // Return fallback data when API fails
           return { data: generateFallbackData(crypto, '1D') };
@@ -134,6 +138,20 @@ export function PortfolioPanel() {
       staleTime: 60000,
     })
   );
+
+  // Convert API response format to chart format
+  const convertApiDataToChartFormat = (apiData: any[]) => {
+    if (!Array.isArray(apiData)) return [];
+    
+    return apiData.map(item => ({
+      time: new Date(item.timestamp).getTime() / 1000, // Convert ISO string to unix timestamp
+      open: parseFloat(item.open),
+      high: parseFloat(item.high),
+      low: parseFloat(item.low),
+      close: item.close, // Keep as string for consistency
+      volume: parseFloat(item.volume_24h || 0)
+    }));
+  };
 
   // Generate fallback market data when API is unavailable
   const generateFallbackData = (crypto: string, timeframe: string) => {
