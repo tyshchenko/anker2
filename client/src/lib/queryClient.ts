@@ -38,7 +38,10 @@ export async function apiRequest(
     globalSetUnauthenticated();
   }
 
-  await throwIfResNotOk(res);
+  // Don't throw error for 303 (2FA required) - let the calling code handle it
+  if (res.status !== 303) {
+    await throwIfResNotOk(res);
+  }
   return res;
 }
 
