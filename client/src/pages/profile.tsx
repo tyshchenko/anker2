@@ -246,7 +246,7 @@ export default function ProfilePage() {
   const setup2FAMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', '/api/profile/2fa/setup');
-      return response;
+      return response.json();
     },
     onSuccess: (data: any) => {
       setQrCode(data.qr_code);
