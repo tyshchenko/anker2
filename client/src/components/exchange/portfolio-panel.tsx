@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, LineSeries } from 'lightweight-charts';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -157,7 +157,7 @@ export function PortfolioPanel() {
     });
     
     // Add line series for portfolio value
-    const lineSeries = chart.addLineSeries({
+    const lineSeries = chart.addSeries(LineSeries, {
       color: '#26a69a',
       lineWidth: 3,
     });

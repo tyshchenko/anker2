@@ -116,7 +116,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
 
       // Initialize Google Sign-In
       window.google.accounts.id.initialize({
-        client_id: "YOUR_GOOGLE_CLIENT_ID", // This should come from environment
+        client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com", // This should come from environment
         callback: async (response: any) => {
           try {
             // Decode the JWT token to get user info
