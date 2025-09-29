@@ -40,6 +40,7 @@ interface NewBankAccount {
 const mockBankAccounts: BankAccount[] = [];
 
 export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
+  const { user } = useAuth();
   const [step, setStep] = useState<"amount" | "bank" | "add-bank">("amount");
   const [amount, setAmount] = useState("");
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
@@ -168,6 +169,16 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
 
   const handleWithdraw = () => {
     if (!selectedBank || !amount || withdrawMutation.isPending) return;
+
+    // Check verification level
+    if (user?.verification_level === 'unverified') {
+      toast({
+        title: "Verification Required",
+        description: "You need to complete identity verification before you can withdraw funds. Please verify your account in the profile section.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const withdrawData = {
       amount,

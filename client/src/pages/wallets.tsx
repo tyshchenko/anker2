@@ -675,11 +675,15 @@ export default function WalletsPage() {
                     key={wallet.id}
                     className={params.symbol ? "w-full max-w-md" : ""}
                   >
-                    <WalletCard
-                      wallet={wallet}
-                      isBalanceVisible={isBalanceVisible}
-                      isComingSoon={!wallet.is_active}
-                    />
+                    <Link href={`/wallets/${wallet.symbol.toLowerCase()}`}>
+                      <div className="cursor-pointer hover:scale-[1.02] transition-transform duration-200">
+                        <WalletCard
+                          wallet={wallet}
+                          isBalanceVisible={isBalanceVisible}
+                          isComingSoon={!wallet.is_active}
+                        />
+                      </div>
+                    </Link>
                   </div>
                 ))
               )}
