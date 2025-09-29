@@ -272,7 +272,31 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent 
+        className="sm:max-w-md" 
+        onInteractOutside={(e) => {
+          // Allow interactions with Google OAuth, Facebook OAuth, and other auth popups
+          const target = e.target as Element;
+          const isGoogleOAuth = target.closest('[data-testid*="google"]') || 
+                               target.closest('.google-oauth') ||
+                               target.closest('[id*="google"]') ||
+                               document.querySelector('#credential_picker_container') ||
+                               document.querySelector('.g-oauth-button');
+          const isFacebookOAuth = target.closest('[data-testid*="facebook"]') || 
+                                 target.closest('.fb-login-button') ||
+                                 target.closest('#facebook-jssdk');
+          const isXOAuth = target.closest('[data-testid*="x"]') || 
+                          target.closest('.twitter-oauth');
+          
+          // Prevent closing if it's an OAuth interaction
+          if (isGoogleOAuth || isFacebookOAuth || isXOAuth) {
+            return;
+          }
+          
+          // Prevent closing for other outside interactions
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Welcome back</DialogTitle>
           <DialogDescription>
