@@ -1810,7 +1810,7 @@ class Profile2FASetupHandler(BaseHandler):
                 self.write({
                     "success": True,
                     "secret": secret,
-                    "qrCode": qr_data,
+                    "qr_code": qr_data,
                     "message": "2FA setup initialized. Please scan the QR code with your authenticator app."
                 })
             else:
