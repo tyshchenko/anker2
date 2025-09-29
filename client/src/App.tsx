@@ -9,6 +9,7 @@ import { LoginDialog } from "@/components/auth/login-dialog";
 import { RegisterDialog } from "@/components/auth/register-dialog";
 import NotFound from "@/pages/not-found";
 import ExchangePage from "@/pages/exchange";
+import PortfolioPage from "@/pages/portfolio";
 import ExplorePage from "@/pages/explore";
 import WalletsPage from "@/pages/wallets";
 import SendPage from "@/pages/send";
@@ -49,7 +50,7 @@ function Router() {
   return (
     <>
       <Switch>
-        <Route path="/" component={ExchangePage} />
+        <Route path="/" component={() => isAuthenticated ? <ExchangePage /> : <PortfolioPage />} />
         <Route path="/explore" component={ExplorePage} />
         <Route path="/wallets" component={() => handleProtectedRoute(<WalletsPage />)} />
         <Route path="/wallets/:symbol" component={() => handleProtectedRoute(<WalletsPage />)} />
