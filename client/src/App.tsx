@@ -12,6 +12,7 @@ import ExchangePage from "@/pages/exchange";
 import PortfolioPage from "@/pages/portfolio";
 import ExplorePage from "@/pages/explore";
 import WalletsPage from "@/pages/wallets";
+import WalletDetailPage from "@/pages/wallet-detail";
 import SendPage from "@/pages/send";
 import ReceivePage from "@/pages/receive";
 import ShitcoinsPage from "@/pages/shitcoins";
@@ -53,7 +54,7 @@ function Router() {
         <Route path="/" component={() => isAuthenticated ? <ExchangePage /> : <PortfolioPage />} />
         <Route path="/explore" component={ExplorePage} />
         <Route path="/wallets" component={() => handleProtectedRoute(<WalletsPage />)} />
-        <Route path="/wallets/:symbol" component={() => handleProtectedRoute(<WalletsPage />)} />
+        <Route path="/wallets/:coin" component={() => handleProtectedRoute(<WalletDetailPage />)} />
         <Route path="/send" component={() => handleProtectedRoute(<SendPage />)} />
         <Route path="/receive" component={() => handleProtectedRoute(<ReceivePage />)} />
         <Route path="/shitcoins" component={ShitcoinsPage} />
