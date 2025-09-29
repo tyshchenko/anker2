@@ -273,7 +273,13 @@ class MySqlStorage:
         return 'APB' + str(user_id) + self.randomstr(6)
 
     def create_2fa(self):
-        return 'A' + self.randomstr(31)
+        import secrets
+        import base64
+        # Generate 20 random bytes (160 bits) for TOTP secret
+        random_bytes = secrets.token_bytes(20)
+        # Convert to Base32 encoding (required by Google Authenticator)
+        secret = base64.b32encode(random_bytes).decode('ascii')
+        return secret
 
     def tocorrectpair(self, from_coin, to_coin):
         if to_coin == 'ZAR':
