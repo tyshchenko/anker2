@@ -6,6 +6,7 @@ import { MobileHeader } from "@/components/exchange/mobile-header";
 import { MarketTicker } from "@/components/exchange/market-ticker";
 import { DepositModal } from "@/components/exchange/deposit-modal";
 import { WithdrawModal } from "@/components/exchange/withdraw-modal";
+import { PortfolioChart } from "@/components/exchange/portfolio-chart";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -537,31 +538,15 @@ export default function WalletsPage() {
             </div>
           </div>
 
-          {/* Portfolio Summary */}
-          {!params.symbol && (
+          {/* Portfolio Chart */}
+          {!params.symbol && realWallets.length > 0 && (
             <div className="p-6 border-b border-border">
-              <Card className="p-6">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
-                  <p className="text-4xl font-bold mb-4" data-testid="total-portfolio-value">
-                    {isBalanceVisible ? `R${totalBalanceZAR.toLocaleString()}` : '••••••••'}
-                  </p>
-                  <div className="flex justify-center space-x-6 text-sm">
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Wallets</p>
-                      <p className="font-semibold">{realWallets.length}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Assets</p>
-                      <p className="font-semibold">{realWallets.length}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-muted-foreground">24h Change</p>
-                      <p className="font-semibold text-green-600">+2.34%</p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <PortfolioChart 
+                wallets={realWallets.map(wallet => ({
+                  symbol: wallet.coin,
+                  balance: parseFloat(wallet.balance)
+                }))}
+              />
             </div>
           )}
 
