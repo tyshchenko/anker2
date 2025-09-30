@@ -36,7 +36,7 @@ declare global {
 }
 
 export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDialogProps) {
-  const { login, loginWithGoogle, loginWithFacebook, loginWithX } = useAuth();
+  const { login, loginWithGoogle, loginWithFacebook, loginWithX, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -54,6 +54,12 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      onOpenChange(false);
+    }
+  }, []);
+  
   useEffect(() => {
     // Load Google Identity Services script
     if (!window.google) {

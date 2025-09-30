@@ -407,10 +407,7 @@ export function PortfolioPanel() {
               </Button>
             ))}
           </div>
-          <Button variant="outline" size="sm" data-testid="button-fullscreen">
-            <Expand className="w-4 h-4 mr-2" />
-            Fullscreen
-          </Button>
+
         </div>
 
         {/* Portfolio Assets */}

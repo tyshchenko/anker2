@@ -34,7 +34,7 @@ interface RegisterDialogProps {
 }
 
 export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: RegisterDialogProps) {
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +49,12 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      onOpenChange(false);
+    }
+  }, []);
 
   const onSubmit = async (data: RegisterForm) => {
     try {
