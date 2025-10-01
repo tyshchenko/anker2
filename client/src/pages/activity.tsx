@@ -259,21 +259,23 @@ function TransactionRow({ transaction }: TransactionRowProps) {
           { transaction.amount !== undefined && transaction.amount !== null ? (
             <>
               <div>
-                <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
-                  {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0] || transaction.pair}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  ZAR {(() => {
-                    const fromAsset = transaction.pair.split('/')[0];
-                    const toAsset = transaction.pair.split('/')[1];
-                    if (fromAsset === 'ZAR') {
-                      return transaction.amount.toLocaleString();
-                    } else if (toAsset === 'ZAR') {
-                      return transaction.total.toLocaleString();
-                    }
-                    return '0';
-                  })()}
-                </p>
+                {/* Check if it's a Trade (has "/" in pair) or ServerTransaction (no "/") */}
+                {transaction.pair.includes('/') ? (
+                  // Trade: show to_amount on first line, from_amount on second line
+                  <>
+                    <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
+                      {formatAmount(transaction.total, transaction.pair)} {transaction.pair.split('/')[1]}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0]}
+                    </p>
+                  </>
+                ) : (
+                  // ServerTransaction: show amount only, no second line
+                  <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
+                    {formatAmount(transaction.amount, transaction.pair)} {transaction.pair}
+                  </p>
+                )}
               </div>
               {getStatusBadge(transaction.status)}
             </>
