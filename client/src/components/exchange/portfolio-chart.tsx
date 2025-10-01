@@ -109,7 +109,7 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
 
   // Calculate portfolio data based on transactions and market data
   const portfolioData = useMemo(() => {
-    if (!transactions || transactions.length === 0 || marketDataQueries.some(q => q.isLoading)) {
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0 || marketDataQueries.some(q => q.isLoading)) {
       return [];
     }
 
