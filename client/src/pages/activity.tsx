@@ -195,6 +195,8 @@ function TransactionRow({ transaction }: TransactionRowProps) {
         return <ArrowUpRight className="w-4 h-4 text-red-500" />;
       case 'deposit':
         return <ArrowDownLeft className="w-4 h-4 text-green-500" />;
+      case 'fee':
+        return <Clock className="w-4 h-4 text-yellow-600" />;
       default:
         return <Clock className="w-4 h-4 text-gray-600" />;
     }
@@ -222,6 +224,9 @@ function TransactionRow({ transaction }: TransactionRowProps) {
     }
     if (transaction.type === 'deposit') {
       return `Deposit`;
+    }
+    if (transaction.type === 'fee') {
+      return `Fee`;
     }
 
     return `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} ${transaction.pair}`;
@@ -251,7 +256,7 @@ function TransactionRow({ transaction }: TransactionRowProps) {
 
       <div className="text-right">
         <div className="flex items-center space-x-3">
-          { transaction.amount ? (
+          { transaction.amount !== undefined && transaction.amount !== null ? (
             <>
               <div>
                 <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
