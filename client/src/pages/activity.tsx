@@ -258,7 +258,16 @@ function TransactionRow({ transaction }: TransactionRowProps) {
                   {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0] || transaction.pair}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {transaction.pair.split('/')[0] || transaction.pair} {transaction.total.toLocaleString()}
+                  ZAR {(() => {
+                    const fromAsset = transaction.pair.split('/')[0];
+                    const toAsset = transaction.pair.split('/')[1];
+                    if (fromAsset === 'ZAR') {
+                      return transaction.amount.toLocaleString();
+                    } else if (toAsset === 'ZAR') {
+                      return transaction.total.toLocaleString();
+                    }
+                    return '0';
+                  })()}
                 </p>
               </div>
               {getStatusBadge(transaction.status)}
