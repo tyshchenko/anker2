@@ -27,10 +27,12 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
   const lineSeriesRef = useRef<any>(null);
 
   // Fetch user transactions
-  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+  const { data: transactionsResponse, isLoading: transactionsLoading } = useQuery({
     queryKey: ['/api/transactions/userid'],
     enabled: true,
   });
+  
+  const transactions = transactionsResponse?.data || [];
 
   // Extract unique crypto symbols from user wallets
   const cryptoSymbols = useMemo(() => {
