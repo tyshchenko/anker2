@@ -59,9 +59,9 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
           const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=${selectedTimeframe}&type=OHLCV`);
           if (!res.ok) throw new Error('API Error');
           const apiData = await res.json();
-          return { data: convertApiDataToChartFormat(apiData) };
+          return { crypto, data: convertApiDataToChartFormat(apiData) };
         } catch (error) {
-          return { data: generateFallbackData(crypto, selectedTimeframe) };
+          return { crypto, data: generateFallbackData(crypto, selectedTimeframe) };
         }
       },
       retry: 1,
