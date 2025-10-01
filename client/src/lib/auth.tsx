@@ -40,8 +40,8 @@ interface AuthContextType {
   loginWithX: (xData: { accessToken: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
   setUnauthenticated: () => void;
-  onLoginCancelled?: () => void;
-  setOnLoginCancelled: (callback: (() => void) | undefined) => void;
+  addLoginCallback: (id: string, callback: () => void) => void;
+  removeLoginCallback: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [show2FAVerification, setShow2FAVerification] = useState(false);
   const [tempSession, setTempSession] = useState('');
-  const [onLoginCancelled, setOnLoginCancelled] = useState<(() => void) | undefined>(undefined);
+  const [loginCallbacks] = useState<Map<string, () => void>>(new Map());
   
   // Query to get current user
   const { data: userResponse, isLoading, error } = useQuery({
@@ -266,10 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setShow2FAVerification(false);
       setTempSession('');
-      if (onLoginCancelled) {
-        onLoginCancelled();
-        setOnLoginCancelled(undefined);
-      }
+      executeLoginCallbacks();
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
@@ -333,6 +330,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(["/api/auth/me"], null);
   };
 
+  const addLoginCallback = (id: string, callback: () => void) => {
+    loginCallbacks.set(id, callback);
+  };
+
+  const removeLoginCallback = (id: string) => {
+    loginCallbacks.delete(id);
+  };
+
+  const executeLoginCallbacks = () => {
+    loginCallbacks.forEach(callback => callback());
+    loginCallbacks.clear();
+  };
+
   // Set up global 401 handler
   useEffect(() => {
     setGlobalUnauthenticatedHandler(setUnauthenticated);
@@ -349,8 +359,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithX,
     logout,
     setUnauthenticated,
-    onLoginCancelled,
-    setOnLoginCancelled,
+    addLoginCallback,
+    removeLoginCallback,
   };
 
   return (
@@ -364,10 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           onClose={() => {
             setShow2FAVerification(false);
             setTempSession('');
-            if (onLoginCancelled) {
-              onLoginCancelled();
-              setOnLoginCancelled(undefined);
-            }
+            executeLoginCallbacks();
           }}
           onVerify={verify2FAMutation.mutate}
           isLoading={verify2FAMutation.isPending}

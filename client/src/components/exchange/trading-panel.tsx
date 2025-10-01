@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useId } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/queryClient";
@@ -188,12 +188,13 @@ const useUserTrades = () => {
 
 export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) {
   const { data: marketData = [], isLoading, error } = useMarketData();
-  const { user, isAuthenticated, setOnLoginCancelled } = useAuth();
+  const { user, isAuthenticated, addLoginCallback, removeLoginCallback } = useAuth();
   const { data: walletsData } = useWallets();
   const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ActionTab>("buy");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const componentId = useId();
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false);
   const [previewOrder, setPreviewOrder] = useState<{
@@ -278,18 +279,18 @@ export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) 
     }
   }, [activeTab, fromBuy, toBuy, fromSell, toSell, fromConvert, toConvert, onPairChange]);
   
-  // Register callback to close LoginDialog when 2FA is cancelled
+  // Register callback to close LoginDialog when 2FA is cancelled or verified
   useEffect(() => {
     if (showLoginDialog) {
-      setOnLoginCancelled(() => () => {
+      addLoginCallback(componentId, () => {
         setShowLoginDialog(false);
       });
       
       return () => {
-        setOnLoginCancelled(undefined);
+        removeLoginCallback(componentId);
       };
     }
-  }, [showLoginDialog, setOnLoginCancelled]);
+  }, [showLoginDialog, componentId, addLoginCallback, removeLoginCallback]);
 
   const handleTabChange = (tab: ActionTab) => {
     setActiveTab(tab);

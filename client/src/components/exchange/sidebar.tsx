@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useWallets } from "@/hooks/useWallets";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { LoginDialog } from "@/components/auth/login-dialog";
 import { RegisterDialog } from "@/components/auth/register-dialog";
 import ankerPayLogo from "@assets/AnkerPay Logo PNG 300x300 1_1757407958939.png";
@@ -54,24 +54,25 @@ const bottomItems = [
 ];
 
 export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) {
-  const { user, isAuthenticated, logout, setOnLoginCancelled } = useAuth();
+  const { user, isAuthenticated, logout, addLoginCallback, removeLoginCallback } = useAuth();
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+  const componentId = useId();
   // Fetch user wallets data
   const { data: walletsData, isLoading: walletsLoading } = useWallets();
   
-  // Register callback to close LoginDialog when 2FA is cancelled
+  // Register callback to close LoginDialog when 2FA is cancelled or verified
   useEffect(() => {
     if (showLoginDialog) {
-      setOnLoginCancelled(() => () => {
+      addLoginCallback(componentId, () => {
         setShowLoginDialog(false);
       });
       
       return () => {
-        setOnLoginCancelled(undefined);
+        removeLoginCallback(componentId);
       };
     }
-  }, [showLoginDialog, setOnLoginCancelled]);
+  }, [showLoginDialog, componentId, addLoginCallback, removeLoginCallback]);
 
   // Map wallet data to portfolio items with real balances - only show existing wallets
   const getPortfolioItems = () => {
