@@ -266,6 +266,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setShow2FAVerification(false);
       setTempSession('');
+      if (onLoginCancelled) {
+        onLoginCancelled();
+        setOnLoginCancelled(undefined);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: () => {
