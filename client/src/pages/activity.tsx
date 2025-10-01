@@ -187,9 +187,13 @@ function TransactionRow({ transaction }: TransactionRowProps) {
         return <TrendingDown className="w-4 h-4 text-red-600" />;
       case 'send':
         return <ArrowUpRight className="w-4 h-4 text-blue-600" />;
+      case 'send to':
+        return <ArrowUpRight className="w-4 h-4 text-blue-600" />;
       case 'receive':
         return <ArrowDownLeft className="w-4 h-4 text-purple-600" />;
       case 'convert':
+        return <ArrowUpRight className="w-4 h-4 text-orange-600" />;
+      case 'swap':
         return <ArrowUpRight className="w-4 h-4 text-orange-600" />;
       case 'withdraw':
         return <ArrowUpRight className="w-4 h-4 text-red-500" />;
