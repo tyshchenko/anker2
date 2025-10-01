@@ -169,6 +169,19 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
       console.log('🔵 Prompting for Google Sign-In');
       window.google.accounts.id.prompt((notification: any) => {
         console.log('🔵 Google prompt notification:', notification);
+        
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          const reason = notification.getNotDisplayedReason() || notification.getSkippedReason();
+          console.log('⚠️ Google prompt not displayed, reason:', reason);
+          
+          if (reason === 'opt_out_or_no_session') {
+            toast({
+              title: "Google Sign-In Required",
+              description: "Please sign in to your Google account first, then try again.",
+              variant: "destructive",
+            });
+          }
+        }
       });
     } catch (error: any) {
       console.error('❌ Google register initialization error:', error);
