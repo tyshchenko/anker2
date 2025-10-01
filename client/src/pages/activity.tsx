@@ -88,7 +88,7 @@ const mapTradeToTransaction = (trade: Trade): Transaction => {
 const mapServerTransactionToTransaction = (serverTx: ServerTransaction): Transaction => {
   return {
     id: serverTx.id || `tx-${Date.now()}`,
-    type: serverTx.side || 'send',
+    type: serverTx.side.toLowerCase() || 'send',
     pair: serverTx.coin,
     amount: parseFloat(serverTx.amount),
     price: parseFloat(serverTx.price),
@@ -218,10 +218,10 @@ function TransactionRow({ transaction }: TransactionRowProps) {
       return `Convert ${transaction.pair}`;
     }
     if (transaction.type === 'withdraw') {
-      return `Withdraw to Bank Account`;
+      return `Withdraw`;
     }
     if (transaction.type === 'deposit') {
-      return `Deposit from Bank Account`;
+      return `Deposit`;
     }
 
     return `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)} ${transaction.pair}`;
@@ -258,7 +258,7 @@ function TransactionRow({ transaction }: TransactionRowProps) {
                   {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0] || transaction.pair}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  R{transaction.total.toLocaleString()}
+                  {transaction.pair.split('/')[0] || transaction.pair} {transaction.total.toLocaleString()}
                 </p>
               </div>
               {getStatusBadge(transaction.status)}

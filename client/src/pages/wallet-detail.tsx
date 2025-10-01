@@ -47,7 +47,7 @@ export default function WalletDetailPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [currentPair] = useState(`${coin}/ZAR`);
+  const [currentPair, setCurrentPair] = useState(`${coin}/ZAR`);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -66,6 +66,10 @@ export default function WalletDetailPage() {
     refetchInterval: 30000,
   });
 
+  useEffect(() => {
+    setCurrentPair(`${coin}/ZAR`);
+  }, [coin]);
+    
   // Helper function to get ZAR price for a crypto symbol (same as wallets page)
   const getZARPrice = (symbol: string): number => {
     if (!marketData || symbol === 'ZAR') return 1; // ZAR is 1:1 with itself

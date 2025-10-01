@@ -1,4 +1,4 @@
-import { Home, Compass, Search, BarChart3, Wallet, Zap, Users, HelpCircle, User, LogIn, LogOut } from "lucide-react";
+import { Home, Compass, Search, BarChart3, Wallet, Zap, Users, HelpCircle, User, LogIn, LogOut, ChartCandlestick } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -27,9 +27,9 @@ interface SidebarProps {
 }
 
 const navigationItems = [
-  { icon: Home, label: "Home", href: "/" },
+  { icon: Wallet, label: "Wallets", href: "/" },
+  { icon: ChartCandlestick, label: "Exchange", href: "/exchange" },
   { icon: Compass, label: "Explore", href: "/explore" },
-  { icon: Wallet, label: "Wallets", href: "/wallets" },
   { icon: Zap, label: "Shitcoins", href: "/shitcoins", comingSoon: true },
   { icon: BarChart3, label: "Activity", href: "/activity" },
 ];

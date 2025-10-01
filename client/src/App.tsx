@@ -59,7 +59,8 @@ function Router() {
   return (
     <>
       <Switch>
-        <Route path="/" component={() => isAuthenticated ? <ExchangePage /> : <PortfolioPage />} />
+        <Route path="/" component={() => isAuthenticated ? <WalletsPage /> : <PortfolioPage />} />
+        <Route path="/exchange" component={ExchangePage} />
         <Route path="/explore" component={ExplorePage} />
         <Route path="/wallets" component={() => handleProtectedRoute(<WalletsPage />)} />
         <Route path="/wallets/:coin" component={() => handleProtectedRoute(<WalletDetailPage />)} />
