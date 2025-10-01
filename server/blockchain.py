@@ -141,6 +141,9 @@ class ElectrumXClient:
     def get_history(self, scripthash):
         return self.send_request("blockchain.scripthash.get_history", [scripthash])
 
+    def get_balance(self, scripthash):
+        return self.send_request("blockchain.scripthash.get_balance", [scripthash])
+
     def get_transaction(self, txid):
         return self.send_request("blockchain.transaction.get", [txid, True])
 
@@ -373,23 +376,64 @@ class Blockchain:
 
 
     def get_btc_transactions(self, address):
-        url = f"https://blockstream.info/api/address/{address}/txs"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            transactions = []
-            for onetx in data:
-              print(onetx)
-              for outad in onetx['vout']:
-                if outad['scriptpubkey_address'] == address:
-                  transactions.append({
-                    'hash':onetx['txid'],
-                    'side':'Deposit',
-                    'amount':outad['value'],
-                  })
+        try:
+            # Convert address to scripthash
+            scripthash = address_to_scripthash(address)
             
+            # Connect to ElectrumX server
+            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum_host'], COIN_SETTINGS['BTC']['electrum_port'], ssl=True)
+            client.connect()
+            
+            # Get transaction history
+            history_response = client.get_history(scripthash)
+            
+            transactions = []
+            if history_response and 'result' in history_response:
+                for tx in history_response['result']:
+                    # Get full transaction details
+                    tx_response = client.get_transaction(tx['tx_hash'])
+                    if tx_response and 'result' in tx_response:
+                        tx_data = tx_response['result']
+                        
+                        # Determine if deposit or withdrawal
+                        side = 'Deposit'
+                        amount = 0
+                        
+                        # Check outputs for our address
+                        for vout in tx_data.get('vout', []):
+                            if 'scriptPubKey' in vout:
+                                addresses = vout['scriptPubKey'].get('addresses', [])
+                                if address in addresses:
+                                    side = 'Deposit'
+                                    amount = int(vout['value'] * 100000000)  # Convert BTC to satoshis
+                                    break
+                        
+                        transactions.append({
+                            'hash': tx['tx_hash'],
+                            'side': side,
+                            'amount': amount,
+                        })
+            
+            client.close()
             return transactions
-        return []
+        except Exception as e:
+            print(f"ElectrumX error, falling back to API: {e}")
+            # Fallback to blockstream API
+            url = f"https://blockstream.info/api/address/{address}/txs"
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                transactions = []
+                for onetx in data:
+                    for outad in onetx['vout']:
+                        if outad['scriptpubkey_address'] == address:
+                            transactions.append({
+                                'hash':onetx['txid'],
+                                'side':'Deposit',
+                                'amount':outad['value'],
+                            })
+                return transactions
+            return []
 
     def get_eth_transactions(self, address):
         url = f"https://api.etherscan.io/api?module=account&action=txlist&address={address}&sort=desc&apikey={ETHAPIKEY}"
@@ -451,22 +495,44 @@ class Blockchain:
       
       
     def get_btc_balance(self, address):
-        url = f"{COIN_SETTINGS['BTC']['rpc_url']}/addrs/{address}/balance"
-        response = requests.get(url)
-        print(response.text)
-        if response.status_code == 200:
-            data = response.json()
-            return data['balance']  # in satoshis
-        else:
-          url = f"https://blockstream.info/api/address/{address}"
-          response = requests.get(url)
-          print(response.text)
-          if response.status_code == 200:
-              data = response.json()
-              return data['chain_stats']['funded_txo_sum']  # in satoshis
-
-
-        return 0
+        try:
+            # Convert address to scripthash
+            scripthash = address_to_scripthash(address)
+            
+            # Connect to ElectrumX server
+            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum_host'], COIN_SETTINGS['BTC']['electrum_port'], ssl=True)
+            client.connect()
+            
+            # Get balance
+            balance_response = client.get_balance(scripthash)
+            client.close()
+            
+            if balance_response and 'result' in balance_response:
+                # ElectrumX returns confirmed and unconfirmed balances in satoshis
+                confirmed = balance_response['result'].get('confirmed', 0)
+                unconfirmed = balance_response['result'].get('unconfirmed', 0)
+                total_balance = confirmed + unconfirmed
+                return total_balance
+            
+            return 0
+        except Exception as e:
+            print(f"ElectrumX error, falling back to API: {e}")
+            # Fallback to existing API method
+            url = f"{COIN_SETTINGS['BTC']['rpc_url']}/addrs/{address}/balance"
+            response = requests.get(url)
+            print(response.text)
+            if response.status_code == 200:
+                data = response.json()
+                return data['balance']  # in satoshis
+            else:
+                url = f"https://blockstream.info/api/address/{address}"
+                response = requests.get(url)
+                print(response.text)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data['chain_stats']['funded_txo_sum']  # in satoshis
+            
+            return 0
 
     def get_eth_balance(self, address):
         return self.eth_client.eth.get_balance(address)
