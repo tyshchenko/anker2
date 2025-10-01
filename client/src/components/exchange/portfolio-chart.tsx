@@ -109,7 +109,18 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
 
   // Calculate portfolio data based on transactions and market data
   const portfolioData = useMemo(() => {
+    console.log('=== Portfolio Chart Data Debug ===');
+    console.log('Transactions:', transactions);
+    console.log('Wallets:', wallets);
+    console.log('Market Data Queries:', marketDataQueries.map(q => ({ crypto: q.data?.crypto, dataLength: q.data?.data?.length, isLoading: q.isLoading })));
+    
     if (!transactions || !Array.isArray(transactions) || transactions.length === 0 || marketDataQueries.some(q => q.isLoading)) {
+      console.log('Returning empty array - reason:', {
+        noTransactions: !transactions,
+        notArray: !Array.isArray(transactions),
+        emptyTransactions: transactions?.length === 0,
+        marketDataLoading: marketDataQueries.some(q => q.isLoading)
+      });
       return [];
     }
 
@@ -120,6 +131,7 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
         marketDataLookup[query.data.crypto] = query.data.data;
       }
     });
+    console.log('Market Data Lookup:', marketDataLookup);
 
     // Helper function to get price at specific timestamp
     const getPriceAtTime = (crypto: string, timestamp: number): number => {
@@ -274,9 +286,12 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
         '1M': 2592000,
       };
       const cutoff = now - (timeframeSeconds[selectedTimeframe] || 2592000);
-      return uniqueTimeline.filter(point => point.time >= cutoff);
+      const filtered = uniqueTimeline.filter(point => point.time >= cutoff);
+      console.log('Final Portfolio Data (filtered):', filtered);
+      return filtered;
     }
 
+    console.log('Final Portfolio Data (all):', uniqueTimeline);
     return uniqueTimeline;
   }, [transactions, marketDataQueries, selectedTimeframe, wallets, cryptoSymbols]);
 
