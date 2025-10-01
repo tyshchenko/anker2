@@ -101,75 +101,203 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     return data;
   };
 
-  // Calculate portfolio data based on real user wallet balances
+  // Calculate portfolio data based on transactions and market data
   const portfolioData = useMemo(() => {
-    // Create balance map from user wallets
-    const walletBalances: Record<string, number> = {};
-    wallets.forEach(wallet => {
-      if (!walletBalances[wallet.symbol]) {
-        walletBalances[wallet.symbol] = 0;
-      }
-      walletBalances[wallet.symbol] += wallet.balance;
-    });
-
-    // Combine all market data and calculate portfolio value over time
-    const combinedData: { [timestamp: string]: number } = {};
-
-    marketDataQueries.forEach((query, index) => {
-      const crypto = cryptoSymbols[index];
-      const balance = walletBalances[crypto] || 0;
-      
-      if (balance === 0) return;
-      
-      if (query.data?.data && Array.isArray(query.data.data)) {
-        query.data.data.forEach((dataPoint: any) => {
-          const timestamp = dataPoint.time;
-          const price = parseFloat(dataPoint.close);
-          
-          if (!combinedData[timestamp]) {
-            combinedData[timestamp] = 0;
-          }
-          
-          combinedData[timestamp] += balance * price;
-        });
-      }
-    });
-
-    // Convert to array format for chart
-    const result = Object.entries(combinedData)
-      .map(([timestamp, value]) => ({
-        time: parseInt(timestamp) as any,
-        value: value
-      }))
-      .sort((a, b) => (a.time as number) - (b.time as number));
-
-    // If no data available, generate minimal fallback for chart
-    if (result.length === 0) {
-      const now = Math.floor(Date.now() / 1000);
-      const totalValue = Object.entries(walletBalances).reduce((sum, [crypto, balance]) => {
-        const price = fallbackPrices[crypto] || 1000;
-        return sum + (balance * price);
-      }, 0);
-      
-      if (totalValue === 0) {
-        return [
-          { time: now - 86400 as any, value: 0 },
-          { time: now as any, value: 0 }
-        ];
-      }
-      
-      return [
-        { time: now - 86400 as any, value: totalValue * 0.95 },
-        { time: now as any, value: totalValue }
-      ];
+    if (!transactions || transactions.length === 0 || marketDataQueries.some(q => q.isLoading)) {
+      return [];
     }
 
-    return result;
-  }, [wallets, marketDataQueries.map(q => q.data).join(','), selectedTimeframe, cryptoSymbols]);
+    // Build market data lookup
+    const marketDataLookup: Record<string, any[]> = {};
+    marketDataQueries.forEach(query => {
+      if (query.data?.crypto && query.data?.data) {
+        marketDataLookup[query.data.crypto] = query.data.data;
+      }
+    });
 
-  const isLoading = marketDataQueries.some(query => query.isLoading);
+    // Helper function to get price at specific timestamp
+    const getPriceAtTime = (crypto: string, timestamp: number): number => {
+      if (crypto === 'ZAR') return 1;
+      
+      const marketData = marketDataLookup[crypto];
+      if (!marketData || marketData.length === 0) {
+        return fallbackPrices[crypto] || 0;
+      }
 
-  const totalValue = portfolioData.length > 0 ? portfolioData[portfolioData.length - 1].value : 0;
+      // Find closest price data point
+      const closestPoint = marketData.reduce((prev, curr) => {
+        const prevDiff = Math.abs(prev.time - timestamp);
+        const currDiff = Math.abs(curr.time - timestamp);
+        return currDiff < prevDiff ? curr : prev;
+      });
+
+      return parseFloat(closestPoint.close);
+    };
+
+    // Sort transactions by timestamp
+    const sortedTransactions = [...transactions]
+      .filter(tx => tx.status === 'completed' || tx.status === 'pending')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    if (sortedTransactions.length === 0) {
+      return [];
+    }
+
+    // Track holdings over time with snapshots
+    const holdings: Record<string, number> = {};
+    const portfolioTimeline: { time: number; value: number; holdings: Record<string, number> }[] = [];
+
+    // Initialize with zero
+    const firstTxTime = Math.floor(new Date(sortedTransactions[0].created_at).getTime() / 1000);
+    portfolioTimeline.push({ time: (firstTxTime - 1) as any, value: 0, holdings: {} });
+
+    // Process each transaction
+    sortedTransactions.forEach(tx => {
+      const txTime = Math.floor(new Date(tx.created_at).getTime() / 1000);
+      const amount = parseFloat(tx.amount);
+      const toAmount = tx.to_amount ? parseFloat(tx.to_amount) : 0;
+      const fee = tx.fee ? parseFloat(tx.fee) : 0;
+
+      // Update holdings based on transaction type
+      if (tx.type === 'deposit') {
+        const coin = tx.coin || tx.to_coin || 'ZAR';
+        holdings[coin] = (holdings[coin] || 0) + amount;
+      } else if (tx.type === 'withdrawal') {
+        const coin = tx.coin || tx.from_coin || 'ZAR';
+        holdings[coin] = (holdings[coin] || 0) - amount - fee;
+      } else if (tx.type === 'buy') {
+        const fromCoin = tx.from_coin || 'ZAR';
+        const toCoin = tx.to_coin || 'BTC';
+        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount;
+        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount - fee;
+      } else if (tx.type === 'sell') {
+        const fromCoin = tx.from_coin || 'BTC';
+        const toCoin = tx.to_coin || 'ZAR';
+        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount - fee;
+        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount;
+      } else if (tx.type === 'convert') {
+        const fromCoin = tx.from_coin || 'BTC';
+        const toCoin = tx.to_coin || 'ETH';
+        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount;
+        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount - fee;
+      }
+
+      // Calculate total portfolio value at this point
+      let totalValue = 0;
+      Object.entries(holdings).forEach(([coin, balance]) => {
+        if (balance > 0) {
+          const price = getPriceAtTime(coin, txTime);
+          totalValue += balance * price;
+        }
+      });
+
+      portfolioTimeline.push({ 
+        time: txTime as any, 
+        value: totalValue,
+        holdings: { ...holdings }
+      });
+    });
+
+    // Add current value point using actual wallet balances
+    const now = Math.floor(Date.now() / 1000);
+    let currentValue = 0;
+    const currentHoldings: Record<string, number> = {};
+    
+    wallets.forEach(wallet => {
+      if (wallet.balance > 0) {
+        currentHoldings[wallet.symbol] = wallet.balance;
+        const price = getPriceAtTime(wallet.symbol, now);
+        currentValue += wallet.balance * price;
+      }
+    });
+    
+    portfolioTimeline.push({ 
+      time: now as any, 
+      value: currentValue,
+      holdings: currentHoldings
+    });
+
+    // Fill in intermediate points with price changes
+    const detailedTimeline: { time: number; value: number }[] = [];
+    
+    for (let i = 0; i < portfolioTimeline.length - 1; i++) {
+      const currentPoint = portfolioTimeline[i];
+      const nextPoint = portfolioTimeline[i + 1];
+      
+      detailedTimeline.push({ time: currentPoint.time, value: currentPoint.value });
+
+      // Use holdings from current point
+      const holdingsAtThisPoint = currentPoint.holdings;
+
+      // Add market data points between transactions
+      Object.keys(marketDataLookup).forEach(crypto => {
+        const marketData = marketDataLookup[crypto];
+        const relevantPoints = marketData.filter(
+          point => point.time > currentPoint.time && point.time < nextPoint.time
+        );
+
+        relevantPoints.forEach(point => {
+          let value = 0;
+          Object.entries(holdingsAtThisPoint).forEach(([coin, balance]) => {
+            if (balance > 0) {
+              const price = getPriceAtTime(coin, point.time);
+              value += balance * price;
+            }
+          });
+          detailedTimeline.push({ time: point.time as any, value });
+        });
+      });
+    }
+    
+    // Add final point with current wallet balances
+    const finalPoint = portfolioTimeline[portfolioTimeline.length - 1];
+    detailedTimeline.push({ time: finalPoint.time, value: finalPoint.value });
+
+    // Sort and deduplicate
+    const uniqueTimeline = Array.from(
+      new Map(detailedTimeline.map(item => [item.time, item])).values()
+    ).sort((a, b) => a.time - b.time);
+
+    // Filter by timeframe
+    if (selectedTimeframe !== 'ALL') {
+      const now = Math.floor(Date.now() / 1000);
+      const timeframeSeconds: Record<string, number> = {
+        '1H': 3600,
+        '1D': 86400,
+        '1W': 604800,
+        '1M': 2592000,
+      };
+      const cutoff = now - (timeframeSeconds[selectedTimeframe] || 2592000);
+      return uniqueTimeline.filter(point => point.time >= cutoff);
+    }
+
+    return uniqueTimeline;
+  }, [transactions, marketDataQueries, selectedTimeframe, wallets, cryptoSymbols]);
+
+  const isLoading = transactionsLoading || marketDataQueries.some(query => query.isLoading);
+
+  // Calculate total portfolio value from current wallet balances
+  const totalValue = useMemo(() => {
+    if (wallets.length === 0) return 0;
+    
+    let total = 0;
+    wallets.forEach(wallet => {
+      if (wallet.balance > 0) {
+        // Get current price from market data or fallback
+        const marketData = marketDataQueries.find((q, idx) => cryptoSymbols[idx] === wallet.symbol);
+        let currentPrice = fallbackPrices[wallet.symbol] || 0;
+        
+        if (marketData?.data?.data && marketData.data.data.length > 0) {
+          const latestData = marketData.data.data[marketData.data.data.length - 1];
+          currentPrice = parseFloat(latestData.close);
+        }
+        
+        total += wallet.balance * currentPrice;
+      }
+    });
+    
+    return total;
+  }, [wallets, marketDataQueries, cryptoSymbols]);
   const initialValue = portfolioData.length > 0 ? portfolioData[0].value : 0;
   const totalChange = totalValue - initialValue;
   const percentChange = initialValue > 0 ? (totalChange / initialValue) * 100 : 0;
