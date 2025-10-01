@@ -171,46 +171,38 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     const firstTxTime = Math.floor(new Date(sortedTransactions[0].created_at).getTime() / 1000);
     portfolioTimeline.push({ time: (firstTxTime - 1) as any, value: 0, holdings: {} });
 
-    // Process each transaction
+    // Process each transaction based on actual data structure
     sortedTransactions.forEach(tx => {
       const txTime = Math.floor(new Date(tx.created_at).getTime() / 1000);
-      const amount = parseFloat(tx.amount);
-      const toAmount = tx.to_amount ? parseFloat(tx.to_amount) : 0;
-      const fee = tx.fee ? parseFloat(tx.fee) : 0;
+      const amount = parseFloat(tx.amount) || 0;
+      const coin = tx.coin;
+      const side = tx.side;
 
-      // Update holdings based on transaction type
-      if (tx.type === 'deposit') {
-        const coin = tx.coin || tx.to_coin || 'ZAR';
+      // Skip Fee transactions as they're separate entries
+      if (side === 'Fee') {
+        return;
+      }
+
+      // Update holdings based on side
+      // Note: amount can be positive (Deposit, Trade buy) or negative (Withdraw, Send To, Trade sell)
+      if (side === 'Deposit') {
         holdings[coin] = (holdings[coin] || 0) + amount;
-      } else if (tx.type === 'withdrawal') {
-        const coin = tx.coin || tx.from_coin || 'ZAR';
-        holdings[coin] = (holdings[coin] || 0) - amount - fee;
-      } else if (tx.type === 'buy') {
-        const fromCoin = tx.from_coin || 'ZAR';
-        const toCoin = tx.to_coin || 'BTC';
-        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount;
-        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount - fee;
-      } else if (tx.type === 'sell') {
-        const fromCoin = tx.from_coin || 'BTC';
-        const toCoin = tx.to_coin || 'ZAR';
-        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount - fee;
-        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount;
-      } else if (tx.type === 'convert') {
-        const fromCoin = tx.from_coin || 'BTC';
-        const toCoin = tx.to_coin || 'ETH';
-        holdings[fromCoin] = (holdings[fromCoin] || 0) - amount;
-        holdings[toCoin] = (holdings[toCoin] || 0) + toAmount - fee;
+      } else if (side === 'Withdraw' || side === 'Send To') {
+        holdings[coin] = (holdings[coin] || 0) + amount; // amount is already negative
+      } else if (side === 'Trade') {
+        holdings[coin] = (holdings[coin] || 0) + amount; // amount can be positive or negative
       }
 
       // Calculate total portfolio value at this point
       let totalValue = 0;
-      Object.entries(holdings).forEach(([coin, balance]) => {
+      Object.entries(holdings).forEach(([coinSymbol, balance]) => {
         if (balance > 0) {
-          const price = getPriceAtTime(coin, txTime);
+          const price = getPriceAtTime(coinSymbol, txTime);
           totalValue += balance * price;
         }
       });
 
+      // Save holdings snapshot at this point
       portfolioTimeline.push({ 
         time: txTime as any, 
         value: totalValue,
