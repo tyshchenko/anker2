@@ -33,13 +33,24 @@ interface RegisterDialogProps {
   onSwitchToLogin: () => void;
 }
 
+// Declare social login objects for TypeScript
+declare global {
+  interface Window {
+    google: any;
+    FB: any;
+  }
+}
+
 export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: RegisterDialogProps) {
-  const { register: registerUser, isAuthenticated } = useAuth();
+  const { register: registerUser, loginWithGoogle, loginWithFacebook, loginWithX, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [isXLoading, setIsXLoading] = useState(false);
 
   const {
     register,
@@ -53,6 +64,34 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
   useEffect(() => {
     if (isAuthenticated) {
       onOpenChange(false);
+    }
+  }, []);
+  
+  useEffect(() => {
+    // Load Google Identity Services script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // Load Facebook SDK
+    if (!window.FB) {
+      const script = document.createElement('script');
+      script.src = 'https://connect.facebook.net/en_US/sdk.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        window.FB.init({
+          appId: 'YOUR_FACEBOOK_APP_ID',
+          cookie: true,
+          xfbml: true,
+          version: 'v18.0'
+        });
+      };
+      document.head.appendChild(script);
     }
   }, []);
 
@@ -77,9 +116,228 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
     }
   };
 
-  const handleSocialRegister = (provider: string) => {
-    onOpenChange(false);
-    setLocation(`/signup?provider=${provider}`);
+  const handleGoogleRegister = async () => {
+    try {
+      setIsGoogleLoading(true);
+      console.log('🔵 Google register initiated');
+
+      if (!window.google) {
+        console.error('❌ Google SDK not loaded');
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ Google SDK loaded');
+
+      window.google.accounts.id.initialize({
+        client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com",
+        callback: async (response: any) => {
+          try {
+            console.log('🔵 Google callback received:', response);
+            
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            console.log('🔵 Google user payload:', payload);
+
+            await loginWithGoogle({
+              token: response.credential,
+              email: payload.email,
+              name: payload.name,
+              picture: payload.picture
+            });
+
+            console.log('✅ Google register successful');
+            toast({
+              title: "Success",
+              description: "Your account has been created with Google!",
+            });
+            onOpenChange(false);
+          } catch (error: any) {
+            console.error('❌ Google register error:', error);
+            toast({
+              title: "Google Registration Failed",
+              description: error.message || "An error occurred during Google registration",
+              variant: "destructive",
+            });
+          }
+        },
+      });
+
+      console.log('🔵 Prompting for Google Sign-In');
+      window.google.accounts.id.prompt((notification: any) => {
+        console.log('🔵 Google prompt notification:', notification);
+      });
+    } catch (error: any) {
+      console.error('❌ Google register initialization error:', error);
+      toast({
+        title: "Google Registration Error",
+        description: "Failed to initialize Google Sign-In",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleFacebookRegister = async () => {
+    try {
+      setIsFacebookLoading(true);
+      console.log('🔵 Facebook register initiated');
+
+      if (!window.FB) {
+        console.error('❌ Facebook SDK not loaded');
+        toast({
+          title: "Error",
+          description: "Facebook SDK is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ Facebook SDK loaded');
+
+      window.FB.login(async (response: any) => {
+        console.log('🔵 Facebook login response:', response);
+        
+        if (response.authResponse) {
+          console.log('✅ Facebook authResponse received');
+          
+          window.FB.api('/me', { fields: 'name,email,picture' }, async (userInfo: any) => {
+            console.log('🔵 Facebook user info:', userInfo);
+            
+            try {
+              await loginWithFacebook({
+                accessToken: response.authResponse.accessToken,
+                email: userInfo.email,
+                name: userInfo.name,
+                picture: userInfo.picture?.data?.url
+              });
+
+              console.log('✅ Facebook register successful');
+              toast({
+                title: "Success",
+                description: "Your account has been created with Facebook!",
+              });
+              onOpenChange(false);
+            } catch (error: any) {
+              console.error('❌ Facebook register error:', error);
+              toast({
+                title: "Facebook Registration Failed",
+                description: error.message || "An error occurred during Facebook registration",
+                variant: "destructive",
+              });
+            }
+          });
+        } else {
+          console.warn('⚠️ Facebook login cancelled');
+          toast({
+            title: "Facebook Registration Cancelled",
+            description: "Facebook registration was cancelled",
+            variant: "destructive",
+          });
+        }
+      }, { scope: 'email' });
+    } catch (error: any) {
+      console.error('❌ Facebook register initialization error:', error);
+      toast({
+        title: "Facebook Registration Error",
+        description: "Failed to initialize Facebook login",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFacebookLoading(false);
+    }
+  };
+
+  const handleXRegister = async () => {
+    try {
+      setIsXLoading(true);
+      console.log('🔵 X/Twitter register initiated');
+      
+      const handleXCallback = (event: MessageEvent) => {
+        console.log('🔵 X OAuth callback received:', event.data);
+        
+        if (event.data.type === 'X_OAUTH_SUCCESS') {
+          const { accessToken, email, name, picture, username } = event.data;
+          
+          console.log('🔵 X user data:', { email, name, username });
+          
+          loginWithX({
+            accessToken,
+            email: email || `${username}@twitter.com`,
+            name: name || username,
+            picture: picture || ''
+          }).then(() => {
+            console.log('✅ X register successful');
+            toast({
+              title: "Success",
+              description: "Your account has been created with X!",
+            });
+            onOpenChange(false);
+          }).catch((error: any) => {
+            console.error('❌ X register error:', error);
+            toast({
+              title: "X Registration Failed",
+              description: error.message || "An error occurred during X registration",
+              variant: "destructive",
+            });
+          }).finally(() => {
+            setIsXLoading(false);
+            window.removeEventListener('message', handleXCallback);
+          });
+        } else if (event.data.type === 'X_OAUTH_ERROR') {
+          console.error('❌ X OAuth error:', event.data.error);
+          toast({
+            title: "X Registration Failed",
+            description: event.data.error || "X authentication failed",
+            variant: "destructive",
+          });
+          setIsXLoading(false);
+          window.removeEventListener('message', handleXCallback);
+        }
+      };
+      
+      window.addEventListener('message', handleXCallback);
+      
+      const response = await fetch('/api/auth/x/request', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to initiate X OAuth');
+      }
+      
+      const { auth_url } = await response.json();
+      console.log('🔵 X OAuth URL:', auth_url);
+      
+      const popup = window.open(
+        auth_url,
+        'XRegister',
+        'width=600,height=600,scrollbars=yes,resizable=yes'
+      );
+
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          setTimeout(() => {
+            setIsXLoading(false);
+            window.removeEventListener('message', handleXCallback);
+          }, 500);
+        }
+      }, 1000);
+    } catch (error: any) {
+      console.error('❌ X register initialization error:', error);
+      toast({
+        title: "X Registration Error",
+        description: error.message || "Failed to initialize X login",
+        variant: "destructive",
+      });
+      setIsXLoading(false);
+    }
   };
 
   return (
@@ -240,7 +498,8 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
             <Button 
               variant="outline" 
               className="w-full" 
-              onClick={() => handleSocialRegister('google')}
+              onClick={handleGoogleRegister}
+              disabled={isGoogleLoading}
               data-testid="button-google-register"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24">
@@ -266,7 +525,8 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
             <Button 
               variant="outline" 
               className="w-full" 
-              onClick={() => handleSocialRegister('facebook')}
+              onClick={handleFacebookRegister}
+              disabled={isFacebookLoading}
               data-testid="button-facebook-register"
             >
               <SiFacebook className="h-4 w-4 text-blue-600" />
@@ -275,7 +535,8 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
             <Button 
               variant="outline" 
               className="w-full" 
-              onClick={() => handleSocialRegister('x')}
+              onClick={handleXRegister}
+              disabled={isXLoading}
               data-testid="button-x-register"
             >
               <BsTwitterX className="h-4 w-4" />

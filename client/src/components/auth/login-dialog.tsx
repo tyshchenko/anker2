@@ -112,8 +112,10 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const handleGoogleLogin = async () => {
     try {
       setIsGoogleLoading(true);
+      console.log('🔵 Google login initiated');
 
       if (!window.google) {
+        console.error('❌ Google SDK not loaded');
         toast({
           title: "Error",
           description: "Google Sign-In is not loaded. Please try again.",
@@ -122,13 +124,18 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
         return;
       }
 
+      console.log('✅ Google SDK loaded');
+
       // Initialize Google Sign-In
       window.google.accounts.id.initialize({
-        client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com", // This should come from environment
+        client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com",
         callback: async (response: any) => {
           try {
+            console.log('🔵 Google callback received:', response);
+            
             // Decode the JWT token to get user info
             const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            console.log('🔵 Google user payload:', payload);
 
             await loginWithGoogle({
               token: response.credential,
@@ -137,12 +144,14 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
               picture: payload.picture
             });
 
+            console.log('✅ Google login successful');
             toast({
               title: "Success",
               description: "You have been logged in with Google!",
             });
             onOpenChange(false);
           } catch (error: any) {
+            console.error('❌ Google login error:', error);
             toast({
               title: "Google Login Failed",
               description: error.message || "An error occurred during Google login",
@@ -152,9 +161,13 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
         },
       });
 
+      console.log('🔵 Prompting for Google Sign-In');
       // Prompt for Google Sign-In
-      window.google.accounts.id.prompt();
+      window.google.accounts.id.prompt((notification: any) => {
+        console.log('🔵 Google prompt notification:', notification);
+      });
     } catch (error: any) {
+      console.error('❌ Google login initialization error:', error);
       toast({
         title: "Google Login Error",
         description: "Failed to initialize Google Sign-In",
@@ -168,8 +181,10 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const handleFacebookLogin = async () => {
     try {
       setIsFacebookLoading(true);
+      console.log('🔵 Facebook login initiated');
 
       if (!window.FB) {
+        console.error('❌ Facebook SDK not loaded');
         toast({
           title: "Error",
           description: "Facebook SDK is not loaded. Please try again.",
@@ -178,10 +193,18 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
         return;
       }
 
+      console.log('✅ Facebook SDK loaded');
+
       window.FB.login(async (response: any) => {
+        console.log('🔵 Facebook login response:', response);
+        
         if (response.authResponse) {
+          console.log('✅ Facebook authResponse received');
+          
           // Get user info from Facebook
           window.FB.api('/me', { fields: 'name,email,picture' }, async (userInfo: any) => {
+            console.log('🔵 Facebook user info:', userInfo);
+            
             try {
               await loginWithFacebook({
                 accessToken: response.authResponse.accessToken,
@@ -190,12 +213,14 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
                 picture: userInfo.picture?.data?.url
               });
 
+              console.log('✅ Facebook login successful');
               toast({
                 title: "Success",
                 description: "You have been logged in with Facebook!",
               });
               onOpenChange(false);
             } catch (error: any) {
+              console.error('❌ Facebook login error:', error);
               toast({
                 title: "Facebook Login Failed",
                 description: error.message || "An error occurred during Facebook login",
@@ -204,6 +229,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
             }
           });
         } else {
+          console.warn('⚠️ Facebook login cancelled');
           toast({
             title: "Facebook Login Cancelled",
             description: "Facebook login was cancelled",
@@ -212,6 +238,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
         }
       }, { scope: 'email' });
     } catch (error: any) {
+      console.error('❌ Facebook login initialization error:', error);
       toast({
         title: "Facebook Login Error",
         description: "Failed to initialize Facebook login",
@@ -225,55 +252,91 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const handleXLogin = async () => {
     try {
       setIsXLoading(true);
+      console.log('🔵 X/Twitter login initiated');
       
-      // For X/Twitter login, we'll need to use OAuth 1.0a flow
-      // This is a simplified implementation - in real use, you'd redirect to X OAuth
-      const xAuthUrl = `https://api.twitter.com/oauth/authenticate?oauth_token=YOUR_OAUTH_TOKEN`;
+      // Create a callback endpoint listener
+      const handleXCallback = (event: MessageEvent) => {
+        console.log('🔵 X OAuth callback received:', event.data);
+        
+        if (event.data.type === 'X_OAUTH_SUCCESS') {
+          const { accessToken, email, name, picture, username } = event.data;
+          
+          console.log('🔵 X user data:', { email, name, username });
+          
+          loginWithX({
+            accessToken,
+            email: email || `${username}@twitter.com`,
+            name: name || username,
+            picture: picture || ''
+          }).then(() => {
+            console.log('✅ X login successful');
+            toast({
+              title: "Success",
+              description: "You have been logged in with X!",
+            });
+            onOpenChange(false);
+          }).catch((error: any) => {
+            console.error('❌ X login error:', error);
+            toast({
+              title: "X Login Failed",
+              description: error.message || "An error occurred during X login",
+              variant: "destructive",
+            });
+          }).finally(() => {
+            setIsXLoading(false);
+            window.removeEventListener('message', handleXCallback);
+          });
+        } else if (event.data.type === 'X_OAUTH_ERROR') {
+          console.error('❌ X OAuth error:', event.data.error);
+          toast({
+            title: "X Login Failed",
+            description: event.data.error || "X authentication failed",
+            variant: "destructive",
+          });
+          setIsXLoading(false);
+          window.removeEventListener('message', handleXCallback);
+        }
+      };
+      
+      window.addEventListener('message', handleXCallback);
+      
+      // Request X OAuth from backend
+      const response = await fetch('/api/auth/x/request', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to initiate X OAuth');
+      }
+      
+      const { auth_url } = await response.json();
+      console.log('🔵 X OAuth URL:', auth_url);
       
       // Open popup for X OAuth
       const popup = window.open(
-        xAuthUrl,
+        auth_url,
         'XLogin',
         'width=600,height=600,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for popup to close (simplified)
+      // Listen for popup to close without success
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
           clearInterval(checkClosed);
-          // In real implementation, you'd get the OAuth response here
-          // For now, we'll simulate a successful login
-          setTimeout(async () => {
-            try {
-              await loginWithX({
-                accessToken: 'mock_x_token',
-                email: 'user@example.com',
-                name: 'X User',
-                picture: ''
-              });
-
-              toast({
-                title: "Success",
-                description: "You have been logged in with X!",
-              });
-              onOpenChange(false);
-            } catch (error: any) {
-              toast({
-                title: "X Login Failed",
-                description: error.message || "An error occurred during X login",
-                variant: "destructive",
-              });
-            }
-          }, 1000);
+          setTimeout(() => {
+            setIsXLoading(false);
+            window.removeEventListener('message', handleXCallback);
+          }, 500);
         }
       }, 1000);
     } catch (error: any) {
+      console.error('❌ X login initialization error:', error);
       toast({
         title: "X Login Error",
-        description: "Failed to initialize X login",
+        description: error.message || "Failed to initialize X login",
         variant: "destructive",
       });
-    } finally {
       setIsXLoading(false);
     }
   };
