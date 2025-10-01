@@ -359,25 +359,25 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
       <DialogContent 
         className="sm:max-w-md" 
         onInteractOutside={(e) => {
-          // Allow interactions with Google OAuth, Facebook OAuth, and other auth popups
+          // Check if the click is on an OAuth element
           const target = e.target as Element;
           const isGoogleOAuth = target.closest('[data-testid*="google"]') || 
                                target.closest('.google-oauth') ||
                                target.closest('[id*="google"]') ||
-                               document.querySelector('#credential_picker_container') ||
-                               document.querySelector('.g-oauth-button');
+                               target.id?.includes('credential_picker') ||
+                               target.closest('[role="dialog"]');
           const isFacebookOAuth = target.closest('[data-testid*="facebook"]') || 
                                  target.closest('.fb-login-button') ||
                                  target.closest('#facebook-jssdk');
           const isXOAuth = target.closest('[data-testid*="x"]') || 
                           target.closest('.twitter-oauth');
           
-          // Prevent closing if it's an OAuth interaction
+          // Allow interactions with OAuth popups by not preventing default
           if (isGoogleOAuth || isFacebookOAuth || isXOAuth) {
             return;
           }
           
-          // Prevent closing for other outside interactions
+          // Prevent closing dialog for other outside interactions
           e.preventDefault();
         }}
       >
