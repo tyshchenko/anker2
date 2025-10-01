@@ -234,15 +234,18 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
       portfolioTimeline.push({ time: txTime as any, value: totalValue });
     });
 
-    // Add current value point
+    // Add current value point using actual wallet balances
     const now = Math.floor(Date.now() / 1000);
     let currentValue = 0;
-    Object.entries(holdings).forEach(([coin, balance]) => {
-      if (balance > 0) {
-        const price = getPriceAtTime(coin, now);
-        currentValue += balance * price;
+    
+    // Use actual current wallet balances instead of calculated holdings
+    wallets.forEach(wallet => {
+      if (wallet.balance > 0) {
+        const price = getPriceAtTime(wallet.symbol, now);
+        currentValue += wallet.balance * price;
       }
     });
+    
     portfolioTimeline.push({ time: now as any, value: currentValue });
 
     // Fill in intermediate points with price changes
@@ -297,11 +300,32 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     }
 
     return uniqueTimeline;
-  }, [transactions, marketDataQueries, selectedTimeframe]);
+  }, [transactions, marketDataQueries, selectedTimeframe, wallets]);
 
   const isLoading = transactionsLoading || marketDataQueries.some(query => query.isLoading);
 
-  const totalValue = portfolioData.length > 0 ? portfolioData[portfolioData.length - 1].value : 0;
+  // Calculate total portfolio value from current wallet balances
+  const totalValue = useMemo(() => {
+    if (wallets.length === 0) return 0;
+    
+    let total = 0;
+    wallets.forEach(wallet => {
+      if (wallet.balance > 0) {
+        // Get current price from market data or fallback
+        const marketData = marketDataQueries.find((q, idx) => cryptoSymbols[idx] === wallet.symbol);
+        let currentPrice = fallbackPrices[wallet.symbol] || 0;
+        
+        if (marketData?.data?.data && marketData.data.data.length > 0) {
+          const latestData = marketData.data.data[marketData.data.data.length - 1];
+          currentPrice = parseFloat(latestData.close);
+        }
+        
+        total += wallet.balance * currentPrice;
+      }
+    });
+    
+    return total;
+  }, [wallets, marketDataQueries, cryptoSymbols]);
   const initialValue = portfolioData.length > 0 ? portfolioData[0].value : 0;
   const totalChange = totalValue - initialValue;
   const percentChange = initialValue > 0 ? (totalChange / initialValue) * 100 : 0;
