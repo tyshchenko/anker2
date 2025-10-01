@@ -40,6 +40,8 @@ interface AuthContextType {
   loginWithX: (xData: { accessToken: string; email: string; name: string; picture?: string }) => Promise<void>;
   logout: () => Promise<void>;
   setUnauthenticated: () => void;
+  onLoginCancelled?: () => void;
+  setOnLoginCancelled: (callback: (() => void) | undefined) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [show2FAVerification, setShow2FAVerification] = useState(false);
   const [tempSession, setTempSession] = useState('');
+  const [onLoginCancelled, setOnLoginCancelled] = useState<(() => void) | undefined>(undefined);
   
   // Query to get current user
   const { data: userResponse, isLoading, error } = useQuery({
@@ -342,6 +345,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginWithX,
     logout,
     setUnauthenticated,
+    onLoginCancelled,
+    setOnLoginCancelled,
   };
 
   return (
@@ -355,6 +360,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           onClose={() => {
             setShow2FAVerification(false);
             setTempSession('');
+            if (onLoginCancelled) {
+              onLoginCancelled();
+              setOnLoginCancelled(undefined);
+            }
           }}
           onVerify={verify2FAMutation.mutate}
           isLoading={verify2FAMutation.isPending}

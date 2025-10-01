@@ -188,7 +188,7 @@ const useUserTrades = () => {
 
 export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) {
   const { data: marketData = [], isLoading, error } = useMarketData();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, setOnLoginCancelled } = useAuth();
   const { data: walletsData } = useWallets();
   const { data: userTrades = [], isLoading: tradesLoading } = useUserTrades();
   const queryClient = useQueryClient();
@@ -277,6 +277,21 @@ export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) 
       onPairChange(fromConvert, toConvert, "convert");
     }
   }, [activeTab, fromBuy, toBuy, fromSell, toSell, fromConvert, toConvert, onPairChange]);
+  
+  // Register callback to close LoginDialog when 2FA is cancelled
+  useEffect(() => {
+    if (showLoginDialog) {
+      setOnLoginCancelled(() => () => {
+        setShowLoginDialog(false);
+      });
+    } else {
+      setOnLoginCancelled(undefined);
+    }
+    
+    return () => {
+      setOnLoginCancelled(undefined);
+    };
+  }, [showLoginDialog, setOnLoginCancelled]);
 
   const handleTabChange = (tab: ActionTab) => {
     setActiveTab(tab);
