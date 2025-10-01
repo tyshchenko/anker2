@@ -66,13 +66,11 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
       setOnLoginCancelled(() => () => {
         setShowLoginDialog(false);
       });
-    } else {
-      setOnLoginCancelled(undefined);
+      
+      return () => {
+        setOnLoginCancelled(undefined);
+      };
     }
-    
-    return () => {
-      setOnLoginCancelled(undefined);
-    };
   }, [showLoginDialog, setOnLoginCancelled]);
 
   // Map wallet data to portfolio items with real balances - only show existing wallets

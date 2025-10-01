@@ -284,13 +284,11 @@ export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) 
       setOnLoginCancelled(() => () => {
         setShowLoginDialog(false);
       });
-    } else {
-      setOnLoginCancelled(undefined);
+      
+      return () => {
+        setOnLoginCancelled(undefined);
+      };
     }
-    
-    return () => {
-      setOnLoginCancelled(undefined);
-    };
   }, [showLoginDialog, setOnLoginCancelled]);
 
   const handleTabChange = (tab: ActionTab) => {
