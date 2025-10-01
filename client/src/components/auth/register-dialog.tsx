@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -48,9 +48,9 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [isXLoading, setIsXLoading] = useState(false);
-  const googleButtonRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
@@ -74,12 +74,7 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
-      script.onload = () => {
-        initializeGoogleButton();
-      };
       document.head.appendChild(script);
-    } else if (open && googleButtonRef.current) {
-      initializeGoogleButton();
     }
 
     // Load Facebook SDK
@@ -98,7 +93,7 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
       };
       document.head.appendChild(script);
     }
-  }, [open]);
+  }, []);
 
   const onSubmit = async (data: RegisterForm) => {
     try {
@@ -121,12 +116,23 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
     }
   };
 
-  const initializeGoogleButton = () => {
-    if (!window.google || !googleButtonRef.current || !open) return;
-
-    console.log('🔵 Initializing Google button');
-
+  const handleGoogleRegister = async () => {
     try {
+      setIsGoogleLoading(true);
+      console.log('🔵 Google register initiated');
+
+      if (!window.google) {
+        console.error('❌ Google SDK not loaded');
+        toast({
+          title: "Error",
+          description: "Google Sign-In is not loaded. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ Google SDK loaded');
+
       window.google.accounts.id.initialize({
         client_id: "303897812754-50r2qpavk6lbgpq5easeutdrkks6rnhi.apps.googleusercontent.com",
         callback: async (response: any) => {
@@ -160,20 +166,19 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
         },
       });
 
-      window.google.accounts.id.renderButton(
-        googleButtonRef.current,
-        {
-          theme: "outline",
-          size: "large",
-          width: googleButtonRef.current.offsetWidth || 200,
-          text: "signup_with",
-          shape: "rectangular"
-        }
-      );
-
-      console.log('✅ Google button rendered');
+      console.log('🔵 Prompting for Google Sign-In');
+      window.google.accounts.id.prompt((notification: any) => {
+        console.log('🔵 Google prompt notification:', notification);
+      });
     } catch (error: any) {
-      console.error('❌ Failed to initialize Google button:', error);
+      console.error('❌ Google register initialization error:', error);
+      toast({
+        title: "Google Registration Error",
+        description: "Failed to initialize Google Sign-In",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
