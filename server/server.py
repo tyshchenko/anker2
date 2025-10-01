@@ -637,6 +637,19 @@ class MeHandler(BaseHandler):
                 user_data['trading_notifications'] = False
                 user_data['security_alerts'] = False
                 user_data['two_factor_enabled'] = False
+            # Get real verification status from storage
+            verification_status = storage.get_verification_status(user.email)
+            
+            if not verification_status:
+                # Create initial verification status if it doesn't exist
+                storage.create_verification_status(user.email)
+                verification_status = storage.get_verification_status(user.email)
+            user_data['verification_level'] = 'unverified'
+            if verification_status.email_verified and  verification_status.phone_verified:
+              user_data['verification_level'] = 'basic'
+            if verification_status.identity_status=='verified' and verification_status.address_status=='verified':
+              user_data['verification_level'] = 'advanced'
+
             
             self.write({
                 "success": True,
@@ -670,7 +683,7 @@ class Auth2FAHandler(BaseHandler):
                 return
             
             # Get user from temp session
-            user = storage.get_user_by_id(session.user_id)
+            user = storage.get_user(session.user_id)
             if not user:
                 self.set_status(401)
                 self.write({"error": "User not found"})
@@ -1920,7 +1933,7 @@ class Profile2FAHandler(BaseHandler):
                 self.write({"error": "Failed to retrieve user profile"})
                 return
             
-            totp_secret = user_profile.get('two_factor_secret')
+            totp_secret = user_profile.two_factor_secret
             if not totp_secret:
                 self.set_status(408)
                 self.write({"error": "2FA secret not found. Please setup 2FA first."})
