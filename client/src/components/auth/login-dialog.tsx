@@ -58,6 +58,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   useEffect(() => {
     if (isAuthenticated) {
       onOpenChange(false);
+      open=false;
     }
   }, []);
   

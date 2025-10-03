@@ -65,6 +65,7 @@ export function RegisterDialog({ open, onOpenChange, onSwitchToLogin }: Register
   useEffect(() => {
     if (isAuthenticated) {
       onOpenChange(false);
+      open=false;
     }
   }, []);
   

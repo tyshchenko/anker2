@@ -172,8 +172,9 @@ function TransactionRow({ transaction }: TransactionRowProps) {
 
   const formatAmount = (amount: number, symbol: string) => {
     if (symbol) {
-      if (symbol.includes('BTC')) return amount.toFixed(7);
-      if (symbol.includes('ETH')) return amount.toFixed(6);
+      if (symbol.includes('BTC')) return amount.toFixed(8);
+      if (symbol.includes('ETH')) return amount.toFixed(8);
+      if (symbol.includes('TRX')) return amount.toFixed(6);
       if (symbol.includes('ZAR') || symbol.includes('USD')) return amount.toFixed(2);
       return amount.toFixed(4);
     }
@@ -268,10 +269,10 @@ function TransactionRow({ transaction }: TransactionRowProps) {
                   // Trade: show to_amount on first line, from_amount on second line
                   <>
                     <p className="font-medium" data-testid={`transaction-amount-${transaction.id}`}>
-                      {formatAmount(transaction.total, transaction.pair)} {transaction.pair.split('/')[1]}
+                      {formatAmount(transaction.total, transaction.pair.split('/')[1])} {transaction.pair.split('/')[1]}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {formatAmount(transaction.amount, transaction.pair)} {transaction.pair.split('/')[0]}
+                      {formatAmount(transaction.amount, transaction.pair.split('/')[0])} {transaction.pair.split('/')[0]}
                     </p>
                   </>
                 ) : (
