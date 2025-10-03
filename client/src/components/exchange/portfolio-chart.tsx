@@ -298,6 +298,12 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     let total = 0;
     wallets.forEach(wallet => {
       if (wallet.balance > 0) {
+        // ZAR has price = 1, no historical price needed
+        if (wallet.symbol === 'ZAR') {
+          total += wallet.balance * 1;
+          return;
+        }
+        
         // Get current price from market data or fallback
         const marketData = marketDataQueries.find((q, idx) => cryptoSymbols[idx] === wallet.symbol);
         let currentPrice = fallbackPrices[wallet.symbol] || 0;

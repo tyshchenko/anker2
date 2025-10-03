@@ -45,6 +45,7 @@ const portfolioItems = [
   { icon: "◆", label: "Avalanche", amount: "0", color: "text-red-500", href: "/wallets/avax" },
   { icon: "◊", label: "Dogecoin", amount: "0", color: "text-yellow-600", href: "/wallets/doge", logoUrl: dogeLogo },
   { icon: "⬟", label: "Polygon", amount: "0", color: "text-purple-600", href: "/wallets/matic", logoUrl: polygonLogo },
+  { icon: "◬", label: "Tron", amount: "0", color: "text-red-600", href: "/wallets/trx" },
 ];
 
 const bottomItems = [
@@ -101,7 +102,9 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
             (portfolioItem.label === "Dogecoin" &&
               w.coin.toLowerCase() === "doge") ||
             (portfolioItem.label === "Polygon" &&
-              w.coin.toLowerCase() === "matic"),
+              w.coin.toLowerCase() === "matic") ||
+            (portfolioItem.label === "Tron" &&
+              w.coin.toLowerCase() === "trx"),
         );
 
         return wallet ? {

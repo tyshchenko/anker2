@@ -44,6 +44,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isFacebookLoading, setIsFacebookLoading] = useState(false);
   const [isXLoading, setIsXLoading] = useState(false);
+  const [isOAuthPromptActive, setIsOAuthPromptActive] = useState(false);
 
   const {
     register,
@@ -112,6 +113,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   const handleGoogleLogin = async () => {
     try {
       setIsGoogleLoading(true);
+      setIsOAuthPromptActive(true);
       console.log('🔵 Google login initiated');
 
       if (!window.google) {
@@ -121,6 +123,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
           description: "Google Sign-In is not loaded. Please try again.",
           variant: "destructive",
         });
+        setIsOAuthPromptActive(false);
         return;
       }
 
@@ -157,6 +160,8 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
               description: error.message || "An error occurred during Google login",
               variant: "destructive",
             });
+          } finally {
+            setIsOAuthPromptActive(false);
           }
         },
       });
@@ -177,6 +182,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
               variant: "destructive",
             });
           }
+          setIsOAuthPromptActive(false);
         }
       });
     } catch (error: any) {
@@ -186,6 +192,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
         description: "Failed to initialize Google Sign-In",
         variant: "destructive",
       });
+      setIsOAuthPromptActive(false);
     } finally {
       setIsGoogleLoading(false);
     }
@@ -355,9 +362,10 @@ export function LoginDialog({ open, onOpenChange, onSwitchToRegister }: LoginDia
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={!isOAuthPromptActive}>
       <DialogContent 
         className="sm:max-w-md" 
+        style={isOAuthPromptActive ? { pointerEvents: 'none' } : {}}
         onInteractOutside={(e) => {
           // Check if the click is on an OAuth element
           const target = e.target as Element;
