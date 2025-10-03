@@ -43,37 +43,15 @@ const PORTFOLIO_WALLETS = [
     change24h: 3.8
   },
   {
-    id: 'usdt-wallet',
-    name: 'Tether',
-    symbol: 'USDT',
-    logoUrl: usdtLogo,
-    balance: 25000,
-    balanceZAR: 467500.00,
-    color: 'bg-green-500',
-    textColor: 'text-green-600',
-    change24h: 0.1
-  },
-  {
     id: 'bnb-wallet',
     name: 'BNB',
     symbol: 'BNB',
     logoUrl: bnbLogo,
     balance: 45.67,
     balanceZAR: 89234.50,
-    color: 'bg-yellow-500',
+    color: 'bg-gray-500',
     textColor: 'text-yellow-600',
     change24h: 2.4
-  },
-  {
-    id: 'sol-wallet',
-    name: 'Solana',
-    symbol: 'SOL',
-    logoUrl: solLogo,
-    balance: 123.45,
-    balanceZAR: 78950.75,
-    color: 'bg-purple-500',
-    textColor: 'text-purple-600',
-    change24h: 7.1
   },
 ];
 
@@ -86,7 +64,7 @@ export function PortfolioPanel() {
   const lineSeriesRef = useRef<any>(null);
 
   // Fetch market data for all cryptocurrencies
-  const cryptoSymbols = ['BTC', 'ETH', 'USDT', 'BNB', 'SOL'];
+  const cryptoSymbols = ['BTC', 'ETH', 'BNB'];
   
   // Fallback prices when API is down
   const fallbackPrices = {
