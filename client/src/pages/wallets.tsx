@@ -302,14 +302,12 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
           </p>
         </div>
 
-        {(wallet.pending || 0) > 0 && (
-          <div>
-            <p className="text-sm text-muted-foreground">Pending</p>
-            <p className="text-lg font-semibold text-yellow-600" data-testid={`wallet-pending-${wallet.id}`}>
-              {isBalanceVisible ? `${formatBalance(wallet.pending || 0, wallet.symbol)} ${wallet.symbol}` : '••••••'}
-            </p>
-          </div>
-        )}
+        <div>
+          <p className="text-sm text-muted-foreground">Pending</p>
+          <p className={`text-lg font-semibold ${(wallet.pending || 0) > 0 ? 'text-yellow-600' : ''}`} data-testid={`wallet-pending-${wallet.id}`}>
+            {isBalanceVisible ? `${formatBalance(wallet.pending || 0, wallet.symbol)} ${wallet.symbol}` : '••••••'}
+          </p>
+        </div>
 
         <div>
           <p className="text-sm text-muted-foreground">Address</p>
