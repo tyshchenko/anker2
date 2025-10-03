@@ -119,6 +119,7 @@ export default function SendPage() {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [transactionId, setTransactionId] = useState('');
@@ -286,6 +287,26 @@ export default function SendPage() {
   const handleSend = () => {
     if (!user?.id || !canSubmit) return;
 
+    // Check 2FA enabled
+    if (!user.two_factor_enabled) {
+      toast({
+        title: "2FA Required",
+        description: "You must enable Two-Factor Authentication before you can send funds. Please enable 2FA in your profile settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check 2FA code provided
+    if (!twoFactorCode || twoFactorCode.length !== 6) {
+      toast({
+        title: "2FA Code Required",
+        description: "Please enter your 6-digit 2FA code to proceed with the transaction.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check verification level
     if (user.verification_level === 'unverified') {
       toast({
@@ -305,6 +326,7 @@ export default function SendPage() {
       amount: formatBalance(Number(amount), wallet.symbol),
       recipientAddress: recipientAddress,
       memo: memo,
+      twoFactorCode: twoFactorCode,
     };
     
     createSendTransactionMutation.mutate(sendData);
@@ -610,6 +632,26 @@ export default function SendPage() {
                     )}
                   </div>
 
+                  <div>
+                    <Label htmlFor="twoFactorCode">2FA Code</Label>
+                    <Input
+                      id="twoFactorCode"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Enter 6-digit code"
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      maxLength={6}
+                      disabled={!user?.two_factor_enabled}
+                      data-testid="input-2fa-code"
+                    />
+                    {!user?.two_factor_enabled && (
+                      <p className="text-sm text-destructive mt-1 flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        2FA must be enabled to send funds
+                      </p>
+                    )}
+                  </div>
 
                 </div>
               </Card>
@@ -651,7 +693,7 @@ export default function SendPage() {
                 <Button
                   className="flex-1"
                   onClick={handleSend}
-                  disabled={!canSubmit || createSendTransactionMutation.isPending}
+                  disabled={!canSubmit || !user?.two_factor_enabled || createSendTransactionMutation.isPending}
                   data-testid="button-send"
                 >
                   <Send className="w-4 h-4 mr-2" />

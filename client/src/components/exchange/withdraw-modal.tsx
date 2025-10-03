@@ -45,6 +45,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const [amount, setAmount] = useState("");
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [withdrawalType, setWithdrawalType] = useState<"instant" | "regular">("instant");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const [showAddBankForm, setShowAddBankForm] = useState(false);
   const [newBankData, setNewBankData] = useState({
     accountName: "",
@@ -149,6 +150,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     setAmount("");
     setSelectedBank(null);
     setWithdrawalType("instant");
+    setTwoFactorCode("");
     setShowAddBankForm(false);
     setNewBankData({ accountName: "", accountNumber: "", branchCode: "" });
     onClose();
@@ -170,6 +172,26 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
   const handleWithdraw = () => {
     if (!selectedBank || !amount || withdrawMutation.isPending) return;
 
+    // Check 2FA enabled
+    if (!user?.two_factor_enabled) {
+      toast({
+        title: "2FA Required",
+        description: "You must enable Two-Factor Authentication before you can withdraw funds. Please enable 2FA in your profile settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check 2FA code provided
+    if (!twoFactorCode || twoFactorCode.length !== 6) {
+      toast({
+        title: "2FA Code Required",
+        description: "Please enter your 6-digit 2FA code to proceed with the withdrawal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check verification level
     if (user?.verification_level === 'unverified') {
       toast({
@@ -183,7 +205,8 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     const withdrawData = {
       amount,
       bankAccountId: selectedBank,
-      type: withdrawalType
+      type: withdrawalType,
+      twoFactorCode: twoFactorCode,
     };
     
     withdrawMutation.mutate(withdrawData);
@@ -420,6 +443,28 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
             {!showAddBankForm && (
               <>
                 <Separator />
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <Label htmlFor="twoFactorCode">2FA Code</Label>
+                    <Input
+                      id="twoFactorCode"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Enter 6-digit code"
+                      value={twoFactorCode}
+                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      maxLength={6}
+                      disabled={!user?.two_factor_enabled}
+                      data-testid="input-withdraw-2fa-code"
+                    />
+                    {!user?.two_factor_enabled && (
+                      <p className="text-sm text-destructive mt-1">
+                        2FA must be enabled to withdraw funds
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Separator />
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Amount</span>
@@ -453,7 +498,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
                   <Button
                     onClick={handleWithdraw}
                     className="flex-1"
-                    disabled={!selectedBank || withdrawMutation.isPending}
+                    disabled={!selectedBank || !user?.two_factor_enabled || withdrawMutation.isPending}
                     data-testid="button-confirm-withdraw"
                   >
                     {withdrawMutation.isPending ? "Processing..." : "Withdraw"}
