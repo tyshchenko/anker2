@@ -14,8 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Banknote } from "lucide-react";
-
-// Remove demo user ID - use actual authenticated user
+import { SOFVerificationDialog } from "./sof-verification-dialog";
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -26,6 +25,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState("");
   const [phoneReference, setPhoneReference] = useState("");
+  const [showSOFDialog, setShowSOFDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -148,67 +148,90 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
   };
 
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh]" data-testid="modal-deposit">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2 text-xl">
-            <Banknote className="h-6 w-6" />
-            <span>Deposit ZAR</span>
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            Add funds to your account to start trading cryptocurrencies
-          </DialogDescription>
-        </DialogHeader>
+  // Check SOF status when modal opens
+  if (isOpen && user && user.sof === false && !showSOFDialog) {
+    setShowSOFDialog(true);
+    return (
+      <>
+        <SOFVerificationDialog
+          isOpen={showSOFDialog}
+          onSuccess={() => {
+            setShowSOFDialog(false);
+          }}
+        />
+      </>
+    );
+  }
 
-        <div className="space-y-8">
-          {/* Bank Deposit Instructions */}
-          <div className="space-y-6">
-            <div className="p-6 bg-muted border border-border rounded-lg">
-              <h4 className="font-semibold text-lg mb-4">Deposit funds to:</h4>
-              <div className="space-y-3 text-base">
-                <div className="flex flex-col space-y-1">
-                  <span className="text-muted-foreground">Bank:</span>
-                  <span className="font-semibold text-lg">Standard Bank South Africa</span>
+  return (
+    <>
+      <SOFVerificationDialog
+        isOpen={showSOFDialog}
+        onSuccess={() => {
+          setShowSOFDialog(false);
+        }}
+      />
+      <Dialog open={isOpen && !showSOFDialog} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh]" data-testid="modal-deposit">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-xl">
+              <Banknote className="h-6 w-6" />
+              <span>Deposit ZAR</span>
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Add funds to your account to start trading cryptocurrencies
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-8">
+            {/* Bank Deposit Instructions */}
+            <div className="space-y-6">
+              <div className="p-6 bg-muted border border-border rounded-lg">
+                <h4 className="font-semibold text-lg mb-4">Deposit funds to:</h4>
+                <div className="space-y-3 text-base">
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-muted-foreground">Bank:</span>
+                    <span className="font-semibold text-lg">Standard Bank South Africa</span>
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-muted-foreground">Account Number:</span>
+                    <span className="font-mono text-lg font-semibold">070220808</span>
+                  </div>
+                  <div className="flex flex-col space-y-1">
+                    <span className="text-muted-foreground">Reference Number:</span>
+                    <span className="font-mono text-lg font-semibold text-primary">{user?.reference || ""}</span>
+                  </div>
                 </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="text-muted-foreground">Account Number:</span>
-                  <span className="font-mono text-lg font-semibold">070220808</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="text-muted-foreground">Reference Number:</span>
-                  <span className="font-mono text-lg font-semibold text-primary">{user?.reference || ""}</span>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-background rounded-lg border space-y-2">
-                <div className="flex items-start space-x-2">
-                  <span className="text-amber-600 font-bold">⚠️</span>
-                  <p className="text-sm"><strong>Important:</strong> If your reference number is incorrect it will cause delays.</p>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-green-600 font-bold">⚡</span>
-                  <p className="text-sm"><strong>Instant payments</strong> take 10-30min during working hours.</p>
-                </div>
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-600 font-bold">🕐</span>
-                  <p className="text-sm"><strong>Regular payments</strong> reflect in 24-48 hours.</p>
+                <div className="mt-6 p-4 bg-background rounded-lg border space-y-2">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-amber-600 font-bold">⚠️</span>
+                    <p className="text-sm"><strong>Important:</strong> If your reference number is incorrect it will cause delays.</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-600 font-bold">⚡</span>
+                    <p className="text-sm"><strong>Instant payments</strong> take 10-30min during working hours.</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-blue-600 font-bold">🕐</span>
+                    <p className="text-sm"><strong>Regular payments</strong> reflect in 24-48 hours.</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              onClick={onClose}
-              size="lg"
-              className="w-full sm:w-auto"
-              data-testid="button-close-deposit"
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter>
+              <Button
+                onClick={onClose}
+                size="lg"
+                className="w-full sm:w-auto"
+                data-testid="button-close-deposit"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

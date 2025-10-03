@@ -117,6 +117,9 @@ class Application(tornado.web.Application):
             (r"/api/profile/2fa", Profile2FAHandler),
             (r"/api/profile/2fa/setup", Profile2FASetupHandler),
             
+            # SOF (Source of Funds) route
+            (r"/api/sof", SOFHandler),
+            
             # File upload/download routes (must be before catch-all)
             (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
             
@@ -630,6 +633,7 @@ class MeHandler(BaseHandler):
                 user_data['trading_notifications'] = user_profile.trading_notifications
                 user_data['security_alerts'] = user_profile.security_alerts
                 user_data['two_factor_enabled'] = user_profile.two_factor_enabled
+                user_data['sof'] = user_profile.sof if hasattr(user_profile, 'sof') else False
             else:
                 # Default values if no profile exists
                 user_data['email_notifications'] = False
@@ -637,6 +641,7 @@ class MeHandler(BaseHandler):
                 user_data['trading_notifications'] = False
                 user_data['security_alerts'] = False
                 user_data['two_factor_enabled'] = False
+                user_data['sof'] = False
             # Get real verification status from storage
             verification_status = storage.get_verification_status(user.email)
             
@@ -2000,6 +2005,49 @@ class Profile2FASetupHandler(BaseHandler):
 
         except Exception as e:
             print(f"Error setting up 2FA: {e}")
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+class SOFHandler(BaseHandler):
+    def post(self):
+        """Handle Source of Funds (SOF) verification submission"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+            
+            body = json.loads(self.request.body.decode())
+            source = body.get('source')
+            
+            if not source:
+                self.set_status(400)
+                self.write({"error": "Source of funds is required"})
+                return
+            
+            # Valid SOF options
+            valid_sources = ['salary_wages', 'savings', 'loan', 'gift_inheritance', 'other']
+            if source not in valid_sources:
+                self.set_status(400)
+                self.write({"error": "Invalid source of funds option"})
+                return
+            
+            # Update user profile with SOF status
+            update_data = {'sof': True, 'sof_source': source}
+            success = storage.update_user_profile(user.email, update_data)
+            
+            if success:
+                self.write({
+                    "success": True,
+                    "message": "Source of funds verified successfully"
+                })
+            else:
+                self.set_status(500)
+                self.write({"error": "Failed to update source of funds"})
+            
+        except Exception as e:
+            print(f"Error submitting SOF: {e}")
             self.set_status(500)
             self.write({"error": str(e)})
 

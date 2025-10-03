@@ -21,6 +21,7 @@ interface User {
   profile_image_url?: string;
   is_active: boolean;
   two_factor_enabled?: boolean;
+  sof?: boolean;
   email_notifications?: boolean;
   sms_notifications?: boolean;
   trading_notifications?: boolean;

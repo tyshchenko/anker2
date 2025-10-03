@@ -21,6 +21,7 @@ import { ArrowLeft, Download, Copy, QrCode, CheckCircle } from "lucide-react";
 import { useWallets } from "@/hooks/useWallets";
 import { useAuth } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/queryClient";
+import { SOFVerificationDialog } from "@/components/exchange/sof-verification-dialog";
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
@@ -100,9 +101,17 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const [showSOFDialog, setShowSOFDialog] = useState(false);
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
   const { data: cryptoMetadata } = useCryptocurrencies();
+
+  // Check SOF status on page load
+  useEffect(() => {
+    if (user && user.sof === false) {
+      setShowSOFDialog(true);
+    }
+  }, [user]);
 
   // Get real wallets and create a mapping
   const realWallets = walletsData?.wallets ? 
@@ -188,30 +197,37 @@ export default function ReceivePage() {
   }, [selectedWallet, requestAmount, message]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen">
-        {/* Desktop Sidebar */}
-        <div className="hidden lg:block">
-          <Sidebar />
-        </div>
+    <>
+      <SOFVerificationDialog
+        isOpen={showSOFDialog}
+        onSuccess={() => {
+          setShowSOFDialog(false);
+        }}
+      />
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="flex min-h-screen">
+          {/* Desktop Sidebar */}
+          <div className="hidden lg:block">
+            <Sidebar />
+          </div>
 
-        {/* Mobile Sidebar */}
-        <Sidebar
-          isMobile
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
-        />
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-h-screen">
-          {/* Mobile Header */}
-          <MobileHeader
-            isMobileMenuOpen={isMobileMenuOpen}
-            setIsMobileMenuOpen={setIsMobileMenuOpen}
+          {/* Mobile Sidebar */}
+          <Sidebar
+            isMobile
+            isOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
           />
 
-          {/* Market Ticker */}
-          <MarketTicker />
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col min-h-screen">
+            {/* Mobile Header */}
+            <MobileHeader
+              isMobileMenuOpen={isMobileMenuOpen}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
+
+            {/* Market Ticker */}
+            <MarketTicker />
 
           {/* Page Header */}
           <div className="p-6 border-b border-border">
@@ -463,6 +479,7 @@ export default function ReceivePage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
