@@ -65,7 +65,9 @@ class Application(tornado.web.Application):
         print("%s start starting" % datetime.now())
         threading.Timer(60.0, self.wathcher).start()
         threading.Timer(1800.0, self.hourlywathcher).start()
-        threading.Timer(1.0, self.coin_wathcher).start()
+        threading.Timer(201.0, self.coin_wathcher).start()
+        threading.Timer(180.0, self.zar_wathcher).start()
+        threading.Timer(10.0, self.eth_wathcher).start()
 
         blockchain.generate_main_wallet()
     
@@ -151,7 +153,7 @@ class Application(tornado.web.Application):
     def coin_wathcher(self):
         try:
           print("\n%s check coins\n" % datetime.now())
-          allwallets = storage.get_all_wallets(ACTIVE_COINS)
+          allwallets = storage.get_all_wallets(['BTC','BNB','TRX'])
           txhashes = storage.get_tx_hashes()
           for onewallet in allwallets:
 
@@ -165,13 +167,9 @@ class Application(tornado.web.Application):
             if walletbalance != onewallet.hotwalet:
               print("BALANCE changed")
               txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
+        except Exception as e: print(e)
               
-            
-        except Exception as e: print(e)
-        try:
-          print("\n%s check pending ZAR\n" % datetime.now())
-          storage.move_pending_zar()
-        except Exception as e: print(e)
+
         
         try:
           print("\n%s check pending crypto\n" % datetime.now())
@@ -179,6 +177,38 @@ class Application(tornado.web.Application):
         except Exception as e: print(e)
         
         threading.Timer(77.0, self.coin_wathcher).start()
+
+    def zar_wathcher(self):
+        try:
+          print("\n%s check pending ZAR\n" % datetime.now())
+          storage.move_pending_zar()
+        except Exception as e: print(e)
+
+        threading.Timer(180.0, self.zar_wathcher).start()
+
+    def eth_wathcher(self):
+        try:
+          print("\n%s check ETH\n" % datetime.now())
+          allwallets = storage.get_all_wallets(['ETH'])
+          txhashes = storage.get_tx_hashes()
+          for onewallet in allwallets:
+
+            print(onewallet.address)
+            walletbalance = blockchain.get_balance(onewallet)
+            print(walletbalance)
+            if int(float(walletbalance)) > COIN_SETTINGS[onewallet.coin]['min_send_amount']:
+              print("FORWARD " + onewallet.coin)
+              blockchain.forward_to_hot(onewallet)
+              
+            if walletbalance != onewallet.hotwalet:
+              print("BALANCE changed")
+            txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
+        except Exception as e: print(e)
+              
+
+        
+        
+        threading.Timer(120.0, self.eth_wathcher).start()
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):

@@ -75,6 +75,11 @@ def address_to_scripthash(address):
 
 # Basic synchronous JSON-RPC client for ElectrumX
 class ElectrumXClient:
+    #electrum.blockstream.info 50001 electrum.cakewallet.com 50001 2ex.digitaleveryware.com 50001
+
+
+
+
     def __init__(self, host, port, ssl=True):
         self.host = host
         self.port = port
@@ -376,6 +381,26 @@ class Blockchain:
 
 
     def get_btc_transactions(self, address):
+        url = f"https://blockstream.info/api/address/{address}/txs"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            transactions = []
+            for onetx in data:
+              print(onetx)
+              for outad in onetx['vout']:
+                if outad['scriptpubkey_address'] == address:
+                  transactions.append({
+                    'hash':onetx['txid'],
+                    'side':'Deposit',
+                    'amount':outad['value'],
+                  })
+            
+            return transactions
+        return []
+
+
+    def get_elbtc_transactions(self, address):
         try:
             # Convert address to scripthash
             scripthash = address_to_scripthash(address)
@@ -436,8 +461,10 @@ class Blockchain:
             return []
 
     def get_eth_transactions(self, address):
-        url = f"https://api.etherscan.io/api?module=account&action=txlist&address={address}&sort=desc&apikey={ETHAPIKEY}"
+        url = f"https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlist&address={address}&sort=desc&apikey={ETHAPIKEY}"
         response = requests.get(url)
+        
+        print(response.text)
         
         if response.status_code == 200:
             data = response.json()
@@ -495,6 +522,24 @@ class Blockchain:
       
       
     def get_btc_balance(self, address):
+        url = f"{COIN_SETTINGS['BTC']['rpc_url']}/addrs/{address}/balance"
+        response = requests.get(url)
+        print(response.text)
+        if response.status_code == 200:
+            data = response.json()
+            return data['balance']  # in satoshis
+        else:
+          url = f"https://blockstream.info/api/address/{address}"
+          response = requests.get(url)
+          print(response.text)
+          if response.status_code == 200:
+              data = response.json()
+              return data['chain_stats']['funded_txo_sum']  # in satoshis
+
+
+        return 0
+      
+    def get_elbtc_balance(self, address):
         try:
             # Convert address to scripthash
             scripthash = address_to_scripthash(address)
@@ -657,3 +702,169 @@ blockchain = Blockchain()
 #INSERT INTO transactions (email, coin, side, amount, price, status, txhash) VALUES ('bobbyjonker@yahoo.com','ZAR','Deposit','500.0','1','completed','20250920APB12Q4NCTZ000000000050000TR');
 
 # UPDATE wallets set balance=((balance+0)+500)  where email='bobbyjonker@yahoo.com' and coin='ZAR'
+
+
+#2ex.digitaleveryware.com
+#50001
+#50002
+#Reliable, community-run.
+#electrum.tjader.xyz
+#-
+#50002
+#SSL-only.
+#electrum.blockstream.info
+#50001
+#50002
+#Run by Blockstream; high uptime.
+#electrum.coinfroggy.com
+#50001
+#50002
+#Good performance.
+#blockitall.us
+#50001
+#50002
+#US-based.
+#blackie.c3-soft.com
+#57001
+#57002
+#Non-standard ports.
+#electrum.blockitall.us
+#50001
+#50002
+#Alternative hostname.
+#fulcrum2.not.fyi
+#-
+#51002
+#SSL-only, Fulcrum impl.
+#det.electrum.blockitall.us
+#50001
+#50002
+#Detached variant.
+#4vrz2q62yxlfmcntnotzdjahpqh2joirp2vrcdsayyioxthffimbp2ad.onion
+#50001
+#-
+#Tor onion, TCP-only.
+#mempool.coinfroggy.com
+#50001
+#50002
+#Mempool-focused.
+#73.116.136.143
+#50001
+#-
+#IP-based, TCP-only.
+#electrum.kampfschnitzel.at
+#-
+#50002
+#EU-based.
+#blockstream.info
+#110
+#700
+#Non-standard ports; explorer integration.
+#mknux6bpnioe64vzn3dzjre67a6e4qsyhckx6mmipdastyfo5lzva7qd.onion
+#50001
+#-
+#Tor onion.
+#fulcrum.theuplink.net
+#-
+#50002
+#Fulcrum impl.
+#static.82.9.235.167.clients.your-server.de
+#50001
+#50002
+#DE-based.
+#molten.tranquille.cc
+#50001
+#50002
+#Community.
+#b6.1209k.com
+#50001
+#50002
+#Monitor-affiliated.
+#mempool.8333.mobi
+#50001
+#50002
+#Mempool.
+#ax102.blockeng.ch
+#-
+#50002
+#CH-based.
+#yskpxenmsud5ddy2777a2koiuob7emhd4m3uoic5olyjsvvc2eymxcqd.onion
+#50001
+#-
+#Tor onion.
+#fulcrum.slicksparks.ky
+#-
+#50002
+#Fulcrum.
+#167.235.9.82
+#50001
+#50002
+#IP-based.
+#23.155.96.131
+#50001
+#50002
+#IP-based.
+#smmalis37.ddns.net
+#50001
+#50002
+#Dynamic DNS.
+#kittyserver.ddnsfree.com
+#50001
+#50002
+#Dynamic DNS.
+#168.119.136.176
+#50001
+#-
+#IP-based, TCP-only.
+#fulcrum-core.1209k.com
+#50001
+#50002
+#Monitor-affiliated.
+#static.176.136.119.168.clients.your-server.de
+#50001
+#-
+#DE-based, TCP-only.
+#fulcrumwnoak45vtxkmdewwedaujulf6xkzvqiqfon5b6i5xbhs6igad.onion
+#50001
+#-
+#Tor onion.
+#explorerzydxu5ecjrkwceayqybizmpjjznk5izmitf2modhcusuqlid.onion
+#110
+#-
+#Tor onion, non-standard.
+#bitcoin.stackwallet.com
+#-
+#50002
+#Stack Wallet.
+#hezojf7rda2c33yxgcgcvvsxflechdz5vkm64gwlszgx2r4gc5e42kqd.onion
+#50001
+#-
+#Tor onion.
+#ool-4351f012.dyn.optonline.net
+#-
+#50002
+#Dynamic.
+#b.1209k.com
+#-
+#50002
+#Monitor.
+#hippo.1209k.com
+#-
+#50002
+#Monitor.
+#clownshow.fiatfaucet.com
+#-
+#50002
+#Fun name.
+#qeqgdlw2ezf3uabook2ny3lztjxxzeyyoqw2k7cempzvqpknbmevhmyd.onion
+#50001
+#-
+#Tor onion.
+#ax101.blockeng.ch
+#-
+#50002
+#CH-based.
+#electrum.cakewallet.com
+#50001
+#50002
+

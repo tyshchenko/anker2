@@ -136,7 +136,7 @@ class Session(BaseModel):
 class Trade(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     userId: str = Field(..., alias="user_id")
-    type: Literal["buy", "sell", "convert"]
+    type: str
     fromAsset: str = Field(..., alias="from_asset")
     toAsset: str = Field(..., alias="to_asset")
     fromAmount: float = Field(..., alias="from_amount")

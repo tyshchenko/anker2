@@ -68,7 +68,7 @@ class MySqlStorage:
         self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
         self.temp_sessions: Dict[str, Session] = {}
-        self.pairs = ["BTC/ZAR", "ETH/ZAR", "USDT/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
+        self.pairs = ["BTC/ZAR", "ETH/ZAR", "BNB/ZAR", "TRX/ZAR"]
         self.activepairs = self.pairs
         self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone,language,timezone,country "
 
@@ -827,9 +827,12 @@ class MySqlStorage:
         result = []
         if trades:
             for trade in trades:
+                tradetype = trade[2]
+                if trade[2] in ['buy','sell']:
+                  tradetype = 'swap'
                 result.append(Trade(
                       user_id=str(trade[1]),
-                      type=trade[2],
+                      type=tradetype,
                       from_asset=trade[3],
                       to_asset=trade[4],
                       from_amount=trade[5],
@@ -851,10 +854,16 @@ class MySqlStorage:
         result = []
         if trades:
             for trade in trades:
+                side = trade[3]
+                if trade[3] == 'Trade':
+                  if float(trade[4]) > 0:
+                    side = 'buy'
+                  else:
+                    side = 'sell'
                 result.append(Transaction(
                       user_id=str(trade[1]),
                       coin=trade[2],
-                      side=trade[3],
+                      side=side,
                       amount=trade[4],
                       price=trade[5],
                       txhash=trade[7],
