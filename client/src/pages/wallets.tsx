@@ -232,8 +232,10 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
   const formatBalance = (amount: number, symbol: string) => {
     if (!isBalanceVisible) return '••••••';
     
-    if (symbol === 'BTC') return amount.toFixed(7);
-    if (symbol === 'ETH') return amount.toFixed(6);
+    if (symbol === 'BTC') return amount.toFixed(8);
+    if (symbol === 'ETH') return amount.toFixed(8);
+    if (symbol === 'BNB') return amount.toFixed(8);
+    if (symbol === 'TRX') return amount.toFixed(6);
     if (['ZAR', 'USD'].includes(symbol)) return amount.toFixed(2);
     return amount.toFixed(4);
   };

@@ -56,7 +56,7 @@ const PORTFOLIO_WALLETS = [
 ];
 
 export function PortfolioPanel() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState("1M");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("1W");
   const [showBalances, setShowBalances] = useState(true);
   
   const chartRef = useRef<HTMLDivElement>(null);

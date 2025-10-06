@@ -20,7 +20,7 @@ interface PortfolioChartProps {
 }
 
 export function PortfolioChart({ wallets }: PortfolioChartProps) {
-  const [selectedTimeframe, setSelectedTimeframe] = useState("1M");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("1D");
   
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);

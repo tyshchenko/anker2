@@ -174,6 +174,7 @@ function TransactionRow({ transaction }: TransactionRowProps) {
     if (symbol) {
       if (symbol.includes('BTC')) return amount.toFixed(8);
       if (symbol.includes('ETH')) return amount.toFixed(8);
+      if (symbol.includes('BNB')) return amount.toFixed(8);
       if (symbol.includes('TRX')) return amount.toFixed(6);
       if (symbol.includes('ZAR') || symbol.includes('USD')) return amount.toFixed(2);
       return amount.toFixed(4);
