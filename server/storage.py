@@ -291,6 +291,16 @@ class MySqlStorage:
         elif from_coin == 'BTC':
           return 'BUY', to_coin+from_coin
 
+    def tofixedbalance(self, coin, balance):
+        if coin == 'ZAR' or coin == 'USDT':
+          return "%.2f" % (int(float(balance)*100)/100)
+        elif coin == 'BTC' or coin == 'ETH' or coin == 'BNB':
+          return "%.8f" % (int(float(balance)*100000000)/100000000)
+        elif coin == 'TRX':
+          return "%.6f" % (int(float(balance)*1000000)/1000000)
+        else:
+          return "%.4f" % (int(float(balance)*10000)/10000)
+
     def get_tx_hashes(self):
         db = DataBase(DB_NAME)
         uniqueidlist = []
@@ -321,6 +331,7 @@ class MySqlStorage:
               created_at = users[0][10],
               updated_at = users[0][11],
               reference = reference,
+              sof = users[0][20],
               phone = users[0][22],
               two_factor_enabled = users[0][13],
               language = users[0][23],
@@ -1286,7 +1297,7 @@ class MySqlStorage:
             set_clauses = []
             
             for key, value in fields_data.items():
-                if key in ['first_name', 'last_name', 'country', 'language', 'timezone']:
+                if key in ['first_name', 'last_name', 'country', 'language', 'timezone', 'sof']:
                     set_clauses.append(f"{key} = '{value}'")
                 elif key in ['phone'] and not user.phone:
                     set_clauses.append(f"{key} = '{value}'")

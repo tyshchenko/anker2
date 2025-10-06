@@ -663,7 +663,6 @@ class MeHandler(BaseHandler):
                 user_data['trading_notifications'] = user_profile.trading_notifications
                 user_data['security_alerts'] = user_profile.security_alerts
                 user_data['two_factor_enabled'] = user_profile.two_factor_enabled
-                user_data['sof'] = user_profile.sof if hasattr(user_profile, 'sof') else False
             else:
                 # Default values if no profile exists
                 user_data['email_notifications'] = False
@@ -671,7 +670,6 @@ class MeHandler(BaseHandler):
                 user_data['trading_notifications'] = False
                 user_data['security_alerts'] = False
                 user_data['two_factor_enabled'] = False
-                user_data['sof'] = False
             # Get real verification status from storage
             verification_status = storage.get_verification_status(user.email)
             
@@ -804,8 +802,8 @@ class WalletsHandler(BaseHandler):
                         "coin": wallet[2],
                         "fee": coinminer_fee,
                         "address": wallet[3],
-                        "balance": str(wallet[4]),
-                        "pending": str(wallet[8]),
+                        "balance": storage.tofixedbalance(wallet[4]),
+                        "pending": storage.tofixedbalance(wallet[8]),
                         "is_active": wallet[5],
                         "created": wallet[6].isoformat() if wallet[6] else None,
                         "updated": wallet[7].isoformat() if wallet[7] else None
@@ -2052,20 +2050,15 @@ class SOFHandler(BaseHandler):
             source = body.get('source')
             
             if not source:
-                self.set_status(400)
+                self.set_status(406)
                 self.write({"error": "Source of funds is required"})
                 return
             
-            # Valid SOF options
-            valid_sources = ['salary_wages', 'savings', 'loan', 'gift_inheritance', 'other']
-            if source not in valid_sources:
-                self.set_status(400)
-                self.write({"error": "Invalid source of funds option"})
-                return
+
             
             # Update user profile with SOF status
-            update_data = {'sof': True, 'sof_source': source}
-            success = storage.update_user_profile(user.email, update_data)
+            update_data = {'sof': source}
+            success = storage.update_user_fields(user, update_data)
             
             if success:
                 self.write({
