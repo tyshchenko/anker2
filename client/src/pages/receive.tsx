@@ -45,6 +45,20 @@ const useCryptocurrencies = () => {
   });
 };
 
+// Coin logo mapping
+const WALLET_LOGOS: { [key: string]: string } = {
+  BTC: btcLogo,
+  ETH: ethLogo,
+  USDT: usdtLogo,
+  XRP: xrpLogo,
+  BNB: bnbLogo,
+  DOGE: dogeLogo,
+  SOL: solLogo,
+  MATIC: polygonLogo,
+  ADA: cardanoLogo,
+  TRX: trxLogo,
+};
+
 // Fallback data
 const WALLETS = [
   {
@@ -52,6 +66,7 @@ const WALLETS = [
     name: 'Bitcoin Wallet',
     symbol: 'BTC',
     icon: '₿',
+    logoUrl: btcLogo,
     balance: 0.0234567,
     balanceZAR: 28125.45,
     address: '1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S',
@@ -63,6 +78,7 @@ const WALLETS = [
     name: 'Ethereum Wallet',
     symbol: 'ETH',
     icon: 'Ξ',
+    logoUrl: ethLogo,
     balance: 1.247891,
     balanceZAR: 80423.12,
     address: '0x1234567890abcdef1234567890abcdef12345678',
@@ -74,6 +90,7 @@ const WALLETS = [
     name: 'Tether Wallet',
     symbol: 'USDT',
     icon: '₮',
+    logoUrl: usdtLogo,
     balance: 2500.00,
     balanceZAR: 46250.00,
     address: '0xabcdef1234567890abcdef1234567890abcdef12',
@@ -124,12 +141,13 @@ export default function ReceivePage() {
   const realWallets = walletsData?.wallets ? 
     walletsData.wallets.map(wallet => {
       const cryptoData = cryptoMetadata?.cryptocurrencies?.[wallet.coin];
+      const logoUrl = WALLET_LOGOS[wallet.coin] || cryptoData?.logoUrl;
       return {
         id: `${wallet.coin.toLowerCase()}-wallet`,
         name: `${wallet.coin} Wallet`,
         symbol: wallet.coin,
         icon: cryptoData?.icon || wallet.coin[0],
-        logoUrl: cryptoData?.logoUrl || undefined,
+        logoUrl: logoUrl,
         balance: parseFloat(wallet.balance),
         balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
         address: wallet.address || `${wallet.coin}-WALLET-001`,
@@ -154,7 +172,7 @@ export default function ReceivePage() {
   const [copied, setCopied] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState<string>("");
 
-  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0];
+  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0] || WALLETS[0];
 
   const formatBalance = (amount: number, symbol: string) => {
     if (symbol === 'BTC') return amount.toFixed(7);
@@ -174,6 +192,7 @@ export default function ReceivePage() {
   };
 
   const generatePaymentLink = () => {
+    if (!wallet) return '';
     const amount = parseFloat(requestAmount) || 0;
     if (amount > 0) {
       return `${wallet.symbol.toLowerCase()}:${wallet.address}?amount=${amount}&message=${encodeURIComponent(message)}`;
@@ -184,6 +203,7 @@ export default function ReceivePage() {
   // Generate QR code whenever wallet, amount, or message changes
   useEffect(() => {
     const generateQRCode = async () => {
+      if (!wallet) return;
       try {
         const paymentData = generatePaymentLink();
         const qrDataURL = await QRCode.toDataURL(paymentData, {
@@ -201,7 +221,7 @@ export default function ReceivePage() {
     };
 
     generateQRCode();
-  }, [selectedWallet, requestAmount, message]);
+  }, [selectedWallet, requestAmount, message, wallet]);
 
   return (
     <>
@@ -263,72 +283,87 @@ export default function ReceivePage() {
 
           {/* Receive Form */}
           <div className="flex-1 p-6">
-            <div className="max-w-2xl mx-auto space-y-6">
-              {/* Wallet Selection */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Receive To</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="wallet">
-                      {preSelectedWallet ? `Receive to ${preSelectedWallet.name}` : 'Select Wallet'}
-                    </Label>
-                    {preSelectedWallet ? (
-                      <div className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/50">
-                        <div className={`w-6 h-6 rounded-full ${preSelectedWallet.color} flex items-center justify-center`}>
-                          <span className="text-white text-xs font-bold">{preSelectedWallet.icon}</span>
+            {!wallet ? (
+              <div className="max-w-2xl mx-auto">
+                <Card className="p-6">
+                  <p className="text-center text-muted-foreground">Loading wallet information...</p>
+                </Card>
+              </div>
+            ) : (
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Wallet Selection */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Receive To</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="wallet">
+                        {preSelectedWallet ? `Receive to ${preSelectedWallet.name}` : 'Select Wallet'}
+                      </Label>
+                      {preSelectedWallet ? (
+                        <div className="flex items-center space-x-3 p-3 border rounded-lg bg-muted/50">
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+                            {preSelectedWallet.logoUrl ? (
+                              <img 
+                                src={preSelectedWallet.logoUrl} 
+                                alt={preSelectedWallet.symbol} 
+                                className="w-5 h-5"
+                              />
+                            ) : (
+                              <span className={`${preSelectedWallet.textColor} text-xs font-bold`}>{preSelectedWallet.icon}</span>
+                            )}
+                          </div>
+                          <span className="font-medium">{preSelectedWallet.name}</span>
+                          <span className="text-muted-foreground">
+                            {formatBalance(preSelectedWallet.balance, preSelectedWallet.symbol)} {preSelectedWallet.symbol}
+                          </span>
                         </div>
-                        <span className="font-medium">{preSelectedWallet.name}</span>
-                        <span className="text-muted-foreground">
-                          {formatBalance(preSelectedWallet.balance, preSelectedWallet.symbol)} {preSelectedWallet.symbol}
-                        </span>
-                      </div>
-                    ) : (
-                      <Select value={selectedWallet} onValueChange={setSelectedWallet}>
-                        <SelectTrigger data-testid="select-wallet">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {realWallets.map((wallet) => (
-                            <SelectItem key={wallet.id} value={wallet.id}>
-                              <div className="flex items-center space-x-3">
-                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
-                                  {wallet.logoUrl ? (
-                                    <img 
-                                      src={wallet.logoUrl} 
-                                      alt={wallet.symbol} 
-                                      className="w-4 h-4"
-                                    />
-                                  ) : (
-                                    <span className="text-black text-xs font-bold">{wallet.icon}</span>
-                                  )}
+                      ) : (
+                        <Select value={selectedWallet} onValueChange={setSelectedWallet}>
+                          <SelectTrigger data-testid="select-wallet">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {realWallets.map((w) => (
+                              <SelectItem key={w.id} value={w.id}>
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                                    {w.logoUrl ? (
+                                      <img 
+                                        src={w.logoUrl} 
+                                        alt={w.symbol} 
+                                        className="w-4 h-4"
+                                      />
+                                    ) : (
+                                      <span className="text-black text-xs font-bold">{w.icon}</span>
+                                    )}
+                                  </div>
+                                  <span>{w.name}</span>
+                                  <span className="text-muted-foreground">
+                                    {formatBalance(w.balance, w.symbol)} {w.symbol}
+                                  </span>
                                 </div>
-                                <span>{wallet.name}</span>
-                                <span className="text-muted-foreground">
-                                  {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
 
-                  <div className="bg-muted rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Current Balance</span>
-                      <div className="text-right">
-                        <p className="font-mono font-semibold" data-testid="current-balance">
-                          {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          R{wallet.balanceZAR.toLocaleString()}
-                        </p>
+                    <div className="bg-muted rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Current Balance</span>
+                        <div className="text-right">
+                          <p className="font-mono font-semibold" data-testid="current-balance">
+                            {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            R{wallet.balanceZAR.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
 
               {/* Wallet Address */}
               <Card className="p-6">
@@ -483,6 +518,7 @@ export default function ReceivePage() {
                 Done
               </Button>
             </div>
+            )}
           </div>
         </div>
       </div>
