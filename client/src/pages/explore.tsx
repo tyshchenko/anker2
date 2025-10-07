@@ -25,6 +25,7 @@ import dogeLogo from "@assets/Dogecoin_1757409584282.png";
 import solLogo from "@assets/SOL_1757408614598.png";
 import polygonLogo from "@assets/Polygon_1757409292577.png";
 import cardanoLogo from "@assets/Cardano_1757409292578.png";
+import trxLogo from "@assets/trx.png";
 
 // Market data interface
 interface MarketData {
@@ -71,6 +72,7 @@ const TOKEN_METADATA: Record<string, { name: string; icon: string; logoUrl?: str
   'XRP': { name: 'XRP', icon: 'X', logoUrl: xrpLogo },
   'DOGE': { name: 'Dogecoin', icon: 'D', logoUrl: dogeLogo },
   'ADA': { name: 'Cardano', icon: 'A', logoUrl: cardanoLogo },
+  'TRX': { name: 'Tron', icon: '◬', logoUrl: trxLogo },
   'AVAX': { name: 'Avalanche', icon: 'V' },
   'LINK': { name: 'Chainlink', icon: 'L' },
   'DOT': { name: 'Polkadot', icon: 'P' },

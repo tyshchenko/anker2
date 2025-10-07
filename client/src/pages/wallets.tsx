@@ -23,6 +23,7 @@ import dogeLogo from "@assets/Dogecoin_1757409584282.png";
 import solLogo from "@assets/SOL_1757408614598.png";
 import polygonLogo from "@assets/Polygon_1757409292577.png";
 import cardanoLogo from "@assets/Cardano_1757409292578.png";
+import trxLogo from "@assets/trx.png";
 
 // Hook to fetch cryptocurrency metadata from API
 const useCryptocurrencies = () => {

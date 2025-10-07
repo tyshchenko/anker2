@@ -25,6 +25,13 @@ import { SOFVerificationDialog } from "@/components/exchange/sof-verification-di
 import btcLogo from "@assets/BTC_1757408297384.png";
 import ethLogo from "@assets/ETH_1757408297384.png";
 import usdtLogo from "@assets/tether-usdt-logo_1757408297385.png";
+import xrpLogo from "@assets/XRP_1757408614597.png";
+import bnbLogo from "@assets/BNB_1757408614597.png";
+import dogeLogo from "@assets/Dogecoin_1757409584282.png";
+import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
+import trxLogo from "@assets/trx.png";
 
 // Hook to fetch cryptocurrency metadata from API
 const useCryptocurrencies = () => {

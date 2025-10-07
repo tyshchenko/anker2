@@ -19,6 +19,9 @@ import xrpLogo from "@assets/XRP_1757408614597.png";
 import bnbLogo from "@assets/BNB_1757408614597.png";
 import dogeLogo from "@assets/Dogecoin_1757409584282.png";
 import solLogo from "@assets/SOL_1757408614598.png";
+import polygonLogo from "@assets/Polygon_1757409292577.png";
+import cardanoLogo from "@assets/Cardano_1757409292578.png";
+import trxLogo from "@assets/trx.png";
 
 // Static wallet data for fallback
 const WALLET_LOGOS: { [key: string]: string } = {
@@ -29,6 +32,9 @@ const WALLET_LOGOS: { [key: string]: string } = {
   BNB: bnbLogo,
   DOGE: dogeLogo,
   SOL: solLogo,
+  MATIC: polygonLogo,
+  ADA: cardanoLogo,
+  TRX: trxLogo,
 };
 
 const WALLET_COLORS: { [key: string]: string } = {
