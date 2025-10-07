@@ -89,7 +89,7 @@ const CRYPTO_DISPLAY_INFO: Record<string, { name: string; icon: string; color: s
   'USDT': { name: 'Tether', icon: '₮', color: 'bg-green-500', logoUrl: usdtLogo },
   'BNB': { name: 'BNB', icon: '◉', color: 'bg-yellow-500', logoUrl: bnbLogo },
   'SOL': { name: 'Solana', icon: '◎', color: 'bg-purple-500', logoUrl: solLogo },
-  'TRX': { name: 'Tron', icon: '◎', color: 'bg-red-500' },
+  'TRX': { name: 'Tron', icon: '◎', color: 'bg-red-500', logoUrl: trxLogo },
   'XRP': { name: 'XRP', icon: '◈', color: 'bg-blue-600', logoUrl: xrpLogo },
   'ADA': { name: 'Cardano', icon: '◇', color: 'bg-blue-500', logoUrl: cardanoLogo },
   'AVAX': { name: 'Avalanche', icon: '◆', color: 'bg-red-500' },

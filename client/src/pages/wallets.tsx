@@ -197,6 +197,7 @@ const WALLETS = [
     name: 'Tron Wallet',
     symbol: 'TRX',
     icon: '◎',
+    logoUrl: trxLogo,
     balance: 0,
     fee: 0,
     balanceZAR: 0,
