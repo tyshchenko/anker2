@@ -133,7 +133,9 @@ export default function SendPage() {
 
   const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0];
   const numAmount = parseFloat(amount) || 0;
-  const isValidAmount = numAmount > 0 && numAmount <= wallet.balance;
+  const fee = wallet?.fee || 0.001;
+  const totalWithFee = numAmount + fee;
+  const isValidAmount = numAmount > 0 && totalWithFee <= wallet.balance;
 
   // Mutation for creating send transactions
   const createSendTransactionMutation = useMutation({
@@ -330,6 +332,7 @@ export default function SendPage() {
       userId: user.id,
       fromAsset: wallet.symbol,
       amount: formatBalance(Number(amount), wallet.symbol),
+      fee: formatBalance(fee, wallet.symbol),
       recipientAddress: recipientAddress,
       memo: memo,
       twoFactorCode: twoFactorCode,
@@ -619,7 +622,7 @@ export default function SendPage() {
                         variant="ghost"
                         size="sm"
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs"
-                        onClick={() => setAmount(formatMaxBalance(wallet.balance,wallet.symbol))}
+                        onClick={() => setAmount(formatMaxBalance(wallet.balance - fee, wallet.symbol))}
                         data-testid="button-max"
                       >
                         MAX
@@ -628,7 +631,7 @@ export default function SendPage() {
                     {amount && !isValidAmount && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
-                        {numAmount > wallet.balance ? 'Insufficient balance' : 'Enter a valid amount'}
+                        {totalWithFee > wallet.balance ? `Insufficient balance (including ${fee} ${wallet.symbol} fee)` : 'Enter a valid amount'}
                       </p>
                     )}
                     {amount && isValidAmount && (
@@ -674,13 +677,13 @@ export default function SendPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network Fee</span>
-                    <span className="font-mono">{wallet.fee ? wallet.fee : '0.001'} {wallet.symbol}</span>
+                    <span className="font-mono">{formatBalance(fee, wallet.symbol)} {wallet.symbol}</span>
                   </div>
                   <div className="h-px bg-border" />
                   <div className="flex justify-between font-semibold">
                     <span>Total</span>
                     <span className="font-mono" data-testid="summary-total">
-                      {(numAmount + (wallet.fee || 0.001)).toFixed(wallet.symbol === 'BTC' ? 7 : 4)} {wallet.symbol}
+                      {formatBalance(totalWithFee, wallet.symbol)} {wallet.symbol}
                     </span>
                   </div>
                 </div>
