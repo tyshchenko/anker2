@@ -349,7 +349,7 @@ export function PortfolioPanel() {
           <div>
             <div className="text-sm text-muted-foreground mb-1">Total Portfolio Value</div>
             <h1 className="text-3xl font-bold tracking-tight" data-testid="text-portfolio-value">
-              {isLoading ? "Loading..." : formatPrice(totalValue || totalWalletValue)}
+              {isLoading ? "Loading..." : showBalances ? formatPrice(totalValue || totalWalletValue) : "R****" }
             </h1>
           </div>
           <div className="text-right">
