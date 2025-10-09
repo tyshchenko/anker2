@@ -193,7 +193,7 @@ export function WithdrawModal({ isOpen, onClose }: WithdrawModalProps) {
     }
 
     // Check verification level
-    if (user?.verification_level === 'unverified') {
+    if (user?.verification_level != 'advanced') {
       toast({
         title: "Verification Required",
         description: "You need to complete identity verification before you can withdraw funds. Please verify your account in the profile section.",

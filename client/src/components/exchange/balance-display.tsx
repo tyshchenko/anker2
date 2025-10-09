@@ -43,7 +43,7 @@ export function BalanceDisplay({
           </span>
         </div>
         {/* Verification Status/Button */}
-        {authUser?.verificationStatus === "approved" ? (
+        {authUser?.verification_level === "advanced" ? (
           <div className="flex items-center space-x-1 text-green-600">
             <CheckCircle className="h-3 w-3" />
             <span className="text-xs font-medium">Verified</span>
@@ -98,10 +98,10 @@ export function BalanceDisplay({
 
       <div className="flex items-center space-x-2">
         {/* Verification Status/Button */}
-        {authUser?.verificationStatus === "approved" ? (
+        {authUser?.verification_level === "advanced" ? (
           <div className="flex items-center space-x-2 text-green-600">
             <CheckCircle className="h-4 w-4" />
-            <span className="text-sm font-medium">Verification Complete</span>
+            <span className="text-sm font-medium">Verified</span>
           </div>
         ) : (
           <Button
@@ -113,8 +113,8 @@ export function BalanceDisplay({
           >
             <Shield className="h-4 w-4" />
             <span>
-              {authUser?.verificationStatus === "submitted" ? "Verifying..." : 
-               authUser?.verificationStatus === "rejected" ? "Resubmit" : 
+              {authUser?.verification_level === "submitted" ? "Verifying..." : 
+               authUser?.verification_level === "rejected" ? "Resubmit" : 
                "Verify Account"}
             </span>
           </Button>
