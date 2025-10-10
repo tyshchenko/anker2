@@ -75,12 +75,14 @@ class MySqlStorage:
         self._initialize_market_data()
         self.update_latest_prices()
         threading.Timer(120.0, self.cacheclearer).start()
-#        print(self.get_miner_fee())
-#        print("!!!!!!!!!!!!!!!")
-        print(self.get_all_balances())
-#        print("!!!!!!!!!!!!!!!")
-        print(self.get_deposit_addresses())
-        blockchain.move_from_hot()
+        
+        # Optional VALR API calls - only run if credentials are available
+        try:
+            print(self.get_all_balances())
+            print(self.get_deposit_addresses())
+            blockchain.move_from_hot()
+        except Exception as e:
+            print(f"VALR API calls skipped (no credentials): {e}")
         
 
     def cacheclearer(self):

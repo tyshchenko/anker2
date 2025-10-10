@@ -353,6 +353,9 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     });
 
     lineSeries.setData(portfolioData);
+    
+    // Fit all content in the visible window
+    chart.timeScale().fitContent();
 
     chartInstanceRef.current = chart;
     lineSeriesRef.current = lineSeries;
