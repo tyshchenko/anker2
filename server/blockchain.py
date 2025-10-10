@@ -563,8 +563,80 @@ class Blockchain:
         return []
       
     def get_sol_transactions(self, address):
-
-        return []
+        try:
+            # Get transaction signatures for the address
+            pubkey = Pubkey.from_string(address)
+            
+            # Fetch signatures (limit to 50 most recent)
+            response = self.sol_client.get_signatures_for_address(
+                pubkey,
+                limit=50
+            )
+            
+            transactions = []
+            
+            if response and hasattr(response, 'value') and response.value:
+                for sig_info in response.value:
+                    # Get transaction details
+                    tx_hash = str(sig_info.signature)
+                    
+                    # Fetch full transaction to determine side and amount
+                    try:
+                        tx_response = self.sol_client.get_transaction(
+                            sig_info.signature,
+                            encoding="jsonParsed",
+                            max_supported_transaction_version=0
+                        )
+                        
+                        if tx_response and hasattr(tx_response, 'value') and tx_response.value:
+                            tx_data = tx_response.value
+                            
+                            # Parse transaction to find transfers involving this address
+                            if hasattr(tx_data, 'transaction') and hasattr(tx_data.transaction, 'message'):
+                                message = tx_data.transaction.message
+                                
+                                # Default values
+                                side = "Unknown"
+                                amount = 0
+                                
+                                # Check if this is a simple transfer
+                                if hasattr(message, 'instructions'):
+                                    for instruction in message.instructions:
+                                        # Check for system program transfers (native SOL)
+                                        if hasattr(instruction, 'parsed'):
+                                            parsed = instruction.parsed
+                                            if isinstance(parsed, dict):
+                                                if parsed.get('type') == 'transfer':
+                                                    info = parsed.get('info', {})
+                                                    destination = info.get('destination')
+                                                    source = info.get('source')
+                                                    lamports = info.get('lamports', 0)
+                                                    
+                                                    # Determine if deposit or withdrawal
+                                                    if destination == address:
+                                                        side = "Deposit"
+                                                        amount = lamports
+                                                    elif source == address:
+                                                        side = "Sent to"
+                                                        amount = lamports
+                                
+                                # Add transaction if we identified it
+                                if side != "Unknown" and amount > 0:
+                                    transactions.append({
+                                        'hash': tx_hash,
+                                        'side': side,
+                                        'amount': amount,  # in lamports (1 SOL = 1,000,000,000 lamports)
+                                    })
+                    except Exception as e:
+                        # Skip transactions we can't parse
+                        print(f"Error parsing SOL transaction {tx_hash}: {e}")
+                        continue
+            
+            return transactions
+            
+        except Exception as e:
+            print(f"Error fetching Solana transactions: {e}")
+            return []
             
     def get_btc_balance(self, address):
         url = f"{COIN_SETTINGS['BTC']['rpc_url']}/addrs/{address}/balance"
