@@ -2,14 +2,11 @@ import os
 import time
 import hashlib
 import requests
+import math
 from ecdsa import SigningKey, SECP256k1
 import web3
 from web3.exceptions import InvalidTransaction
-try:
-    from web3.middleware import geth_poa_middleware
-except ImportError:
-    # Newer versions of web3.py
-    from web3.middleware import ExtraDataToPOAMiddleware as geth_poa_middleware
+from web3.middleware import geth_poa_middleware
 from eth_account import Account
 #from solana.rpc.api import Client as SolanaClient
 #from solana.keypair import Keypair
@@ -24,7 +21,8 @@ from bit.transaction import (
     deserialize,
     address_to_scriptpubkey,
 )
-
+from bit.network import NetworkAPI
+import binascii
 
 import json
 import socket
@@ -63,16 +61,25 @@ def script_to_scripthash(script_hex):
     except Exception as e:
         raise Exception(f"Error computing scripthash: {e}")
 
-# Function to convert Bitcoin address to scripthash (P2PKH)
 def address_to_scripthash(address):
     try:
-        # Decode Base58 address to bytes
-        decoded = base58.b58decode_check(address)
-        # Extract pubkeyhash (remove version byte)
-        pubkeyhash = decoded[1:]  # First byte is version, rest is hash
-        # Create P2PKH script: OP_DUP OP_HASH160 <pubkeyhash> OP_EQUALVERIFY OP_CHECKSIG
-        script = bytes.fromhex("76a914") + pubkeyhash + bytes.fromhex("88ac")
-        return script_to_scripthash(script.hex())
+        # Check if address is Bech32 (starts with 'bc1')
+        if address.startswith('bc1'):
+            raise Exception("Only witness version 0 is supported (P2WPKH/P2WSH)")
+        else:
+            # Decode Base58 address (P2PKH or P2SH)
+            decoded = base58.b58decode_check(address)
+            version = decoded[0]
+            hash_bytes = decoded[1:]  # Remove version byte
+            if version == 0:  # P2PKH (starts with '1')
+                # Script: OP_DUP OP_HASH160 <pubkeyhash> OP_EQUALVERIFY OP_CHECKSIG
+                script = bytes.fromhex("76a914") + hash_bytes + bytes.fromhex("88ac")
+            elif version == 5:  # P2SH (starts with '3')
+                # Script: OP_HASH160 <scripthash> OP_EQUAL
+                script = bytes.fromhex("a914") + hash_bytes + bytes.fromhex("87")
+            else:
+                raise Exception("Unsupported address version")
+            return script_to_scripthash(script.hex())
     except Exception as e:
         raise Exception(f"Error converting address to scripthash: {e}")
 
@@ -80,9 +87,6 @@ def address_to_scripthash(address):
 # Basic synchronous JSON-RPC client for ElectrumX
 class ElectrumXClient:
     #electrum.blockstream.info 50001 electrum.cakewallet.com 50001 2ex.digitaleveryware.com 50001
-
-
-
 
     def __init__(self, host, port, ssl=True):
         self.host = host
@@ -154,13 +158,24 @@ class ElectrumXClient:
         return self.send_request("blockchain.scripthash.get_balance", [scripthash])
 
     def get_transaction(self, txid):
-        return self.send_request("blockchain.transaction.get", [txid, True])
+        transaction = self.send_request("blockchain.transaction.get", [txid, False])
+        return deserialize(transaction['result'])
 
+    def list_unspent(self, scripthash):
+        return self.send_request("blockchain.scripthash.listunspent", [scripthash])
+
+    def broadcast(self, raw_hex):
+        return self.send_request("blockchain.transaction.broadcast", [raw_hex])
+
+    def get_fee(self):
+        return self.send_request("blockchain.relayfee", [])
+
+    def get_fee_num(self,blocks):
+        return self.send_request("blockchain.estimatefee", [blocks])
 
 class Blockchain:
     def __init__(self):
         self.coins = COIN_SETTINGS
-        self.hotmove = ['BTC','ETH','BNB','TRX']
         self.eth_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['ETH']['rpc_url']))
         self.bnb_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['BNB']['rpc_url']))
         self.bnb_client.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -169,11 +184,20 @@ class Blockchain:
         provider.sess.trust_env = False
         self.trx_client = Tron(provider)
 
+
+    def get_btc_fee(self):
+        url="https://mempool.space/api/v1/fees/recommended"
+        resutl = requests.get(url)
+        print(resutl.text)
+        return resutl.json()
+
+
+      
     def get_balance(self, wallet: FullWallet):
         coin = wallet.coin
         if coin in self.coins:
           if coin == "BTC":
-            balance = self.get_btc_balance(wallet.address)
+            balance = self.get_elbtc_balance(wallet.address)
             return str(balance)
           elif coin == "ETH":
             balance = self.get_eth_balance(wallet.address)
@@ -211,45 +235,39 @@ class Blockchain:
 
           return details
         
-    def move_from_hot(self):
-#        VALRDEPOSIT
-        newcache = self.hotmove.copy()
-        for coin in newcache:
+    def move_from_hot(self,coin):
           try:
             if coin == "BTC":
-              balance = self.get_btc_balance(COIN_SETTINGS[coin]['central_wallet'])
+              balance = self.get_elbtc_balance(COIN_SETTINGS[coin]['central_wallet'])
               print(str(balance))
-              self.hotmove.remove(coin)
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_btc_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
             elif coin == "ETH":
               balance = self.get_eth_balance(COIN_SETTINGS[coin]['central_wallet'])
               print(str(balance))
-              self.hotmove.remove(coin)
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_eth_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
             elif coin == "BNB":
               balance = self.get_bnb_balance(COIN_SETTINGS[coin]['central_wallet'])
               print(str(balance))
-              self.hotmove.remove(coin)
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_bnb_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
             elif coin == "TRX":
               balance = self.get_trx_balance(COIN_SETTINGS[coin]['central_wallet'])
               print(str(balance))
-              self.hotmove.remove(coin)
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_trx_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
           except Exception as e: print(e)
-        print(self.hotmove)
+
 
     def get_transactions(self, wallet: FullWallet):
         coin = wallet.coin
         print(coin)
         if coin in self.coins:
           if coin == "BTC":
-            transactions = self.get_btc_transactions(wallet.address)
-            print(transactions)
+            #print("=========== BTC transactions")
+            transactions = self.get_elbtc_transactions(wallet.address)
+            #print(transactions)
             return transactions
           elif coin == "ETH":
             transactions = self.get_eth_transactions(wallet.address)
@@ -271,16 +289,12 @@ class Blockchain:
           if coin in self.coins:
             if coin == "BTC":
               self.send_btc_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-              self.hotmove.append["BTC"]
             elif coin == "ETH":
               self.send_eth_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-              self.hotmove.append["ETH"]
             elif coin == "BNB":
               self.send_bnb_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-              self.hotmove.append["BNB"]
             elif coin == "TRX":
               self.send_trx_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-              self.hotmove.append["TRX"]
             else:
               return []
           else:
@@ -408,40 +422,43 @@ class Blockchain:
         try:
             # Convert address to scripthash
             scripthash = address_to_scripthash(address)
+            scriptpubkeyaddress = address_to_scriptpubkey(address)
+            #print(scripthash)
             
             # Connect to ElectrumX server
-            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum_host'], COIN_SETTINGS['BTC']['electrum_port'], ssl=True)
+            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum']['host'], COIN_SETTINGS['BTC']['electrum']['port'], ssl=COIN_SETTINGS['BTC']['electrum']['ssl'])
             client.connect()
             
             # Get transaction history
             history_response = client.get_history(scripthash)
+            #print(history_response)
             
             transactions = []
             if history_response and 'result' in history_response:
                 for tx in history_response['result']:
                     # Get full transaction details
                     tx_response = client.get_transaction(tx['tx_hash'])
-                    if tx_response and 'result' in tx_response:
-                        tx_data = tx_response['result']
-                        
+                    #print(tx['tx_hash'])
+
+                    if tx_response:
                         # Determine if deposit or withdrawal
-                        side = 'Deposit'
+                        side = 'Sent to'
                         amount = 0
-                        
-                        # Check outputs for our address
-                        for vout in tx_data.get('vout', []):
-                            if 'scriptPubKey' in vout:
-                                addresses = vout['scriptPubKey'].get('addresses', [])
-                                if address in addresses:
-                                    side = 'Deposit'
-                                    amount = int(vout['value'] * 100000000)  # Convert BTC to satoshis
-                                    break
-                        
-                        transactions.append({
-                            'hash': tx['tx_hash'],
-                            'side': side,
-                            'amount': amount,
-                        })
+                        #print(tx_response.TxOut)
+
+                        for vout in tx_response.TxOut:
+                            addresses = vout.script_pubkey
+                            if scriptpubkeyaddress in addresses:
+                                side = 'Deposit'
+                                amount = int.from_bytes(vout.amount, byteorder='little')
+                                #amount = int(vout.amount * 100000000)  # Convert BTC to satoshis
+                                break
+                        if side:
+                          transactions.append({
+                              'hash': tx['tx_hash'],
+                              'side': side,
+                              'amount': amount,
+                          })
             
             client.close()
             return transactions
@@ -465,10 +482,10 @@ class Blockchain:
             return []
 
     def get_eth_transactions(self, address):
-        url = f"https://api.etherscan.io/v2/api?chainid=56&module=account&action=txlist&address={address}&sort=desc&apikey={ETHAPIKEY}"
+        url = f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address={address}&sort=desc&apikey={ETHAPIKEY}"
         response = requests.get(url)
         
-        print(response.text)
+#        print(response.text)
         
         if response.status_code == 200:
             data = response.json()
@@ -509,7 +526,7 @@ class Blockchain:
 #        headers = {"TRON-PRO-API-KEY": TRONAPIKEY}
         headers = {"Content-Type": "application/json"}
         response = requests.get(url, headers=headers)
-        print(response.text)
+#        print(response.text)
         if response.status_code == 200:
             data = response.json()
             transactions = []
@@ -549,11 +566,15 @@ class Blockchain:
             scripthash = address_to_scripthash(address)
             
             # Connect to ElectrumX server
-            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum_host'], COIN_SETTINGS['BTC']['electrum_port'], ssl=True)
+            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum']['host'], COIN_SETTINGS['BTC']['electrum']['port'], ssl=COIN_SETTINGS['BTC']['electrum']['ssl'])
             client.connect()
             
             # Get balance
             balance_response = client.get_balance(scripthash)
+            
+#            print(client.get_fee())
+#            print(client.get_fee_num(1))
+#            print(client.get_fee_num(3))
             client.close()
             
             if balance_response and 'result' in balance_response:
@@ -606,12 +627,32 @@ class Blockchain:
         # For BTC sending, it's more complex. Recommend using 'bit' library for simplicity.
         # pip install bit
         key = Key.from_hex(priv_key_hex)
-        balance = self.get_btc_balance(address)
+        balance = self.get_elbtc_balance(address)
         if balance > COIN_SETTINGS['BTC']['min_send_amount']:
-            to_send_amnt = balance - COIN_SETTINGS['BTC']['min_send_amount']
-            # Estimate fee, bit handles it
-            key.send([(central, to_send_amnt / 10**8, 'btc')])  # bit handles fee automatically
-            print("BTC sent to central")
+            client = ElectrumXClient(COIN_SETTINGS['BTC']['electrum']['host'], COIN_SETTINGS['BTC']['electrum']['port'], ssl=COIN_SETTINGS['BTC']['electrum']['ssl'])
+            client.connect()
+        
+            fee_rate = int(math.ceil((float(client.get_fee_num(1)['result'])/1000)*10**8))
+            print(fee_rate)
+            signed_raw_tx = key.create_transaction(
+                outputs=[],
+                fee=fee_rate,
+                leftover=central
+            )
+            
+            print(signed_raw_tx)
+            client.broadcast(signed_raw_tx)
+            client.close()
+
+            txid = NetworkAPI.broadcast_tx(signed_raw_tx)
+        
+#            to_send_amnt = balance - COIN_SETTINGS['BTC']['min_send_amount']
+#            # Estimate fee, bit handles it
+#            print(COIN_SETTINGS['BTC']['central_wallet'])
+#            print("key.send " + str(to_send_amnt) +"  "+ str(COIN_SETTINGS['BTC']['min_send_amount']) + '  ' + str(balance))
+#            print(key.send([(central, to_send_amnt / 10**8, 'btc')], leftover=COIN_SETTINGS['BTC']['central_wallet']))
+#            print("BTC sent to central")
+
 
     def send_eth_all(self, address, priv_key_bytes, central):
         balance = self.get_eth_balance(address)
@@ -626,14 +667,31 @@ class Blockchain:
                     'nonce': nonce,
                     'to': central,
                     'value': value,
-                    'gas': gas,
                     'gasPrice': gas_price,
                     'chainId': self.eth_client.eth.chain_id
                 }
-                signed_tx = acct.sign_transaction(tx)
-                tx_hash = self.eth_client.eth.send_raw_transaction(signed_tx.raw_transaction)
-                print(f"ETH sent: {tx_hash.hex()}")
-
+                estimated_gas = self.eth_client.eth.estimate_gas(tx)
+                gas = int(estimated_gas)
+                max_fee = gas * gas_price
+                value = balance - max_fee
+                if value > 0 and gas < 150000:
+                  tx = {
+                        'nonce': nonce,
+                        'to': central,
+                        'value': value,
+                        'gas': gas,
+                        'gasPrice': gas_price,
+                        'chainId': self.eth_client.eth.chain_id
+                    }
+                  print("estimated_gas!!!!!!!!!!")
+                  print(estimated_gas)
+                  signed_tx = acct.sign_transaction(tx)
+                  tx_hash = self.eth_client.eth.send_raw_transaction(signed_tx.raw_transaction)
+                  print(f"ETH sent: {tx_hash.hex()}")
+                  return value
+        
+        return 0
+      
     def send_bnb_all(self, address, priv_key_bytes, central):
         balance = self.get_bnb_balance(address)
         if balance > COIN_SETTINGS['BNB']['min_send_amount']:
@@ -647,13 +705,31 @@ class Blockchain:
                     'nonce': nonce,
                     'to': central,
                     'value': value,
-                    'gas': gas,
                     'gasPrice': gas_price,
                     'chainId': self.bnb_client.eth.chain_id
                 }
-                signed_tx = acct.sign_transaction(tx)
-                tx_hash = self.bnb_client.eth.send_raw_transaction(signed_tx.raw_transaction)
-                print(f"BNB sent: {tx_hash.hex()}")
+                estimated_gas = self.bnb_client.eth.estimate_gas(tx)
+                gas = int(estimated_gas)
+                max_fee = gas * gas_price
+                value = balance - max_fee
+                if value > 0 and gas < 150000:
+                  tx = {
+                        'nonce': nonce,
+                        'to': central,
+                        'value': value,
+                        'gas': gas,
+                        'gasPrice': gas_price,
+                        'chainId': self.bnb_client.eth.chain_id
+                    }
+                  print("BNBestimated_gas!!!!!!!!!!")
+                  print(estimated_gas)
+                  signed_tx = acct.sign_transaction(tx)
+                  tx_hash = self.bnb_client.eth.send_raw_transaction(signed_tx.raw_transaction)
+                  print(f"BNB sent: {tx_hash.hex()}")
+                  
+                  return value
+        
+        return 0
 
     #def send_sol_all(self, address, priv_key_bytes, central):
         #balance = self.get_sol_balance(address)

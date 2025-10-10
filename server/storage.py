@@ -75,14 +75,12 @@ class MySqlStorage:
         self._initialize_market_data()
         self.update_latest_prices()
         threading.Timer(120.0, self.cacheclearer).start()
-        
-        # Optional VALR API calls - only run if credentials are available
-        try:
-            print(self.get_all_balances())
-            print(self.get_deposit_addresses())
-            blockchain.move_from_hot()
-        except Exception as e:
-            print(f"VALR API calls skipped (no credentials): {e}")
+#        print(self.get_miner_fee())
+#        print("!!!!!!!!!!!!!!!")
+#        print(self.get_all_balances())
+#        print("!!!!!!!!!!!!!!!")
+#        print(self.get_deposit_addresses())
+#        blockchain.move_from_hot()
         
 
     def cacheclearer(self):
@@ -319,6 +317,9 @@ class MySqlStorage:
             sql = "update users set reference='%s' where id=%s" % (reference,str(users[0][0]))
             db = DataBase(DB_NAME)
             lastrowid = db.execute(sql, return_id=True)
+          sof = False
+          if users[0][20]:
+            sof = True
           user = User(
               id    = str(users[0][0]),
               email = users[0][1],
@@ -333,7 +334,7 @@ class MySqlStorage:
               created_at = users[0][10],
               updated_at = users[0][11],
               reference = reference,
-              sof = users[0][20],
+              sof = sof,
               phone = users[0][22],
               two_factor_enabled = users[0][13],
               language = users[0][23],
@@ -433,8 +434,15 @@ class MySqlStorage:
     def get_all_balances(self):
         try:
             client = self.get_valr()
+
             allbalances = client.get_nonzero_balances()
-            return allbalances
+            onvalr = {}
+            for coin in allbalances:
+              if coin['account']['label'] == 'AnkerVik':
+                for cnn in coin['balances']:
+                  onvalr[cnn['currency']] = float(cnn['total'])
+                  
+            return onvalr
         except Exception as e:
             print(f"Warning: Could not fetch balances from VALR API: {e}")
             return []  # Return empty list if API credentials not available
@@ -450,31 +458,33 @@ class MySqlStorage:
         return addresses
 
     def move_pending_zar(self):
-        client = self.get_valr()
+        #onvalr = self.get_all_balances()
         #allbalances = client.get_all_balances()
         sql = "select sum(pending + 0) from wallets where coin='ZAR'"
         db = DataBase(DB_NAME)
         pending_zar = db.query(sql)
         zaramount = float(pending_zar[0][0])
+        print("ZAR Pending " + str(pending_zar[0][0]))
         if zaramount > 0:
+          client = self.get_valr()
           client.post_internal_transfer_subaccounts('0',SUBACCOUNT,'ZAR',str(int(float(zaramount))))
           sql = "update wallets set balance=(balance+0)+(pending+0), pending='0' where coin='ZAR' and pending != '0'"
+          print(sql)
           success, account_id = db.execute(sql, return_id=True)
 
-    def move_pending_crypto(self):
-        client = self.get_valr()
-        #allbalances = client.get_all_balances()
-        sql = "select sum(pending + 0), coin from wallets group by coin"
+    def move_pending_crypto(self, coin):
+        allonvalr = self.get_all_balances()
+        onvalr = allonvalr[coin]
+        sql = "select sum(pending + 0), sum(balance + 0) from wallets where coin='%s' and id>13" % coin
         db = DataBase(DB_NAME)
-        pendings = db.query(sql)
-        for pendingcrypto in pendings:
-          amount = float(pendingcrypto[0])
-          coin = pendingcrypto[1]
-          if amount > 0 and coin !='ZAR':
-            
-            
-            sql = "update wallets set balance=(balance+0)+(pending+0), pending='0' where coin='%s' and pending != '0'" % coin
-            print(sql)
+        walbals = db.query(sql)
+        allonwallets = walbals[0]
+        pending = float(allonwallets[0])
+        balance = float(allonwallets[1])
+        print("%s PENDING= %s balances= %s sumAmnt= %s onValr= %s " % (coin, str(pending),str(balance),str(pending+balance),str(onvalr)))
+        if pending > 0 and balance + pending < onvalr:
+            sql = "update wallets set balance=(balance+0)+(pending+0), pending='0' where coin='%s' and pending <> '0'" % coin
+            print("UPDATE PENDING \n" + sql)
             success, account_id = db.execute(sql, return_id=True)
 
 
@@ -576,13 +586,8 @@ class MySqlStorage:
 
     def update_wallet_balance(self, wallet: FullWallet, walletbalance, hasheslist):
         txhashes = hasheslist
-        prevbalance = float(wallet.balance)
-        transactions = []
-        if float(walletbalance) == 0 and wallet.coin == 'BTC':
-          transactions = []
-        else:
-          transactions = blockchain.get_transactions(wallet)
-#        print(transactions)
+        transactions = blockchain.get_transactions(wallet)
+        #print(transactions)
         for tx in transactions:
           if tx['hash'] not in txhashes:
             txhashes.append(tx['hash'])
@@ -590,8 +595,11 @@ class MySqlStorage:
             if tx['side'] == 'Deposit':
               minerfees = self.get_miner_fee()
               minerfee = minerfees[wallet.coin]
-              tocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals']+prevbalance-minerfee)
-              sql = "UPDATE wallets set balance='%s', hotwalet='%s'  where privatekey='%s' and email='%s' and coin='%s'" % (tocoinamount,walletbalance,wallet.privatekey,wallet.email,wallet.coin)
+              addamount = int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals']-minerfee
+              if addamount < 0:
+                addamount = 0
+              tocoinamount = COIN_FORMATS[wallet.coin]['format'] % (addamount)
+              sql = "UPDATE wallets set pending=((pending+0)+%s), hotwalet='%s'  where privatekey='%s' and email='%s' and coin='%s'" % (tocoinamount,walletbalance,wallet.privatekey,wallet.email,wallet.coin)
               success, account_id = db.execute(sql, return_id=True)
             
               deposittocoinamount = COIN_FORMATS[wallet.coin]['format'] % (int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals'])
@@ -612,7 +620,8 @@ class MySqlStorage:
               success, account_id = db.execute(sql, return_id=True)
               sql = "UPDATE wallets set hotwalet='%s'  where privatekey='%s' and email='%s' and coin='%s'" % (walletbalance,wallet.privatekey,wallet.email,wallet.coin)
               success, account_id = db.execute(sql, return_id=True)
-
+#          else:
+#            print("hash exist " + tx['hash'])
 
         return txhashes
 

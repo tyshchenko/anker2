@@ -15,6 +15,7 @@ class User(BaseModel):
     timezone: Optional[str] = 'Africa/Johannesburg'
     verification_level: Optional[str] = 'basic'
     phone: Optional[str] = None
+    sof: bool = False
     password_hash: Optional[str] = None
     google_id: Optional[str] = None
     first_name: Optional[str] = None
@@ -115,6 +116,8 @@ class SendTransaction(BaseModel):
     userId: str = Field(..., alias="user_id")
     fromAsset: str = Field(..., alias="from_asset")
     amount: str
+    twoFactorCode: Optional[str] = None
+    fee: str
     recipientAddress: str = Field(..., alias="recipient_address")
     memo: Optional[str] = None
     
@@ -124,6 +127,7 @@ class WithdrawTransaction(BaseModel):
     bankAccountId: str
     type: str
     amount: str
+    twoFactorCode: Optional[str] = None
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

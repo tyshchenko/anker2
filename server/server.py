@@ -65,9 +65,13 @@ class Application(tornado.web.Application):
         print("%s start starting" % datetime.now())
         threading.Timer(60.0, self.wathcher).start()
         threading.Timer(1800.0, self.hourlywathcher).start()
-        threading.Timer(201.0, self.coin_wathcher).start()
-        threading.Timer(180.0, self.zar_wathcher).start()
-        threading.Timer(10.0, self.eth_wathcher).start()
+#        threading.Timer(1.0, self.coin_wathcher).start()
+        threading.Timer(1.0, self.zar_wathcher).start()
+#        threading.Timer(10.0, self.eth_wathcher).start()
+        threading.Timer(200.0, self.deposit_wathcher, args=('BTC',77,)).start()
+        threading.Timer(70.0, self.deposit_wathcher, args=('ETH',77,)).start()
+        threading.Timer(90.0, self.deposit_wathcher, args=('BNB',77,)).start()
+        threading.Timer(140.0, self.deposit_wathcher, args=('TRX',77,)).start()
 
         blockchain.generate_main_wallet()
     
@@ -150,6 +154,38 @@ class Application(tornado.web.Application):
         except Exception as e: print(e)
         threading.Timer(1800.0, self.hourlywathcher).start()
 
+    def deposit_wathcher(self, coin, timer, step=0):
+        step +=1
+        try:
+          print("\n%s DEPOSITS: %s" % (datetime.now(), coin))
+          allwallets = storage.get_all_wallets([coin])
+          txhashes = storage.get_tx_hashes()
+          for onewallet in allwallets:
+            walletbalance = blockchain.get_balance(onewallet)
+            if int(float(walletbalance)) > COIN_SETTINGS[onewallet.coin]['min_send_amount']:
+              print("%i FORWARDING: %s %s" % (int(float(walletbalance)), coin, onewallet.address)) 
+              blockchain.forward_to_hot(onewallet)
+              
+            if float(walletbalance) != float(onewallet.hotwalet) or step == 7:
+              print("%s BALANCE changed %s    %s = %s" % (coin, onewallet.address, str(walletbalance), str(onewallet.hotwalet) ))
+              txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
+            if coin == 'ETH' or coin == 'BNB':
+              time.sleep(30)
+
+        except Exception as e: print(e)
+        try:
+          print("MOVE PENDING " + coin)
+          storage.move_pending_crypto(coin)
+        except Exception as e: print(e)        
+        try:
+          print("MOVE FROM HOT " + coin)
+          blockchain.move_from_hot(coin)
+        except Exception as e: print(e)
+        if step > 7:
+          step=0
+        threading.Timer(timer, self.deposit_wathcher, args=(coin,timer,step,)).start()
+
+
     def coin_wathcher(self):
         try:
           print("\n%s check coins\n" % datetime.now())
@@ -202,7 +238,7 @@ class Application(tornado.web.Application):
               
             if walletbalance != onewallet.hotwalet:
               print("BALANCE changed")
-            txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
+              txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
         except Exception as e: print(e)
               
 
@@ -802,8 +838,8 @@ class WalletsHandler(BaseHandler):
                         "coin": wallet[2],
                         "fee": coinminer_fee,
                         "address": wallet[3],
-                        "balance": storage.tofixedbalance(wallet[4]),
-                        "pending": storage.tofixedbalance(wallet[8]),
+                        "balance": storage.tofixedbalance(wallet[2],wallet[4]),
+                        "pending": storage.tofixedbalance(wallet[2],wallet[8]),
                         "is_active": wallet[5],
                         "created": wallet[6].isoformat() if wallet[6] else None,
                         "updated": wallet[7].isoformat() if wallet[7] else None
@@ -1260,7 +1296,7 @@ class ObjectUploadHandler(BaseHandler):
                 return
             
             # Create user-specific upload directory
-            user_folder = user.email.replace('@', '_').replace('.', '_')  # Safe folder name
+            user_folder = user.email.replace('@', '-').replace('.', '_')  # Safe folder name
             upload_dir = Path(f"uploads/{user_folder}")
             upload_dir.mkdir(parents=True, exist_ok=True)
             
@@ -2084,7 +2120,7 @@ class FileDownloadHandler(BaseHandler):
                 return
             
             # Check if user can only access their own folder
-            user_folder_name = user.email.replace('@', '_').replace('.', '_')
+            user_folder_name = user.email.replace('@', '-').replace('.', '_')
             if user_folder != user_folder_name:
                 self.set_status(403)
                 self.write({"error": "Access denied - you can only access your own files"})
