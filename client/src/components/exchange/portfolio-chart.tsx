@@ -53,19 +53,18 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     DOT: 120,
   };
 
-  // Always fetch 1M (1 month) of market data to cover transaction history
-  // The timeframe selector will be used for visual zoom, not data fetching
+  // Fetch market data with selected timeframe granularity
   const marketDataQueries = cryptoSymbols.map(crypto => 
     useQuery({
-      queryKey: ['market-data', crypto, 'ZAR', '1M'], // Always fetch 1 month
+      queryKey: ['market-data', crypto, 'ZAR', selectedTimeframe],
       queryFn: async () => {
         try {
-          const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=1M&type=OHLCV`);
+          const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=${selectedTimeframe}&type=OHLCV`);
           if (!res.ok) throw new Error('API Error');
           const apiData = await res.json();
           return { crypto, data: convertApiDataToChartFormat(apiData) };
         } catch (error) {
-          return { crypto, data: generateFallbackData(crypto, '1M') };
+          return { crypto, data: generateFallbackData(crypto, selectedTimeframe) };
         }
       },
       retry: 1,
@@ -274,23 +273,9 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
       new Map(detailedTimeline.map(item => [item.time, item])).values()
     ).sort((a, b) => a.time - b.time);
 
-    console.log('Final Portfolio Data (all transactions):', uniqueTimeline);
+    console.log('Final Portfolio Data:', uniqueTimeline);
     
-    // Apply timeframe filter for visual zoom (display only)
-    if (selectedTimeframe !== 'ALL') {
-      const now = Math.floor(Date.now() / 1000);
-      const timeframeSeconds: Record<string, number> = {
-        '1H': 3600,
-        '1D': 86400,
-        '1W': 604800,
-        '1M': 2592000,
-      };
-      const cutoff = now - (timeframeSeconds[selectedTimeframe] || 2592000);
-      const visibleData = uniqueTimeline.filter(point => point.time >= cutoff);
-      console.log(`Final Portfolio Data (${selectedTimeframe} view):`, visibleData);
-      return visibleData.length > 0 ? visibleData : uniqueTimeline; // Fallback to all if empty
-    }
-
+    // Show ALL data - timeframe only controls candle granularity, not data range
     return uniqueTimeline;
   }, [transactions, marketDataQueries, selectedTimeframe, wallets, cryptoSymbols]);
 
