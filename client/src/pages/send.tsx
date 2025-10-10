@@ -209,41 +209,163 @@ export default function SendPage() {
     // Note: USDT also runs on other chains like Tron, but Ethereum is most common
     return isValidEthereumAddress(address);
   };
+
+  const isValidSolanaAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Solana addresses are base58 encoded and typically 32-44 characters
+    // They contain characters from base58 alphabet: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  };
+
+  const isValidBNBAddress = (address: string): boolean => {
+    // BNB (Binance Smart Chain) uses the same address format as Ethereum
+    return isValidEthereumAddress(address);
+  };
+
+  const isValidTronAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Tron addresses start with 'T' and are 34 characters long (base58 encoded)
+    return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
+  };
+
+  const isValidXRPAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // XRP (Ripple) addresses typically start with 'r' and are 25-35 characters (base58)
+    return /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/.test(address);
+  };
+
+  const isValidDogecoinAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Dogecoin addresses start with 'D' and are similar to Bitcoin (base58)
+    return /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$/.test(address);
+  };
+
+  const isValidPolygonAddress = (address: string): boolean => {
+    // Polygon (MATIC) uses the same address format as Ethereum
+    return isValidEthereumAddress(address);
+  };
+
+  const isValidCardanoAddress = (address: string): boolean => {
+    if (!address) return false;
+    
+    // Remove whitespace
+    address = address.trim();
+    
+    // Cardano addresses start with 'addr1' (mainnet) and are bech32 encoded
+    // They are typically 58-103 characters long
+    return /^addr1[a-z0-9]{54,99}$/.test(address) || /^DdzFF[1-9A-HJ-NP-Za-km-z]{93}$/.test(address);
+  };
   
   // Address validation based on wallet type
   const getAddressValidation = () => {
     if (!recipientAddress) return { isValid: false, errorMessage: '' };
     
-    if (wallet.symbol === 'BTC') {
-      const isValid = isValidBitcoinAddress(recipientAddress);
-      return {
-        isValid,
-        errorMessage: isValid ? '' : 'Please enter a valid Bitcoin address (starts with 1, 3, or bc1)'
-      };
+    switch (wallet.symbol) {
+      case 'BTC': {
+        const isValid = isValidBitcoinAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Bitcoin address (starts with 1, 3, or bc1)'
+        };
+      }
+      
+      case 'ETH': {
+        const isValid = isValidEthereumAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Ethereum address (starts with 0x followed by 40 characters)'
+        };
+      }
+      
+      case 'USDT': {
+        const isValid = isValidUSDTAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid USDT address (Ethereum format: starts with 0x followed by 40 characters)'
+        };
+      }
+      
+      case 'SOL': {
+        const isValid = isValidSolanaAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Solana address (32-44 base58 characters)'
+        };
+      }
+      
+      case 'BNB': {
+        const isValid = isValidBNBAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid BNB address (starts with 0x followed by 40 characters)'
+        };
+      }
+      
+      case 'TRX': {
+        const isValid = isValidTronAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Tron address (starts with T, 34 characters)'
+        };
+      }
+      
+      case 'XRP': {
+        const isValid = isValidXRPAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid XRP address (starts with r, 25-35 characters)'
+        };
+      }
+      
+      case 'DOGE': {
+        const isValid = isValidDogecoinAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Dogecoin address (starts with D)'
+        };
+      }
+      
+      case 'MATIC': {
+        const isValid = isValidPolygonAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Polygon address (starts with 0x followed by 40 characters)'
+        };
+      }
+      
+      case 'ADA': {
+        const isValid = isValidCardanoAddress(recipientAddress);
+        return {
+          isValid,
+          errorMessage: isValid ? '' : 'Please enter a valid Cardano address (starts with addr1)'
+        };
+      }
+      
+      default: {
+        // For other cryptocurrencies, use basic length validation
+        const isValid = recipientAddress.length > 10;
+        return {
+          isValid,
+          errorMessage: isValid ? '' : `Please enter a valid ${wallet.symbol} wallet address`
+        };
+      }
     }
-    
-    if (wallet.symbol === 'ETH') {
-      const isValid = isValidEthereumAddress(recipientAddress);
-      return {
-        isValid,
-        errorMessage: isValid ? '' : 'Please enter a valid Ethereum address (starts with 0x followed by 40 characters)'
-      };
-    }
-    
-    if (wallet.symbol === 'USDT') {
-      const isValid = isValidUSDTAddress(recipientAddress);
-      return {
-        isValid,
-        errorMessage: isValid ? '' : 'Please enter a valid USDT address (Ethereum format: starts with 0x followed by 40 characters)'
-      };
-    }
-    
-    // For other cryptocurrencies, use basic length validation
-    const isValid = recipientAddress.length > 10;
-    return {
-      isValid,
-      errorMessage: isValid ? '' : `Please enter a valid ${wallet.symbol} wallet address`
-    };
   };
   
   const addressValidation = getAddressValidation();
