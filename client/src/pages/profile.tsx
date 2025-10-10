@@ -45,8 +45,8 @@ import { VerificationModal } from "@/components/verification/verification-modal"
 import * as QRCode from "qrcode";
 
 interface UserProfile {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
   country: string;
@@ -86,8 +86,8 @@ export default function ProfilePage() {
   
   // Create profile state from authenticated user data, with defaults for missing fields
   const [profile, setProfile] = useState<UserProfile>({
-    firstName: user?.first_name || '',
-    lastName: user?.last_name || '',
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     country: user?.country || '',
@@ -123,8 +123,8 @@ export default function ProfilePage() {
     if (user) {
       setProfile(prev => ({
         ...prev,
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         email: user.email || '',
         phone: user.phone || '',
         country: user.country || '',
@@ -427,8 +427,8 @@ export default function ProfilePage() {
 
   const handleSavePersonalInfo = () => {
     const personalData = {
-      firstName: profile.firstName,
-      lastName: profile.lastName,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
       phone: profile.phone,
       country: profile.country
     };
@@ -572,7 +572,7 @@ export default function ProfilePage() {
                     <User className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{profile.firstName} {profile.lastName}</p>
+                    <p className="font-medium">{profile.first_name} {profile.last_name}</p>
                     <p className="text-sm text-muted-foreground">{profile.email}</p>
                   </div>
                 </div>
@@ -589,21 +589,21 @@ export default function ProfilePage() {
                     <Card className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="firstName">First Name</Label>
+                          <Label htmlFor="first_name">First Name</Label>
                           <Input
-                            id="firstName"
-                            value={profile.firstName}
-                            onChange={(e) => handleProfileUpdate('firstName', e.target.value)}
-                            data-testid="input-firstName"
+                            id="first_name"
+                            value={profile.first_name}
+                            onChange={(e) => handleProfileUpdate('first_name', e.target.value)}
+                            data-testid="input-first_name"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="lastName">Last Name</Label>
+                          <Label htmlFor="last_name">Last Name</Label>
                           <Input
-                            id="lastName"
-                            value={profile.lastName}
-                            onChange={(e) => handleProfileUpdate('lastName', e.target.value)}
-                            data-testid="input-lastName"
+                            id="last_name"
+                            value={profile.last_name}
+                            onChange={(e) => handleProfileUpdate('last_name', e.target.value)}
+                            data-testid="input-last_name"
                           />
                         </div>
                         <div>
