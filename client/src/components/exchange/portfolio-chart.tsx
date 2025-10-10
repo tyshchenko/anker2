@@ -53,17 +53,19 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
     DOT: 120,
   };
 
+  // Always fetch 1M (1 month) of market data to cover transaction history
+  // The timeframe selector will be used for visual zoom, not data fetching
   const marketDataQueries = cryptoSymbols.map(crypto => 
     useQuery({
-      queryKey: ['market-data', crypto, 'ZAR', selectedTimeframe],
+      queryKey: ['market-data', crypto, 'ZAR', '1M'], // Always fetch 1 month
       queryFn: async () => {
         try {
-          const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=${selectedTimeframe}&type=OHLCV`);
+          const res = await fetch(`/api/market/${crypto}/ZAR?timeframe=1M&type=OHLCV`);
           if (!res.ok) throw new Error('API Error');
           const apiData = await res.json();
           return { crypto, data: convertApiDataToChartFormat(apiData) };
         } catch (error) {
-          return { crypto, data: generateFallbackData(crypto, selectedTimeframe) };
+          return { crypto, data: generateFallbackData(crypto, '1M') };
         }
       },
       retry: 1,
@@ -272,7 +274,9 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
       new Map(detailedTimeline.map(item => [item.time, item])).values()
     ).sort((a, b) => a.time - b.time);
 
-    // Filter by timeframe
+    console.log('Final Portfolio Data (all transactions):', uniqueTimeline);
+    
+    // Apply timeframe filter for visual zoom (display only)
     if (selectedTimeframe !== 'ALL') {
       const now = Math.floor(Date.now() / 1000);
       const timeframeSeconds: Record<string, number> = {
@@ -282,12 +286,11 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
         '1M': 2592000,
       };
       const cutoff = now - (timeframeSeconds[selectedTimeframe] || 2592000);
-      const filtered = uniqueTimeline.filter(point => point.time >= cutoff);
-      console.log('Final Portfolio Data (filtered):', filtered);
-      return filtered;
+      const visibleData = uniqueTimeline.filter(point => point.time >= cutoff);
+      console.log(`Final Portfolio Data (${selectedTimeframe} view):`, visibleData);
+      return visibleData.length > 0 ? visibleData : uniqueTimeline; // Fallback to all if empty
     }
 
-    console.log('Final Portfolio Data (all):', uniqueTimeline);
     return uniqueTimeline;
   }, [transactions, marketDataQueries, selectedTimeframe, wallets, cryptoSymbols]);
 
