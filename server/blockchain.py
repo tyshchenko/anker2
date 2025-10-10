@@ -8,10 +8,17 @@ import web3
 from web3.exceptions import InvalidTransaction
 from web3.middleware import geth_poa_middleware
 from eth_account import Account
-#from solana.rpc.api import Client as SolanaClient
-#from solana.keypair import Keypair
-#from solana.transaction import Transaction
-#from solana.system_program import transfer, TransferParams
+from solana.rpc.api import Client as SolanaClient
+from solders.keypair import Keypair
+from solana.transaction import Transaction
+from solders.system_program import (
+    TransferParams,
+    transfer
+)
+from solana.rpc.commitment import Processed, Confirmed
+from solana.rpc.types import TxOpts
+from solders.pubkey import Pubkey
+
 import base58  # pip install base58
 from tronpy import Tron  # pip install tronpy
 from tronpy.keys import PrivateKey
@@ -179,7 +186,7 @@ class Blockchain:
         self.eth_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['ETH']['rpc_url']))
         self.bnb_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['BNB']['rpc_url']))
         self.bnb_client.middleware_onion.inject(geth_poa_middleware, layer=0)
-#        self.sol_client = SolanaClient(COIN_SETTINGS['SOL']['rpc_url'])
+        self.sol_client = SolanaClient(COIN_SETTINGS['SOL']['rpc_url'])
         provider = HTTPProvider(timeout=30, endpoint_uri=COIN_SETTINGS['TRX']['rpc_url'])
         provider.sess.trust_env = False
         self.trx_client = Tron(provider)
@@ -207,6 +214,9 @@ class Blockchain:
             return str(balance)
           elif coin == "TRX":
             balance = self.get_trx_balance(wallet.address)
+            return str(balance)
+          elif coin == "SOL":
+            balance = self.get_sol_balance(wallet.address)
             return str(balance)
           else:
             return '0'
@@ -257,6 +267,11 @@ class Blockchain:
               print(str(balance))
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_trx_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
+            elif coin == "SOL":
+              balance = self.get_sol_balance(COIN_SETTINGS[coin]['central_wallet'])
+              print(str(balance))
+              if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
+                self.send_sol_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
           except Exception as e: print(e)
 
 
@@ -278,6 +293,9 @@ class Blockchain:
           elif coin == "TRX":
             transactions = self.get_tron_transactions(wallet.address)
             return transactions
+          elif coin == "SOL":
+            transactions = self.get_sol_transactions(wallet.address)
+            return transactions
           else:
             return []
         else:
@@ -295,6 +313,8 @@ class Blockchain:
               self.send_bnb_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             elif coin == "TRX":
               self.send_trx_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
+            elif coin == "SOL":
+              self.send_sol_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             else:
               return []
           else:
@@ -312,8 +332,9 @@ class Blockchain:
         print(f"bnb Address: {address}")
         address = self.generate_trx_address(PRKEYb)
         print(f"trx Address: {address}")
-#        address = self.generate_sol_address(PRKEYb)
-#        print(f"sol Address: {address}")
+        address = self.generate_sol_address(PRKEYb)
+        print(f"sol Address: {address}")
+
 
 
     def generate_wallet(self, wallet: NewWallet) -> GeneratedWallet:
@@ -345,14 +366,14 @@ class Blockchain:
                 address=address,
                 private_key=private_key.hex()
               )
-          #elif coin == "SOL":
-            #address = self.generate_sol_address(private_key)
-            #print(f"SOL Address: {address}")
-            #return GeneratedWallet(
-                #coin=coin,
-                #address=address,
-                #private_key=private_key.hex()
-              #)
+          elif coin == "SOL":
+            address = self.generate_sol_address(private_key)
+            print(f"SOL Address: {address}")
+            return GeneratedWallet(
+                coin=coin,
+                address=address,
+                private_key=private_key.hex()
+              )
           elif coin == "TRX":
             address = self.generate_trx_address(private_key)
             print(f"TRX Address: {address}")
@@ -387,10 +408,10 @@ class Blockchain:
         address  = account.address
         return address
 
-    #def generate_sol_address(self, priv_key_bytes):
-        #keypair = Keypair.from_seed(priv_key_bytes)
-        #address = base58.b58encode(keypair.public_key.to_bytes()).decode('utf-8')
-        #return address
+    def generate_sol_address(self, priv_key_bytes):
+        keypair = Keypair.from_seed(priv_key_bytes)
+        address = str(keypair.pubkey())
+        return address
 
     def generate_trx_address(self, priv_key_bytes):
         private_key = PrivateKey(priv_key_bytes)
@@ -541,7 +562,10 @@ class Blockchain:
             return transactions
         return []
       
-      
+    def get_sol_transactions(self, address):
+
+        return []
+            
     def get_btc_balance(self, address):
         url = f"{COIN_SETTINGS['BTC']['rpc_url']}/addrs/{address}/balance"
         response = requests.get(url)
@@ -610,10 +634,11 @@ class Blockchain:
     def get_bnb_balance(self, address):
         return self.bnb_client.eth.get_balance(address)
 
-    #def get_sol_balance(self, address):
-        #pubkey = Keypair.from_base58_string(address).public_key  # Wait, address is base58 of pubkey
-        #response = self.sol_client.get_balance(address)
-        #return response.value if 'value' in response else 0
+    def get_sol_balance(self, address):
+        pubkey = Pubkey.from_string(address)
+        response = self.sol_client.get_balance(pubkey)
+        print('sol balance ' + str(response.value) + ' ' + address)
+        return response.value
 
     def get_trx_balance(self, address):
         try:
@@ -731,21 +756,45 @@ class Blockchain:
         
         return 0
 
-    #def send_sol_all(self, address, priv_key_bytes, central):
-        #balance = self.get_sol_balance(address)
-        #if balance > COIN_SETTINGS['SOL']['min_send_amount']:
-            #keypair = Keypair.from_seed(priv_key_bytes)
-            #txn = Transaction().add(
-                #transfer(
-                    #TransferParams(
-                        #from_pubkey=keypair.public_key,
-                        #to_pubkey=Keypair.from_base58_string(central).public_key,
-                        #lamports=balance - 5000  # Approximate fee
-                    #)
-                #)
-            #)
-            #response = self.sol_client.send_transaction(txn, keypair)
-            #print(f"SOL sent: {response['result']}")
+    def send_sol_all(self, address, priv_key_hex, central):
+        
+        balance = self.get_sol_balance(Pubkey.from_string(address))
+        if balance > COIN_SETTINGS['SOL']['min_send_amount']:
+            priv_key_bytes  = hex_to_bytes(priv_key_hex)
+            keypair = Keypair.from_seed(priv_key_bytes)
+            txn = Transaction(fee_payer=keypair.pubkey()).add(
+                transfer(
+                    TransferParams(
+                        from_pubkey=keypair.pubkey(),
+                        to_pubkey=Pubkey.from_string(central),
+                        lamports=balance - 5000  # Approximate fee
+                    )
+                )
+            )
+            blockhash_resp = self.sol_client.get_latest_blockhash(Confirmed).value
+            recent_blockhash = blockhash_resp.blockhash
+            txn.recent_blockhash = recent_blockhash
+            signers = [keypair]
+
+            txn.sign(*signers)
+            stx = txn.serialize()
+            DEFAULT_OPTIONS = TxOpts(skip_confirmation=True, skip_preflight=True, preflight_commitment=Processed)
+
+            try:
+              result = self.sol_client.send_raw_transaction(stx, opts=DEFAULT_OPTIONS)
+              print(result)
+
+              time.sleep(27)
+              signatures = txn.signatures
+              resp = self.sol_client.get_signature_statuses(signatures)
+              if resp.value is not None and resp.value[0] is not None:
+                return balance - 5000
+                print("SOL sent: "+str(resp.value))
+
+            except Exception as e:
+              print(e)
+
+        return 0
 
     def send_trx_all(self, address, priv_key_bytes, central):
         PRKEYb  = hex_to_bytes(priv_key_bytes)
@@ -765,6 +814,9 @@ class Blockchain:
             )
             result = txn.broadcast().wait()
             print(f"TRX sent: {result}")
+            return sendingamount
+
+        return 0
 
 
     

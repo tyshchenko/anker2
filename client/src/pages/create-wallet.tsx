@@ -79,7 +79,7 @@ function getAvailableCryptos(marketData: MarketData[]) {
     }
   });
   cryptos.delete('USDT')
-  cryptos.delete('SOL')
+
   return Array.from(cryptos);
 }
 

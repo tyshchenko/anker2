@@ -12,7 +12,7 @@ from valr_python import Client
 
 from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData, Error, Transaction, VerificationCode, InsertVerificationCode, VerificationStatus, InsertVerificationStatus, UserProfile, InsertUserProfile
 
-from config import DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS
+from config import TESTNET, DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS
 from blockchain import blockchain
 
 class DataBase(object):
@@ -68,12 +68,12 @@ class MySqlStorage:
         self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
         self.temp_sessions: Dict[str, Session] = {}
-        self.pairs = ["BTC/ZAR", "ETH/ZAR", "BNB/ZAR", "TRX/ZAR"]
+        self.pairs = ["BTC/ZAR", "ETH/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
         self.activepairs = self.pairs
         self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone,language,timezone,country "
-
-        self._initialize_market_data()
-        self.update_latest_prices()
+        if not TESTNET:
+          self._initialize_market_data()
+          self.update_latest_prices()
         threading.Timer(120.0, self.cacheclearer).start()
 #        print(self.get_miner_fee())
 #        print("!!!!!!!!!!!!!!!")

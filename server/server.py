@@ -42,7 +42,7 @@ from auth_utils import auth_utils
 from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction,WithdrawTransaction
 from blockchain import blockchain
 
-from config import GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD
+from config import TESTNET, GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD
 
 if DATABASE_TYPE == 'postgresql':
     from postgres_storage import storage
@@ -65,13 +65,14 @@ class Application(tornado.web.Application):
         print("%s start starting" % datetime.now())
         threading.Timer(60.0, self.wathcher).start()
         threading.Timer(1800.0, self.hourlywathcher).start()
-#        threading.Timer(1.0, self.coin_wathcher).start()
-        threading.Timer(1.0, self.zar_wathcher).start()
-#        threading.Timer(10.0, self.eth_wathcher).start()
-        threading.Timer(200.0, self.deposit_wathcher, args=('BTC',77,)).start()
-        threading.Timer(70.0, self.deposit_wathcher, args=('ETH',77,)).start()
-        threading.Timer(90.0, self.deposit_wathcher, args=('BNB',77,)).start()
-        threading.Timer(140.0, self.deposit_wathcher, args=('TRX',77,)).start()
+        if not TESTNET:
+          threading.Timer(10.0, self.zar_wathcher).start()
+          threading.Timer(200.0, self.deposit_wathcher, args=('BTC',77,)).start()
+          threading.Timer(70.0, self.deposit_wathcher, args=('ETH',77,)).start()
+          threading.Timer(90.0, self.deposit_wathcher, args=('BNB',77,)).start()
+          threading.Timer(140.0, self.deposit_wathcher, args=('TRX',77,)).start()
+        else:
+          threading.Timer(1.0, self.deposit_wathcher, args=('SOL',77,)).start()
 
         blockchain.generate_main_wallet()
     
