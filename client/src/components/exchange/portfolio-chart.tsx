@@ -241,23 +241,25 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
       // Use holdings from current point
       const holdingsAtThisPoint = currentPoint.holdings;
 
-      // Add market data points between transactions
+      // Collect ALL unique timestamps from ALL market data between current and next transaction
+      const allTimestamps = new Set<number>();
       Object.keys(marketDataLookup).forEach(crypto => {
         const marketData = marketDataLookup[crypto];
-        const relevantPoints = marketData.filter(
-          point => point.time > currentPoint.time && point.time < nextPoint.time
-        );
+        marketData
+          .filter(point => point.time > currentPoint.time && point.time < nextPoint.time)
+          .forEach(point => allTimestamps.add(point.time));
+      });
 
-        relevantPoints.forEach(point => {
-          let value = 0;
-          Object.entries(holdingsAtThisPoint).forEach(([coin, balance]) => {
-            if (balance > 0) {
-              const price = getPriceAtTime(coin, point.time);
-              value += balance * price;
-            }
-          });
-          detailedTimeline.push({ time: point.time as any, value });
+      // For each unique timestamp, calculate portfolio value once
+      Array.from(allTimestamps).sort((a, b) => a - b).forEach(timestamp => {
+        let value = 0;
+        Object.entries(holdingsAtThisPoint).forEach(([coin, balance]) => {
+          if (balance > 0) {
+            const price = getPriceAtTime(coin, timestamp);
+            value += balance * price;
+          }
         });
+        detailedTimeline.push({ time: timestamp as any, value });
       });
     }
     
