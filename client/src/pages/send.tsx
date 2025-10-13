@@ -62,6 +62,7 @@ export default function SendPage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const [selectedNetwork, setSelectedNetwork] = useState<'ERC20' | 'TRC20'>('ERC20');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -204,10 +205,14 @@ export default function SendPage() {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
 
-  const isValidUSDTAddress = (address: string): boolean => {
-    // USDT primarily runs on Ethereum blockchain, so use Ethereum address validation
-    // Note: USDT also runs on other chains like Tron, but Ethereum is most common
-    return isValidEthereumAddress(address);
+  const isValidUSDTAddress = (address: string, network: 'ERC20' | 'TRC20'): boolean => {
+    // USDT can run on multiple networks
+    // ERC20 uses Ethereum addresses, TRC20 uses Tron addresses
+    if (network === 'ERC20') {
+      return isValidEthereumAddress(address);
+    } else {
+      return isValidTronAddress(address);
+    }
   };
 
   const isValidSolanaAddress = (address: string): boolean => {
@@ -294,10 +299,13 @@ export default function SendPage() {
       }
       
       case 'USDT': {
-        const isValid = isValidUSDTAddress(recipientAddress);
+        const isValid = isValidUSDTAddress(recipientAddress, selectedNetwork);
+        const networkHint = selectedNetwork === 'ERC20' 
+          ? 'Ethereum address: starts with 0x followed by 40 characters'
+          : 'Tron address: starts with T, 34 characters';
         return {
           isValid,
-          errorMessage: isValid ? '' : 'Please enter a valid USDT address (Ethereum format: starts with 0x followed by 40 characters)'
+          errorMessage: isValid ? '' : `Please enter a valid ${selectedNetwork} USDT address (${networkHint})`
         };
       }
       
@@ -689,12 +697,46 @@ export default function SendPage() {
                     )}
                   </div>
 
+                  {/* Network Selector for USDT */}
+                  {wallet.symbol === 'USDT' && (
+                    <div>
+                      <Label htmlFor="network">Network</Label>
+                      <Select value={selectedNetwork} onValueChange={(value: 'ERC20' | 'TRC20') => setSelectedNetwork(value)}>
+                        <SelectTrigger data-testid="select-network">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ERC20">
+                            <div className="flex items-center space-x-2">
+                              <span>ERC20 (Ethereum)</span>
+                              <Badge variant="outline" className="text-xs">Higher Fees</Badge>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="TRC20">
+                            <div className="flex items-center space-x-2">
+                              <span>TRC20 (Tron)</span>
+                              <Badge variant="outline" className="text-xs">Lower Fees</Badge>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedNetwork === 'ERC20' 
+                          ? 'Uses Ethereum network - higher fees, more widely supported'
+                          : 'Uses Tron network - lower fees, faster transactions'}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="bg-muted rounded-lg p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Available Balance</span>
                       <div className="text-right">
                         <p className="font-mono font-semibold" data-testid="available-balance">
                           {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                          {wallet.symbol === 'USDT' && (
+                            <Badge variant="secondary" className="ml-2 text-xs">{selectedNetwork}</Badge>
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           R{wallet.balanceZAR.toLocaleString()}
