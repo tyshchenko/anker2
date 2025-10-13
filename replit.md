@@ -44,7 +44,12 @@ Preferred communication style: Simple, everyday language.
 - **UI State Synchronization**: Automatic re-fetching on window focus and connection restore
 
 ### Trading Engine
-- **Multi-Asset Support**: Cryptocurrencies (BTC, ETH, USDT) and fiat currencies (ZAR, USD, EUR, GBP)
+- **Multi-Asset Support**: Cryptocurrencies (BTC, ETH, USDT, SOL, BNB, TRX, XRP, DOGE, MATIC, ADA) and fiat currencies (ZAR, USD, EUR, GBP)
+- **Multi-Network USDT Support**: USDT available on both ERC20 (Ethereum) and TRC20 (Tron) networks
+  - Network-specific address generation and validation
+  - Fee differentiation (TRC20 lower fees, ERC20 higher fees)
+  - User-selectable network on Send and Receive pages
+  - Network badge display for USDT wallets
 - **Exchange Rate Calculation**: Real-time conversion rates with ZAR as base currency
 - **Fee Structure**: Configurable transaction fees (0.1% default)
 - **Trade Types**: Buy, sell, and convert operations with validation
