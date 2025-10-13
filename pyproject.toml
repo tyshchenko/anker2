@@ -29,4 +29,6 @@ dependencies = [
     "simplejson>=3.20.1",
     "twilio>=9.8.2",
     "pyotp>=2.9.0",
+    "solders>=0.26.0",
+    "solana>=0.36.9",
 ]

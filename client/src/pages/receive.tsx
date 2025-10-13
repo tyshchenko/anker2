@@ -125,6 +125,7 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const [selectedNetwork, setSelectedNetwork] = useState<'ERC20' | 'TRC20'>('ERC20');
   const [showSOFDialog, setShowSOFDialog] = useState(false);
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
@@ -349,12 +350,46 @@ export default function ReceivePage() {
                       )}
                     </div>
 
+                    {/* Network Selector for USDT */}
+                    {wallet.symbol === 'USDT' && (
+                      <div>
+                        <Label htmlFor="network">Network</Label>
+                        <Select value={selectedNetwork} onValueChange={(value: 'ERC20' | 'TRC20') => setSelectedNetwork(value)}>
+                          <SelectTrigger data-testid="select-network">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ERC20">
+                              <div className="flex items-center space-x-2">
+                                <span>ERC20 (Ethereum)</span>
+                                <Badge variant="outline" className="text-xs">Higher Fees</Badge>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="TRC20">
+                              <div className="flex items-center space-x-2">
+                                <span>TRC20 (Tron)</span>
+                                <Badge variant="outline" className="text-xs">Lower Fees</Badge>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {selectedNetwork === 'ERC20' 
+                            ? 'Uses Ethereum network - higher fees, more widely supported'
+                            : 'Uses Tron network - lower fees, faster transactions'}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="bg-muted rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Current Balance</span>
                         <div className="text-right">
                           <p className="font-mono font-semibold" data-testid="current-balance">
                             {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                            {wallet.symbol === 'USDT' && (
+                              <Badge variant="secondary" className="ml-2 text-xs">{selectedNetwork}</Badge>
+                            )}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             R{wallet.balanceZAR.toLocaleString()}
@@ -503,7 +538,12 @@ export default function ReceivePage() {
                   </li>
                   <li className="flex items-start space-x-2">
                     <span className="font-semibold">⚠️</span>
-                    <span>Only send {wallet.symbol} to this address. Other tokens may be lost.</span>
+                    <span>
+                      Only send {wallet.symbol} {wallet.symbol === 'USDT' ? `on the ${selectedNetwork} network ` : ''}to this address. 
+                      {wallet.symbol === 'USDT' 
+                        ? ` Using a different network may result in permanent loss of funds.`
+                        : ' Other tokens may be lost.'}
+                    </span>
                   </li>
                 </ul>
               </Card>
