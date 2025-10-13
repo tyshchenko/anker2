@@ -47,6 +47,7 @@ interface CreatedWallet {
   address: string;
   balance: string;
   is_active: boolean;
+  network: { [key: string]: string } | null;
   created_at: string;
   updated_at: string;
 }
@@ -105,6 +106,7 @@ export default function CreateWalletPage() {
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [walletName, setWalletName] = useState<string>('');
   const [createdWallet, setCreatedWallet] = useState<CreatedWallet | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState<{ [key: string]: boolean }>({});
   const [step, setStep] = useState<'setup' | 'success'>('setup');
@@ -114,7 +116,7 @@ export default function CreateWalletPage() {
   const { data: marketData = [], isLoading: isLoadingMarket } = useMarketData();
   
   // Fetch user's existing wallets
-  const { data: walletsResponse, isLoading: isLoadingWallets } = useWallets();
+  const { data: walletsResponse, isLoading: isLoadingWallets, refetch: refetchWallets } = useWallets();
   
   // Get available cryptocurrencies that user doesn't already have
   const availableCryptos = useMemo(() => {
@@ -178,9 +180,25 @@ export default function CreateWalletPage() {
     },
     onSuccess: async (wallet: CreatedWallet) => {
       setCreatedWallet(wallet);
-      if (wallet.address) {
+      
+      // Refetch wallets to get network wallet addresses
+      await refetchWallets();
+      
+      // If wallet has network, use first network as default
+      if (wallet.network) {
+        const firstNetworkKey = Object.keys(wallet.network)[0];
+        const firstNetworkWallet = wallet.network[firstNetworkKey];
+        setSelectedNetwork(firstNetworkKey);
+        
+        // Get address from the network wallet
+        const networkWalletData = walletsResponse?.wallets?.find(w => w.coin === firstNetworkWallet);
+        if (networkWalletData?.address) {
+          await generateQRCode(networkWalletData.address);
+        }
+      } else if (wallet.address) {
         await generateQRCode(wallet.address);
       }
+      
       // Invalidate wallets query to refresh the sidebar and wallets page
       queryClient.invalidateQueries({ queryKey: ['/api/wallets'] });
       setStep('success');
@@ -212,6 +230,18 @@ export default function CreateWalletPage() {
 
   const handleDone = () => {
     setLocation('/wallets');
+  };
+
+  // Handle network change for multi-network wallets
+  const handleNetworkChange = async (networkKey: string) => {
+    setSelectedNetwork(networkKey);
+    if (createdWallet?.network) {
+      const networkWallet = createdWallet.network[networkKey];
+      const networkWalletData = walletsResponse?.wallets?.find(w => w.coin === networkWallet);
+      if (networkWalletData?.address) {
+        await generateQRCode(networkWalletData.address);
+      }
+    }
   };
 
   return (
@@ -384,19 +414,49 @@ export default function CreateWalletPage() {
                   </div>
 
                   <div className="space-y-6">
+                    {/* Network Selector for multi-network wallets */}
+                    {createdWallet.network && (
+                      <div>
+                        <Label htmlFor="network" className="mb-2 block">Select Network</Label>
+                        <Select value={selectedNetwork} onValueChange={handleNetworkChange}>
+                          <SelectTrigger data-testid="select-network">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(createdWallet.network).map(([networkKey, networkWallet]) => (
+                              <SelectItem key={networkKey} value={networkKey}>
+                                <div className="flex items-center space-x-2">
+                                  <span>{networkKey} ({networkWallet})</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div>
                       <Label className="text-lg font-medium mb-2 block">Wallet Address</Label>
                       <div className="bg-muted rounded-lg p-4 mb-4">
                         <div className="flex space-x-2 mb-3">
                           <Input
-                            value={createdWallet.address || ''}
+                            value={
+                              createdWallet.network && selectedNetwork
+                                ? walletsResponse?.wallets?.find(w => w.coin === createdWallet.network![selectedNetwork])?.address || ''
+                                : createdWallet.address || ''
+                            }
                             readOnly
                             className="font-mono text-sm text-center"
                             data-testid="created-wallet-address"
                           />
                           <Button
                             variant="outline"
-                            onClick={() => copyToClipboard(createdWallet.address || '', 'address')}
+                            onClick={() => {
+                              const address = createdWallet.network && selectedNetwork
+                                ? walletsResponse?.wallets?.find(w => w.coin === createdWallet.network![selectedNetwork])?.address || ''
+                                : createdWallet.address || '';
+                              copyToClipboard(address, 'address');
+                            }}
                             className="shrink-0"
                           >
                             {copied.address ? (

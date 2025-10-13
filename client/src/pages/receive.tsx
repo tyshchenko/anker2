@@ -125,7 +125,7 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
-  const [selectedNetwork, setSelectedNetwork] = useState<'ERC20' | 'TRC20'>('ERC20');
+  const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [showSOFDialog, setShowSOFDialog] = useState(false);
   const { user } = useAuth();
   const { data: walletsData } = useWallets();
@@ -153,7 +153,8 @@ export default function ReceivePage() {
         balanceZAR: parseFloat(wallet.balance) * 1200, // Approximate conversion
         address: wallet.address || `${wallet.coin}-WALLET-001`,
         color: cryptoData?.color || 'bg-gray-500',
-        textColor: cryptoData?.textColor || 'text-gray-600'
+        textColor: cryptoData?.textColor || 'text-gray-600',
+        network: wallet.network
       };
     }) : [];
   
@@ -168,6 +169,17 @@ export default function ReceivePage() {
       setSelectedWallet(preSelectedWallet.id);
     }
   }, [preSelectedWallet]);
+
+  // Initialize selectedNetwork to first network key when wallet changes
+  useEffect(() => {
+    if (wallet?.network) {
+      const firstNetworkKey = Object.keys(wallet.network)[0];
+      if (firstNetworkKey) {
+        setSelectedNetwork(firstNetworkKey);
+      }
+    }
+  }, [selectedWallet, wallet]);
+
   const [requestAmount, setRequestAmount] = useState('');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
@@ -194,11 +206,22 @@ export default function ReceivePage() {
 
   const generatePaymentLink = () => {
     if (!wallet) return '';
+    
+    // Get address based on network
+    let address = wallet.address;
+    if (wallet.network && selectedNetwork) {
+      const networkWallet = wallet.network[selectedNetwork];
+      const networkWalletData = walletsData?.wallets?.find(w => w.coin === networkWallet);
+      if (networkWalletData?.address) {
+        address = networkWalletData.address;
+      }
+    }
+    
     const amount = parseFloat(requestAmount) || 0;
     if (amount > 0) {
-      return `${wallet.symbol.toLowerCase()}:${wallet.address}?amount=${amount}&message=${encodeURIComponent(message)}`;
+      return `${wallet.symbol.toLowerCase()}:${address}?amount=${amount}&message=${encodeURIComponent(message)}`;
     }
-    return wallet.address;
+    return address;
   };
 
   // Generate QR code whenever wallet, amount, or message changes
@@ -222,7 +245,7 @@ export default function ReceivePage() {
     };
 
     generateQRCode();
-  }, [selectedWallet, requestAmount, message, wallet]);
+  }, [selectedWallet, requestAmount, message, wallet, selectedNetwork, walletsData]);
 
   return (
     <>
@@ -350,33 +373,26 @@ export default function ReceivePage() {
                       )}
                     </div>
 
-                    {/* Network Selector for USDT */}
-                    {wallet.symbol === 'USDT' && (
+                    {/* Network Selector - shown if wallet has multiple networks */}
+                    {wallet.network && (
                       <div>
                         <Label htmlFor="network">Network</Label>
-                        <Select value={selectedNetwork} onValueChange={(value: 'ERC20' | 'TRC20') => setSelectedNetwork(value)}>
+                        <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
                           <SelectTrigger data-testid="select-network">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ERC20">
-                              <div className="flex items-center space-x-2">
-                                <span>ERC20 (Ethereum)</span>
-                                <Badge variant="outline" className="text-xs">Higher Fees</Badge>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="TRC20">
-                              <div className="flex items-center space-x-2">
-                                <span>TRC20 (Tron)</span>
-                                <Badge variant="outline" className="text-xs">Lower Fees</Badge>
-                              </div>
-                            </SelectItem>
+                            {Object.entries(wallet.network).map(([networkKey, networkWallet]) => (
+                              <SelectItem key={networkKey} value={networkKey}>
+                                <div className="flex items-center space-x-2">
+                                  <span>{networkKey} ({networkWallet})</span>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {selectedNetwork === 'ERC20' 
-                            ? 'Uses Ethereum network - higher fees, more widely supported'
-                            : 'Uses Tron network - lower fees, faster transactions'}
+                          Selected network: {selectedNetwork}
                         </p>
                       </div>
                     )}

@@ -10,7 +10,7 @@ interface Wallet {
   balance: string;
   pending: string;
   fee: string;
-  network: {};
+  network: { [key: string]: string } | null;
   is_active: boolean;
   created: string | null;
   updated: string | null;

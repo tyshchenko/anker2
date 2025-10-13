@@ -62,7 +62,7 @@ export default function SendPage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
-  const [selectedNetwork, setSelectedNetwork] = useState<'ERC20' | 'TRC20'>('ERC20');
+  const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -108,7 +108,8 @@ export default function SendPage() {
         fee: parseFloat(wallet.fee || '0'),
         address: wallet.address || `${wallet.coin}-WALLET-001`,
         color: cryptoData?.color || 'bg-gray-500',
-        textColor: cryptoData?.textColor || 'text-gray-600'
+        textColor: cryptoData?.textColor || 'text-gray-600',
+        network: wallet.network
       };
     }) : [];
 
@@ -123,6 +124,17 @@ export default function SendPage() {
       setSelectedWallet(preSelectedWallet.id);
     }
   }, [preSelectedWallet]);
+
+  // Initialize selectedNetwork to first network key when wallet changes
+  useEffect(() => {
+    if (wallet?.network) {
+      const firstNetworkKey = Object.keys(wallet.network)[0];
+      if (firstNetworkKey) {
+        setSelectedNetwork(firstNetworkKey);
+      }
+    }
+  }, [selectedWallet, wallet]);
+
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
@@ -697,33 +709,26 @@ export default function SendPage() {
                     )}
                   </div>
 
-                  {/* Network Selector for USDT */}
-                  {wallet.symbol === 'USDT' && (
+                  {/* Network Selector - shown if wallet has multiple networks */}
+                  {wallet.network && (
                     <div>
                       <Label htmlFor="network">Network</Label>
-                      <Select value={selectedNetwork} onValueChange={(value: 'ERC20' | 'TRC20') => setSelectedNetwork(value)}>
+                      <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
                         <SelectTrigger data-testid="select-network">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ERC20">
-                            <div className="flex items-center space-x-2">
-                              <span>ERC20 (Ethereum)</span>
-                              <Badge variant="outline" className="text-xs">Higher Fees</Badge>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="TRC20">
-                            <div className="flex items-center space-x-2">
-                              <span>TRC20 (Tron)</span>
-                              <Badge variant="outline" className="text-xs">Lower Fees</Badge>
-                            </div>
-                          </SelectItem>
+                          {Object.entries(wallet.network).map(([networkKey, networkWallet]) => (
+                            <SelectItem key={networkKey} value={networkKey}>
+                              <div className="flex items-center space-x-2">
+                                <span>{networkKey} ({networkWallet})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {selectedNetwork === 'ERC20' 
-                          ? 'Uses Ethereum network - higher fees, more widely supported'
-                          : 'Uses Tron network - lower fees, faster transactions'}
+                        Selected network: {selectedNetwork}
                       </p>
                     </div>
                   )}
@@ -734,7 +739,7 @@ export default function SendPage() {
                       <div className="text-right">
                         <p className="font-mono font-semibold" data-testid="available-balance">
                           {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                          {wallet.symbol === 'USDT' && (
+                          {wallet.network && selectedNetwork && (
                             <Badge variant="secondary" className="ml-2 text-xs">{selectedNetwork}</Badge>
                           )}
                         </p>
