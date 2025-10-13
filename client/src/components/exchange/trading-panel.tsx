@@ -356,6 +356,7 @@ export function TradingPanel({ onPairChange, mode = 'all' }: TradingPanelProps) 
       className="flex-1"
       onClick={() => handleTabChange(tab)}
       data-testid={`tab-${tab}`}
+      disabled={tab === "convert"}
     >
       {label}
     </Button>
