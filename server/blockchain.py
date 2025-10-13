@@ -339,6 +339,40 @@ class Blockchain:
 
     def generate_wallet(self, wallet: NewWallet) -> GeneratedWallet:
         coin = wallet.coin
+        network = wallet.network
+        
+        # Handle USDT with network specification
+        if coin == "USDT":
+            if not network:
+                raise ValueError("USDT requires network specification (ERC20 or TRC20)")
+            
+            private_key = os.urandom(32)
+            print(f"Private Key (hex): {private_key.hex()}")
+            
+            if network == "ERC20":
+                # USDT on Ethereum - use ETH address generation
+                address = self.generate_eth_address(private_key)
+                print(f"USDT (ERC20) Address: {address}")
+                return GeneratedWallet(
+                    coin=coin,
+                    network=network,
+                    address=address,
+                    private_key=private_key.hex()
+                )
+            elif network == "TRC20":
+                # USDT on Tron - use TRX address generation
+                address = self.generate_trx_address(private_key)
+                print(f"USDT (TRC20) Address: {address}")
+                return GeneratedWallet(
+                    coin=coin,
+                    network=network,
+                    address=address,
+                    private_key=private_key.hex()
+                )
+            else:
+                raise ValueError(f"Unsupported USDT network: {network}")
+        
+        # Handle other cryptocurrencies
         if coin in self.coins:
           private_key = os.urandom(32)
           print(f"Private Key (hex): {private_key.hex()}")

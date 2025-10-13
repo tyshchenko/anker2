@@ -68,6 +68,7 @@ class Wallet(BaseModel):
     balance: str = "0"
     pending: str = "0"
     fee: float = 0
+    network: Optional[str] = None  # ERC20, TRC20, BSC, etc.
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
@@ -79,6 +80,7 @@ class FullWallet(BaseModel):
     balance: str = "0"
     pending: str = "0"
     hotwalet: str = "0"
+    network: Optional[str] = None  # ERC20, TRC20, BSC, etc.
     is_active: bool = True
     privatekey: str
     created_at: datetime = Field(default_factory=datetime.now)
@@ -86,12 +88,14 @@ class FullWallet(BaseModel):
 
 class NewWallet(BaseModel):
     coin: str
+    network: Optional[str] = None  # ERC20, TRC20, BSC, etc. (required for USDT)
     address: Optional[str] = None
     private_key: Optional[str] = None
     # address and private_key will be generated automatically
 
 class GeneratedWallet(BaseModel):
     coin: str
+    network: Optional[str] = None  # ERC20, TRC20, BSC, etc.
     address: str
     private_key: str
     

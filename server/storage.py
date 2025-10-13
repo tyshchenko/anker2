@@ -526,7 +526,7 @@ class MySqlStorage:
         return self.fill_user(users)
         
     def get_wallets(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s'" % user.email
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending,network from wallets where email='%s'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
@@ -536,7 +536,7 @@ class MySqlStorage:
         return wallets
         
     def get_zarwallet(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s' and coin='ZAR'" % user.email
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending,network from wallets where email='%s' and coin='ZAR'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
@@ -557,6 +557,7 @@ class MySqlStorage:
                         address = walletdata[3],
                         balance = str(walletdata[4]),
                         pending = str(walletdata[8]),
+                        network = walletdata[9] if len(walletdata) > 9 else None,
                         is_active = walletdata[5],
                         created = walletdata[6].isoformat() if walletdata[6] else None,
                         updated = walletdata[7].isoformat() if walletdata[7] else None
@@ -709,11 +710,13 @@ class MySqlStorage:
         address=''
         private_key=''
         coin=new_wallet.coin
+        network=new_wallet.network if new_wallet.network else None
         if generated:
           address=generated.address
           private_key=generated.private_key
+          network=generated.network if generated.network else network
           
-        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey) VALUES ('%s','%s','%s','0','%s')" % (user.email,coin,address,private_key)
+        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey,network) VALUES ('%s','%s','%s','0','%s','%s')" % (user.email,coin,address,private_key,network if network else '')
         db = DataBase(DB_NAME)
         lastrowid = db.execute(sql, return_id=True)
         return Wallet(
@@ -721,6 +724,7 @@ class MySqlStorage:
             coin = coin,
             address = address,
             balance = "0",
+            network = network,
             is_active = True,
           )
 
