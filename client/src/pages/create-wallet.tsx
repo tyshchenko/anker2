@@ -78,7 +78,7 @@ function getAvailableCryptos(marketData: MarketData[]) {
       cryptos.add(crypto);
     }
   });
-  cryptos.delete('USDT')
+  //cryptos.delete('USDT')
 
   return Array.from(cryptos);
 }
