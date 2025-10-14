@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Sidebar } from "@/components/exchange/sidebar";
@@ -919,22 +919,16 @@ export default function SendPage() {
                   )}
 
                   <div>
-                    <Label htmlFor="address">
-                      {addressType === 'on-exchange' ? 'Recipient Username/Email' : 'Recipient Address'}
-                    </Label>
+                    <Label htmlFor="address">Recipient Address</Label>
                     <Input
                       id="address"
                       type="text"
-                      placeholder={
-                        addressType === 'on-exchange' 
-                          ? `Enter ${selectedProvider ? filteredProviders.find((p: any) => p.id === selectedProvider)?.name : 'exchange'} username or email...`
-                          : `Enter ${wallet ? wallet.symbol : '' } wallet address...`
-                      }
+                      placeholder={`Enter ${wallet ? wallet.symbol : '' } wallet address...`}
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
                       data-testid="input-address"
                     />
-                    {recipientAddress && !isValidAddress && addressType === 'self-hosted' && (
+                    {recipientAddress && !isValidAddress && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
                         {addressValidation.errorMessage}

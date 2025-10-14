@@ -16,6 +16,8 @@ import numbers
 import time
 import smtplib
 import pyotp
+import hashlib
+import hmac
 
 from email.mime.text import MIMEText
 from typing import Optional, Set
@@ -42,7 +44,7 @@ from auth_utils import auth_utils
 from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction,WithdrawTransaction
 from blockchain import blockchain
 
-from config import TESTNET, GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, COIN_NETWORKS
+from config import TESTNET, GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, COIN_NETWORKS, SUMSUB_SECRET_KEY, SUMSUB_APP_TOKEN
 
 if DATABASE_TYPE == 'postgresql':
     from postgres_storage import storage
@@ -64,6 +66,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         print("%s start starting" % datetime.now())
         threading.Timer(60.0, self.wathcher).start()
+        self.providers=[]
         threading.Timer(1800.0, self.hourlywathcher).start()
         if not TESTNET:
           threading.Timer(10.0, self.zar_wathcher).start()
@@ -74,6 +77,7 @@ class Application(tornado.web.Application):
           threading.Timer(1.0, self.deposit_wathcher, args=('SOL',77,)).start()
 
         blockchain.generate_main_wallet()
+        self.getproviders()
     
 
         handlers = [
@@ -105,7 +109,6 @@ class Application(tornado.web.Application):
             (r"/api/cryptocurrencies", CryptocurrenciesHandler),
             (r"/api/tokens/search", TokenSearchHandler),
             (r"/api/wallets/popular", PopularWalletsHandler),
-            (r"/api/providers", ProvidersHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -126,6 +129,8 @@ class Application(tornado.web.Application):
             
             # SOF (Source of Funds) route
             (r"/api/sof", SOFHandler),
+            
+            (r"/api/providers", ProvidersHandler),
             
             # File upload/download routes (must be before catch-all)
             (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
@@ -241,11 +246,63 @@ class Application(tornado.web.Application):
               print("BALANCE changed")
               txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
         except Exception as e: print(e)
-              
-
-        
-        
         threading.Timer(120.0, self.eth_wathcher).start()
+      
+
+    def sign_request(self, request: requests.Request) -> requests.PreparedRequest:
+        prepared_request = request.prepare()
+        now = int(time.time())
+        method = request.method.upper()
+        path_url = prepared_request.path_url  # includes encoded query params
+        # could be None so we use an empty **byte** string here
+        body = b'' if prepared_request.body is None else prepared_request.body
+        if type(body) == str:
+            body = body.encode('utf-8')
+        data_to_sign = str(now).encode('utf-8') + method.encode('utf-8') + path_url.encode('utf-8') + body
+        # hmac needs bytes
+        signature = hmac.new(
+            SUMSUB_SECRET_KEY.encode('utf-8'),
+            data_to_sign,
+            digestmod=hashlib.sha256
+        )
+        prepared_request.headers['X-App-Token'] = SUMSUB_APP_TOKEN
+        prepared_request.headers['X-App-Access-Ts'] = str(now)
+        prepared_request.headers['X-App-Access-Sig'] = signature.hexdigest()
+        return prepared_request
+      
+    def getproviders(self):
+      headers = {'Content-Type': 'application/json','Content-Encoding': 'utf-8'}
+      SUMSUB_TEST_BASE_URL = "https://api.sumsub.com"
+      REQUEST_TIMEOUT = 60
+      page = 0
+      gonext = True
+      while gonext:
+        url = SUMSUB_TEST_BASE_URL + '/resources/vasps/-?limit=100&offset='+str(page)
+        resp = self.sign_request(requests.Request('GET', url, headers=headers))
+        page += 100
+        s = requests.Session()
+        response = s.send(resp, timeout=REQUEST_TIMEOUT)
+        print(response)
+        print(url)
+  #      print(response.text)
+        provlist = (response.json())
+        #print(provlist)
+        if 'list' in provlist:
+          print(provlist['list']['totalItems'])
+          for provider in provlist['list']['items']:
+            if not ('testOnly' in provider and provider['testOnly']) and 'url' in provider:
+                self.providers.append({
+                    "id": provider['id'],
+                    "name": provider['name'].replace('TEST',''),
+                    "description": provider['url'],
+                    "supported_coins": []
+                })
+            
+          if int(provlist['list']['totalItems']) < page:
+            gonext = False
+        time.sleep(3)
+
+
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
@@ -299,8 +356,8 @@ class BaseHandler(tornado.web.RequestHandler):
             return None
         
         return storage.get_user(session.user_id)
-      
 
+  
 class NotFoundHandler(BaseHandler):
     def get(self):  # for all methods
         self.set_status(404)
@@ -1667,49 +1724,6 @@ class CryptocurrenciesHandler(BaseHandler):
             self.set_status(500)
             self.write({"error": "Failed to get cryptocurrency metadata"})
 
-class ProvidersHandler(BaseHandler):
-    def get(self):
-        """Get list of exchange providers"""
-        try:
-            providers = [
-                {
-                    "id": "binance",
-                    "name": "Binance",
-                    "description": "Global cryptocurrency exchange",
-                    "supported_coins": ["BTC", "ETH", "USDT", "BNB", "SOL", "XRP", "DOGE", "MATIC", "ADA", "TRX"]
-                },
-                {
-                    "id": "coinbase",
-                    "name": "Coinbase",
-                    "description": "US-based cryptocurrency exchange",
-                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE", "MATIC", "ADA"]
-                },
-                {
-                    "id": "kraken",
-                    "name": "Kraken",
-                    "description": "Secure cryptocurrency exchange",
-                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE", "ADA"]
-                },
-                {
-                    "id": "luno",
-                    "name": "Luno",
-                    "description": "South African cryptocurrency exchange",
-                    "supported_coins": ["BTC", "ETH", "USDT", "XRP"]
-                },
-                {
-                    "id": "valr",
-                    "name": "VALR",
-                    "description": "South African crypto exchange platform",
-                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE"]
-                }
-            ]
-            
-            self.write({"providers": providers})
-        except Exception as e:
-            print(f"Error getting providers: {e}")
-            self.set_status(500)
-            self.write({"error": "Failed to get providers"})
-
 class TokenSearchHandler(BaseHandler):
     def get(self):
         """Search for tokens based on query parameter"""
@@ -1789,6 +1803,19 @@ class TokenSearchHandler(BaseHandler):
             print(f"Error searching tokens: {e}")
             self.set_status(500)
             self.write({"error": "Failed to search tokens"})
+
+class ProvidersHandler(BaseHandler):
+    def get(self):
+        """Get list of exchange providers"""
+        try:
+            providers = self.application.providers
+
+            
+            self.write({"providers": providers})
+        except Exception as e:
+            print(f"Error getting providers: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get providers"})
 
 class PopularWalletsHandler(BaseHandler):
     def get(self):
