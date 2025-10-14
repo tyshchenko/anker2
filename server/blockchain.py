@@ -223,11 +223,16 @@ class Blockchain:
         else:
           return '0'
   
-    def sendcrypto(self, address, email, amount, coin):
+    def sendcrypto(self, address, email, amount, coin, actual_coin=None, network=None):
+          # For multi-network coins like USDT, use the actual coin for blockchain operations
+          blockchain_coin = actual_coin if actual_coin else coin
+          
           data = {
               "address": address,
               "amount": amount,
-              "coin": coin,
+              "coin": blockchain_coin,  # Use actual blockchain coin (ETH for ERC20, TRX for TRC20)
+              "token": coin if actual_coin and coin != actual_coin else None,  # USDT token info
+              "network": network,  # Network type (ERC20, TRC20)
               "email": email,
             }
 

@@ -947,9 +947,23 @@ class WalletCreateHandler(BaseHandler):
             # Create the new wallet
             wallet = storage.create_wallet(new_wallet_data, user)
             
+            # Get miner fee for the wallet
+            miner_fee = storage.get_miner_fee()
+            coinminer_fee = miner_fee.get(wallet.coin, 0)
+            
+            # Prepare wallet response with network info
+            wallet_response = {
+                "coin": wallet.coin,
+                "address": wallet.address if wallet.address else "",
+                "balance": wallet.balance,
+                "fee": coinminer_fee,
+                "network": COIN_NETWORKS[wallet.coin] if wallet.coin in COIN_NETWORKS else None,
+                "is_active": wallet.is_active
+            }
+            
             self.write({
                 "success": True,
-                "wallet": wallet.dict(),
+                "wallet": wallet_response,
                 "message": "Wallet created successfully"
             })
             

@@ -122,6 +122,7 @@ class SendTransaction(BaseModel):
     fee: str
     recipientAddress: str = Field(..., alias="recipient_address")
     memo: Optional[str] = None
+    network: Optional[str] = None  # For multi-network coins like USDT (ERC20, TRC20)
     
     model_config = {"populate_by_name": True}
 
