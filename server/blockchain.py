@@ -39,6 +39,34 @@ import bit
 from models import GeneratedWallet, NewWallet, FullWallet
 from config import COIN_SETTINGS, POLL_INTERVAL,PRKEY,ETHAPIKEY,BSCAPIKEY,TRONAPIKEY,VALRDEPOSIT
 
+# ERC20 Token ABI (Standard Interface)
+ERC20_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function"
+    },
+    {
+        "constant": False,
+        "inputs": [
+            {"name": "_to", "type": "address"},
+            {"name": "_value", "type": "uint256"}
+        ],
+        "name": "transfer",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function"
+    }
+]
+
 # Note: Install required libraries:
 # pip3 install ecdsa web3 solana base58 tronpy requests
 
@@ -794,6 +822,107 @@ class Blockchain:
                   return value
         
         return 0
+
+    def get_erc20_balance(self, address, token_contract):
+        """Get ERC20 token balance for an address"""
+        try:
+            # Create contract instance
+            contract = self.eth_client.eth.contract(
+                address=self.eth_client.to_checksum_address(token_contract),
+                abi=ERC20_ABI
+            )
+            # Get balance
+            balance = contract.functions.balanceOf(
+                self.eth_client.to_checksum_address(address)
+            ).call()
+            return balance
+        except Exception as e:
+            print(f"Error getting ERC20 balance: {e}")
+            return 0
+
+    def get_erc20_transactions(self, address, token_contract):
+        """Get ERC20 token transactions for an address using Etherscan API"""
+        try:
+            url = f"https://api.etherscan.io/api?module=account&action=tokentx&contractaddress={token_contract}&address={address}&sort=desc&apikey={ETHAPIKEY}"
+            response = requests.get(url)
+            data = response.json()
+            
+            if data['status'] == '1' and data['message'] == 'OK':
+                transactions = []
+                for tx in data['result']:
+                    transactions.append({
+                        'hash': tx['hash'],
+                        'from': tx['from'],
+                        'to': tx['to'],
+                        'value': tx['value'],
+                        'timestamp': tx['timeStamp'],
+                        'blockNumber': tx['blockNumber'],
+                        'tokenSymbol': tx['tokenSymbol'],
+                        'tokenDecimal': tx['tokenDecimal']
+                    })
+                return transactions
+            return []
+        except Exception as e:
+            print(f"Error getting ERC20 transactions: {e}")
+            return []
+
+    def send_erc20_all(self, address, priv_key_bytes, central, token_contract):
+        """Send all ERC20 tokens from address to central wallet"""
+        try:
+            # Get token balance
+            token_balance = self.get_erc20_balance(address, token_contract)
+            if token_balance <= 0:
+                return 0
+
+            # Get ETH balance for gas
+            eth_balance = self.get_eth_balance(address)
+            if eth_balance <= 0:
+                print("No ETH for gas fees")
+                return 0
+
+            # Create account from private key
+            acct = self.eth_client.eth.account.from_key(priv_key_bytes)
+            
+            # Create contract instance
+            contract = self.eth_client.eth.contract(
+                address=self.eth_client.to_checksum_address(token_contract),
+                abi=ERC20_ABI
+            )
+
+            # Get nonce
+            nonce = self.eth_client.eth.get_transaction_count(address)
+            gas_price = self.eth_client.eth.gas_price
+
+            # Build transaction
+            tx = contract.functions.transfer(
+                self.eth_client.to_checksum_address(central),
+                token_balance
+            ).build_transaction({
+                'from': self.eth_client.to_checksum_address(address),
+                'nonce': nonce,
+                'gasPrice': gas_price,
+                'chainId': self.eth_client.eth.chain_id
+            })
+
+            # Estimate gas
+            estimated_gas = self.eth_client.eth.estimate_gas(tx)
+            tx['gas'] = int(estimated_gas)
+
+            # Check if we have enough ETH for gas
+            gas_cost = tx['gas'] * gas_price
+            if eth_balance < gas_cost:
+                print(f"Insufficient ETH for gas. Need: {gas_cost}, Have: {eth_balance}")
+                return 0
+
+            # Sign and send transaction
+            signed_tx = acct.sign_transaction(tx)
+            tx_hash = self.eth_client.eth.send_raw_transaction(signed_tx.raw_transaction)
+            print(f"ERC20 tokens sent: {tx_hash.hex()}")
+            
+            return token_balance
+        except Exception as e:
+            print(f"Error sending ERC20 tokens: {e}")
+            return 0
       
     def send_bnb_all(self, address, priv_key_bytes, central):
         balance = self.get_bnb_balance(address)
@@ -894,6 +1023,90 @@ class Blockchain:
             return sendingamount
 
         return 0
+
+    def get_trc20_balance(self, address, token_contract):
+        """Get TRC20 token balance for an address"""
+        try:
+            # Get contract instance
+            contract = self.trx_client.get_contract(token_contract)
+            
+            # Call balanceOf function
+            balance = contract.functions.balanceOf(address)
+            return balance
+        except Exception as e:
+            print(f"Error getting TRC20 balance: {e}")
+            return 0
+
+    def get_trc20_transactions(self, address, token_contract):
+        """Get TRC20 token transactions for an address using TronGrid API"""
+        try:
+            url = f"https://api.trongrid.io/v1/accounts/{address}/transactions/trc20"
+            params = {
+                'limit': 200,
+                'contract_address': token_contract
+            }
+            headers = {'TRON-PRO-API-KEY': TRONAPIKEY} if TRONAPIKEY else {}
+            
+            response = requests.get(url, params=params, headers=headers)
+            data = response.json()
+            
+            if data.get('success'):
+                transactions = []
+                for tx in data.get('data', []):
+                    transactions.append({
+                        'hash': tx.get('transaction_id'),
+                        'from': tx.get('from'),
+                        'to': tx.get('to'),
+                        'value': tx.get('value'),
+                        'timestamp': tx.get('block_timestamp'),
+                        'tokenSymbol': tx.get('token_info', {}).get('symbol'),
+                        'tokenDecimal': tx.get('token_info', {}).get('decimals')
+                    })
+                return transactions
+            return []
+        except Exception as e:
+            print(f"Error getting TRC20 transactions: {e}")
+            return []
+
+    def send_trc20_all(self, address, priv_key_bytes, central, token_contract):
+        """Send all TRC20 tokens from address to central wallet"""
+        try:
+            # Get private key
+            PRKEYb = hex_to_bytes(priv_key_bytes)
+            priv_key = PrivateKey(PRKEYb)
+            
+            # Get token balance
+            token_balance = self.get_trc20_balance(address, token_contract)
+            if token_balance <= 0:
+                print("No TRC20 tokens to send")
+                return 0
+
+            # Get TRX balance for fees
+            trx_balance = self.get_trx_balance(address)
+            if trx_balance <= 0:
+                print("No TRX for transaction fees")
+                return 0
+
+            # Get contract instance
+            contract = self.trx_client.get_contract(token_contract)
+            
+            # Build transfer transaction
+            txn = (
+                contract.functions.transfer(central, token_balance)
+                .with_owner(address)
+                .fee_limit(100 * 1000000)  # 100 TRX fee limit
+                .build()
+                .sign(priv_key)
+            )
+            
+            # Broadcast transaction
+            result = txn.broadcast().wait()
+            print(f"TRC20 tokens sent: {result}")
+            
+            return token_balance
+        except Exception as e:
+            print(f"Error sending TRC20 tokens: {e}")
+            return 0
 
 
     
