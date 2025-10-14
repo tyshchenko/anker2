@@ -363,8 +363,8 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
       // Calculate max time span based on timeframe (48 units)
       const maxSpanByTimeframe: Record<string, number> = {
         '1H': 48 * 60 * 60,           // 48 hours
-        '1D': 48 * 24 * 60 * 60,       // 48 days
-        '1W': 48 * 7 * 24 * 60 * 60,   // 48 weeks
+        '1D': 24 * 24 * 60 * 60,       // 24 days
+        '1W': 24 * 7 * 24 * 60 * 60,   // 24 weeks
         '1M': 48 * 30 * 24 * 60 * 60   // 48 months (approximate)
       };
       
