@@ -319,7 +319,7 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
             <p className="text-lg font-semibold flex-1" data-testid={`wallet-address-${wallet.id}`}>
               {formatAddress(wallet.address)}
             </p>
-            {isBalanceVisible && (
+            {isBalanceVisible && wallet.address && (
               <button
                 onClick={() => copyToClipboard(wallet.address, `address-${wallet.id}`)}
                 className="p-1 rounded hover:bg-muted transition-colors"

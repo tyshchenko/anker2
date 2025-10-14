@@ -125,6 +125,7 @@ export default function ReceivePage() {
   const [, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState('btc-wallet');
+  const [walletaddress, setWalletaddress] = useState('');
   const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [showSOFDialog, setShowSOFDialog] = useState(false);
   const { user } = useAuth();
@@ -162,6 +163,8 @@ export default function ReceivePage() {
   const urlParams = new URLSearchParams(window.location.search);
   const walletParam = urlParams.get('wallet');
   const preSelectedWallet = walletParam ? realWallets.find(w => w.symbol.toLowerCase() === walletParam) : null;
+
+  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0] || WALLETS[0];
   
   // Set the selected wallet if coming from a specific wallet
   useEffect(() => {
@@ -175,17 +178,20 @@ export default function ReceivePage() {
     if (wallet?.network) {
       const firstNetworkKey = Object.keys(wallet.network)[0];
       if (firstNetworkKey) {
-        setSelectedNetwork(firstNetworkKey);
+        if ( !selectedNetwork || selectedNetwork == '') {
+          setSelectedNetwork(firstNetworkKey);
+        }
       }
+      wallet.address = getrealwallet()
+      setWalletaddress(getrealwallet()) 
+      
     }
-  }, [selectedWallet, wallet]);
+  }, [wallet, selectedNetwork ]);
 
   const [requestAmount, setRequestAmount] = useState('');
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState<string>("");
-
-  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0] || WALLETS[0];
 
   const formatBalance = (amount: number, symbol: string) => {
     if (symbol === 'BTC') return amount.toFixed(7);
@@ -223,7 +229,22 @@ export default function ReceivePage() {
     }
     return address;
   };
-
+  
+  const getrealwallet = () => {
+    if (!wallet) return '';
+    
+    // Get address based on network
+    let address = wallet.address;
+    if (wallet.network && selectedNetwork) {
+      const networkWallet = wallet.network[selectedNetwork];
+      const networkWalletData = walletsData?.wallets?.find(w => w.coin === networkWallet);
+      if (networkWalletData?.address) {
+        address = networkWalletData.address;
+      }
+    }
+    console.log(address)
+    return address;
+  };
   // Generate QR code whenever wallet, amount, or message changes
   useEffect(() => {
     const generateQRCode = async () => {
@@ -374,7 +395,7 @@ export default function ReceivePage() {
                     </div>
 
                     {/* Network Selector - shown if wallet has multiple networks */}
-                    {wallet.network && (
+                    {wallet && wallet.network && (
                       <div>
                         <Label htmlFor="network">Network</Label>
                         <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
@@ -401,15 +422,16 @@ export default function ReceivePage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Current Balance</span>
                         <div className="text-right">
-                          <p className="font-mono font-semibold" data-testid="current-balance">
-                            {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                            {wallet.symbol === 'USDT' && (
-                              <Badge variant="secondary" className="ml-2 text-xs">{selectedNetwork}</Badge>
-                            )}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            R{wallet.balanceZAR.toLocaleString()}
-                          </p>
+                          {wallet && (
+                            <>
+                              <p className="font-mono font-semibold" data-testid="current-balance">
+                                {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                R{wallet.balanceZAR.toLocaleString()}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -445,14 +467,14 @@ export default function ReceivePage() {
                     <div className="flex space-x-2">
                       <Input
                         id="address"
-                        value={wallet.address}
+                        value={walletaddress}
                         readOnly
                         className="font-mono text-sm"
                         data-testid="wallet-address"
                       />
                       <Button
                         variant="outline"
-                        onClick={() => copyToClipboard(wallet.address)}
+                        onClick={() => copyToClipboard(walletaddress)}
                         className="shrink-0"
                         data-testid="button-copy-address"
                       >

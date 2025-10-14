@@ -46,6 +46,68 @@ const WALLET_LOGOS: { [key: string]: string } = {
   TRX: trxLogo,
 };
 
+// Fallback data
+const WALLETS = [
+  {
+    id: 'btc-wallet',
+    name: 'Bitcoin Wallet',
+    symbol: 'BTC',
+    icon: '₿',
+    logoUrl: btcLogo,
+    balance: 0.0234567,
+    balanceZAR: 28125.45,
+    address: '1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S',
+    color: 'bg-orange-500',
+    textColor: 'text-orange-600'
+  },
+  {
+    id: 'eth-wallet',
+    name: 'Ethereum Wallet',
+    symbol: 'ETH',
+    icon: 'Ξ',
+    logoUrl: ethLogo,
+    balance: 1.247891,
+    balanceZAR: 80423.12,
+    address: '0x1234567890abcdef1234567890abcdef12345678',
+    color: 'bg-blue-500',
+    textColor: 'text-blue-600'
+  },
+  {
+    id: 'usdt-wallet',
+    name: 'Tether Wallet',
+    symbol: 'USDT',
+    icon: '₮',
+    logoUrl: usdtLogo,
+    balance: 2500.00,
+    balanceZAR: 46250.00,
+    address: '0xabcdef1234567890abcdef1234567890abcdef12',
+    color: 'bg-green-500',
+    textColor: 'text-green-600'
+  },
+  {
+    id: 'zar-wallet',
+    name: 'ZAR Wallet',
+    symbol: 'ZAR',
+    icon: 'R',
+    balance: 15420.75,
+    balanceZAR: 15420.75,
+    address: 'ZAR-WALLET-001',
+    color: 'bg-purple-500',
+    textColor: 'text-purple-600'
+  },
+  {
+    id: 'usd-wallet',
+    name: 'USD Wallet',
+    symbol: 'USD',
+    icon: '$',
+    balance: 850.00,
+    balanceZAR: 15725.00,
+    address: 'USD-WALLET-001',
+    color: 'bg-green-600',
+    textColor: 'text-green-700'
+  }
+];
+
 // Hook to fetch cryptocurrency metadata from API
 const useCryptocurrencies = () => {
   return useQuery({
@@ -117,7 +179,8 @@ export default function SendPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const walletParam = urlParams.get('wallet');
   const preSelectedWallet = walletParam ? realWallets.find(w => w.symbol.toLowerCase() === walletParam) : null;
-  
+  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0] || WALLETS[0];
+
   // Set the selected wallet if coming from a specific wallet
   useEffect(() => {
     if (preSelectedWallet) {
@@ -125,15 +188,18 @@ export default function SendPage() {
     }
   }, [preSelectedWallet]);
 
+
   // Initialize selectedNetwork to first network key when wallet changes
   useEffect(() => {
     if (wallet?.network) {
       const firstNetworkKey = Object.keys(wallet.network)[0];
       if (firstNetworkKey) {
-        setSelectedNetwork(firstNetworkKey);
+        if ( !selectedNetwork || selectedNetwork == '') {
+          setSelectedNetwork(firstNetworkKey);
+        }
       }
     }
-  }, [selectedWallet, wallet]);
+  }, [wallet, selectedNetwork]);
 
   const [recipientAddress, setRecipientAddress] = useState('');
   const [amount, setAmount] = useState('');
@@ -144,7 +210,6 @@ export default function SendPage() {
   const [transactionId, setTransactionId] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const wallet = realWallets.find(w => w.id === selectedWallet) || realWallets[0];
   const numAmount = parseFloat(amount) || 0;
   const fee = wallet?.fee || 0.001;
   const totalWithFee = numAmount + fee;
@@ -710,7 +775,7 @@ export default function SendPage() {
                   </div>
 
                   {/* Network Selector - shown if wallet has multiple networks */}
-                  {wallet.network && (
+                  {wallet && wallet.network && (
                     <div>
                       <Label htmlFor="network">Network</Label>
                       <Select value={selectedNetwork} onValueChange={setSelectedNetwork}>
@@ -737,15 +802,16 @@ export default function SendPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Available Balance</span>
                       <div className="text-right">
-                        <p className="font-mono font-semibold" data-testid="available-balance">
-                          {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
-                          {wallet.network && selectedNetwork && (
-                            <Badge variant="secondary" className="ml-2 text-xs">{selectedNetwork}</Badge>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          R{wallet.balanceZAR.toLocaleString()}
-                        </p>
+                        {wallet && (
+                          <>
+                            <p className="font-mono font-semibold" data-testid="available-balance">
+                              {formatBalance(wallet.balance, wallet.symbol)} {wallet.symbol}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              R{wallet.balanceZAR.toLocaleString()}
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -761,7 +827,7 @@ export default function SendPage() {
                     <Input
                       id="address"
                       type="text"
-                      placeholder={`Enter ${wallet.symbol} wallet address...`}
+                      placeholder={`Enter ${wallet ? wallet.symbol : '' } wallet address...`}
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
                       data-testid="input-address"
@@ -775,7 +841,7 @@ export default function SendPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="amount">Amount ({wallet.symbol})</Label>
+                    <Label htmlFor="amount">Amount ({wallet ? wallet.symbol : ''})</Label>
                     <div className="relative">
                       <Input
                         id="amount"
