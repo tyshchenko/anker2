@@ -842,7 +842,6 @@ export default function SendPage() {
                       value={addressType} 
                       onValueChange={(value) => {
                         setAddressType(value as 'self-hosted' | 'on-exchange');
-                        setRecipientAddress('');
                         setSelectedProvider('');
                       }}
                       className="flex flex-col space-y-2 mt-2"
@@ -873,7 +872,7 @@ export default function SendPage() {
                         <SelectContent>
                           {providersData?.providers?.map((provider: any) => (
                             <SelectItem key={provider.id} value={provider.id}>
-                              <div className="flex flex-col">
+                              <div className="flex flex-col text-left">
                                 <span>{provider.name}</span>
                                 <span className="text-xs text-muted-foreground">{provider.description}</span>
                               </div>
@@ -885,22 +884,16 @@ export default function SendPage() {
                   )}
 
                   <div>
-                    <Label htmlFor="address">
-                      {addressType === 'on-exchange' ? 'Recipient Username/Email' : 'Recipient Address'}
-                    </Label>
+                    <Label htmlFor="address">Recipient Address</Label>
                     <Input
                       id="address"
                       type="text"
-                      placeholder={
-                        addressType === 'on-exchange' 
-                          ? `Enter ${selectedProvider ? providersData?.providers?.find((p: any) => p.id === selectedProvider)?.name : 'exchange'} username or email...`
-                          : `Enter ${wallet ? wallet.symbol : '' } wallet address...`
-                      }
+                      placeholder={`Enter ${wallet ? wallet.symbol : '' } wallet address...`}
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
                       data-testid="input-address"
                     />
-                    {recipientAddress && !isValidAddress && addressType === 'self-hosted' && (
+                    {recipientAddress && !isValidAddress && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
                         {addressValidation.errorMessage}
