@@ -6,11 +6,11 @@ import math
 from ecdsa import SigningKey, SECP256k1
 import web3
 from web3.exceptions import InvalidTransaction
-from web3.middleware import ExtraDataToPOAMiddleware
+from web3.middleware import geth_poa_middleware
 from eth_account import Account
 from solana.rpc.api import Client as SolanaClient
 from solders.keypair import Keypair
-from solders.transaction import Transaction
+from solana.transaction import Transaction
 from solders.system_program import (
     TransferParams,
     transfer
@@ -185,7 +185,7 @@ class Blockchain:
         self.coins = COIN_SETTINGS
         self.eth_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['ETH']['rpc_url']))
         self.bnb_client = web3.Web3(web3.HTTPProvider(COIN_SETTINGS['BNB']['rpc_url']))
-        self.bnb_client.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        self.bnb_client.middleware_onion.inject(geth_poa_middleware, layer=0)
         self.sol_client = SolanaClient(COIN_SETTINGS['SOL']['rpc_url'])
         provider = HTTPProvider(timeout=30, endpoint_uri=COIN_SETTINGS['TRX']['rpc_url'])
         provider.sess.trust_env = False
@@ -339,40 +339,6 @@ class Blockchain:
 
     def generate_wallet(self, wallet: NewWallet) -> GeneratedWallet:
         coin = wallet.coin
-        network = wallet.network
-        
-        # Handle USDT with network specification
-        if coin == "USDT":
-            if not network:
-                raise ValueError("USDT requires network specification (ERC20 or TRC20)")
-            
-            private_key = os.urandom(32)
-            print(f"Private Key (hex): {private_key.hex()}")
-            
-            if network == "ERC20":
-                # USDT on Ethereum - use ETH address generation
-                address = self.generate_eth_address(private_key)
-                print(f"USDT (ERC20) Address: {address}")
-                return GeneratedWallet(
-                    coin=coin,
-                    network=network,
-                    address=address,
-                    private_key=private_key.hex()
-                )
-            elif network == "TRC20":
-                # USDT on Tron - use TRX address generation
-                address = self.generate_trx_address(private_key)
-                print(f"USDT (TRC20) Address: {address}")
-                return GeneratedWallet(
-                    coin=coin,
-                    network=network,
-                    address=address,
-                    private_key=private_key.hex()
-                )
-            else:
-                raise ValueError(f"Unsupported USDT network: {network}")
-        
-        # Handle other cryptocurrencies
         if coin in self.coins:
           private_key = os.urandom(32)
           print(f"Private Key (hex): {private_key.hex()}")
@@ -608,11 +574,13 @@ class Blockchain:
             )
             
             transactions = []
+            #print(response)
             
             if response and hasattr(response, 'value') and response.value:
                 for sig_info in response.value:
                     # Get transaction details
                     tx_hash = str(sig_info.signature)
+                    print(tx_hash)
                     
                     # Fetch full transaction to determine side and amount
                     try:
@@ -626,8 +594,9 @@ class Blockchain:
                             tx_data = tx_response.value
                             
                             # Parse transaction to find transfers involving this address
-                            if hasattr(tx_data, 'transaction') and hasattr(tx_data.transaction, 'message'):
-                                message = tx_data.transaction.message
+                            if hasattr(tx_data, 'transaction') and hasattr(tx_data.transaction.transaction, 'message'):
+                                message = tx_data.transaction.transaction.message
+                                
                                 
                                 # Default values
                                 side = "Unknown"
@@ -636,12 +605,15 @@ class Blockchain:
                                 # Check if this is a simple transfer
                                 if hasattr(message, 'instructions'):
                                     for instruction in message.instructions:
+                                        
                                         # Check for system program transfers (native SOL)
                                         if hasattr(instruction, 'parsed'):
                                             parsed = instruction.parsed
+                                            
                                             if isinstance(parsed, dict):
                                                 if parsed.get('type') == 'transfer':
                                                     info = parsed.get('info', {})
+                                                    
                                                     destination = info.get('destination')
                                                     source = info.get('source')
                                                     lamports = info.get('lamports', 0)
@@ -665,7 +637,7 @@ class Blockchain:
                         # Skip transactions we can't parse
                         print(f"Error parsing SOL transaction {tx_hash}: {e}")
                         continue
-            
+            #print(transactions)
             return transactions
             
         except Exception as e:
@@ -863,8 +835,7 @@ class Blockchain:
         return 0
 
     def send_sol_all(self, address, priv_key_hex, central):
-        
-        balance = self.get_sol_balance(Pubkey.from_string(address))
+        balance = self.get_sol_balance(address)
         if balance > COIN_SETTINGS['SOL']['min_send_amount']:
             priv_key_bytes  = hex_to_bytes(priv_key_hex)
             keypair = Keypair.from_seed(priv_key_bytes)

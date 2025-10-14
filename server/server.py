@@ -42,7 +42,7 @@ from auth_utils import auth_utils
 from models import InsertTrade, LoginRequest, RegisterRequest, User, InsertUser, NewWallet, NewBankAccount, FullWallet, SendTransaction,WithdrawTransaction
 from blockchain import blockchain
 
-from config import TESTNET, GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, ACTIVE_COINS,COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD
+from config import TESTNET, GOOGLE_CLIENT_ID, DATABASE_TYPE, APP_PORT, APP_HOST, COIN_SETTINGS, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, SMTP_SERVER, SMTP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, COIN_NETWORKS
 
 if DATABASE_TYPE == 'postgresql':
     from postgres_storage import storage
@@ -71,7 +71,6 @@ class Application(tornado.web.Application):
           threading.Timer(70.0, self.deposit_wathcher, args=('ETH',77,)).start()
           threading.Timer(90.0, self.deposit_wathcher, args=('BNB',77,)).start()
           threading.Timer(140.0, self.deposit_wathcher, args=('TRX',77,)).start()
-        else:
           threading.Timer(1.0, self.deposit_wathcher, args=('SOL',77,)).start()
 
         blockchain.generate_main_wallet()
@@ -167,7 +166,7 @@ class Application(tornado.web.Application):
               print("%i FORWARDING: %s %s" % (int(float(walletbalance)), coin, onewallet.address)) 
               blockchain.forward_to_hot(onewallet)
               
-            if float(walletbalance) != float(onewallet.hotwalet) or step == 7:
+            if float(walletbalance) != float(onewallet.hotwalet) or step == 7 or coin=='SOL':
               print("%s BALANCE changed %s    %s = %s" % (coin, onewallet.address, str(walletbalance), str(onewallet.hotwalet) ))
               txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
             if coin == 'ETH' or coin == 'BNB':
@@ -842,6 +841,7 @@ class WalletsHandler(BaseHandler):
                         "balance": storage.tofixedbalance(wallet[2],wallet[4]),
                         "pending": storage.tofixedbalance(wallet[2],wallet[8]),
                         "is_active": wallet[5],
+                        "network": COIN_NETWORKS[wallet[2]] if wallet[2] in COIN_NETWORKS else None,
                         "created": wallet[6].isoformat() if wallet[6] else None,
                         "updated": wallet[7].isoformat() if wallet[7] else None
                     })

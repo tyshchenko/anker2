@@ -12,7 +12,7 @@ from valr_python import Client
 
 from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData, Error, Transaction, VerificationCode, InsertVerificationCode, VerificationStatus, InsertVerificationStatus, UserProfile, InsertUserProfile
 
-from config import TESTNET, DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS
+from config import COIN_NETWORKS, TESTNET, DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS, ACTIVEPAIRS
 from blockchain import blockchain
 
 class DataBase(object):
@@ -68,12 +68,12 @@ class MySqlStorage:
         self.latest_prices: List[MarketData] = []
         self.sessions: Dict[str, Session] = {}
         self.temp_sessions: Dict[str, Session] = {}
-        self.pairs = ["BTC/ZAR", "ETH/ZAR", "BNB/ZAR", "TRX/ZAR", "SOL/ZAR"]
+        self.pairs = ACTIVEPAIRS
         self.activepairs = self.pairs
         self.usersfields = " id,email,username,password_hash,google_id,first_name,second_names,last_name,profile_image_url,is_active,created,updated,address,enabled2fa,code2fa,dob,gender,id_status,identity_number,referrer,sof,reference,phone,language,timezone,country "
         if not TESTNET:
           self._initialize_market_data()
-          self.update_latest_prices()
+        self.update_latest_prices()
         threading.Timer(120.0, self.cacheclearer).start()
 #        print(self.get_miner_fee())
 #        print("!!!!!!!!!!!!!!!")
@@ -526,7 +526,7 @@ class MySqlStorage:
         return self.fill_user(users)
         
     def get_wallets(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending,network from wallets where email='%s'" % user.email
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
@@ -535,13 +535,26 @@ class MySqlStorage:
           wallets = db.query(sql)
         return wallets
         
-    def get_zarwallet(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending,network from wallets where email='%s' and coin='ZAR'" % user.email
+    def get_zarwallet(self, user: User) -> Optional[Wallet]:
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s' and coin='ZAR'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
           new_zar_wallet = NewWallet(coin='ZAR')
           self.create_wallet(new_zar_wallet,user)
+          wallets = db.query(sql)
+        if wallets:
+          return self.to_wallet(wallets[0])
+        else:
+          return None
+
+    def get_coinwallet(self, coin, user: User) -> Optional[Wallet]:
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s' and coin='%s'" % (user.email, coin)
+        db = DataBase(DB_NAME)
+        wallets = db.query(sql)
+        if not wallets:
+          new_coin_wallet = NewWallet(coin=coin)
+          self.create_wallet(new_coin_wallet,user)
           wallets = db.query(sql)
         if wallets:
           return self.to_wallet(wallets[0])
@@ -557,7 +570,7 @@ class MySqlStorage:
                         address = walletdata[3],
                         balance = str(walletdata[4]),
                         pending = str(walletdata[8]),
-                        network = walletdata[9] if len(walletdata) > 9 else None,
+                        network = COIN_NETWORKS[walletdata[2]] if walletdata[2] in COIN_NETWORKS else None,
                         is_active = walletdata[5],
                         created = walletdata[6].isoformat() if walletdata[6] else None,
                         updated = walletdata[7].isoformat() if walletdata[7] else None
@@ -579,6 +592,7 @@ class MySqlStorage:
                 pending = wallet[10],
                 hotwalet = wallet[9],
                 is_active = wallet[5],
+                network = COIN_NETWORKS[wallet[2]] if wallet[2] in COIN_NETWORKS else None,
                 privatekey = wallet[6],
                 created_at = wallet[7],
                 updated_at = wallet[8],
@@ -596,7 +610,7 @@ class MySqlStorage:
             if tx['side'] == 'Deposit':
               minerfees = self.get_miner_fee()
               minerfee = minerfees[wallet.coin]
-              addamount = int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals']-minerfee
+              addamount = int(float(tx['amount']))/COIN_FORMATS[wallet.coin]['decimals']-float(minerfee)
               if addamount < 0:
                 addamount = 0
               tocoinamount = COIN_FORMATS[wallet.coin]['format'] % (addamount)
@@ -610,7 +624,7 @@ class MySqlStorage:
               success, account_id = db.execute(sql, return_id=True)
 
               sql = "INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype) VALUES ('%s','%s','Fee','%s','0','completed', '%s', 'user')" % (
-                    wallet.email, wallet.coin, (COIN_FORMATS[wallet.coin]['format'] % (int(float(minerfee)))), tx['hash']
+                    wallet.email, wallet.coin, (COIN_FORMATS[wallet.coin]['format'] % (float(minerfee))), tx['hash']
               )
               success, account_id = db.execute(sql, return_id=True)
             else:
@@ -706,17 +720,22 @@ class MySqlStorage:
         return user
 
     def create_wallet(self, new_wallet: NewWallet, user: User) -> Wallet:
-        generated = blockchain.generate_wallet(new_wallet)
+        coin=new_wallet.coin
         address=''
         private_key=''
-        coin=new_wallet.coin
-        network=new_wallet.network if new_wallet.network else None
-        if generated:
-          address=generated.address
-          private_key=generated.private_key
-          network=generated.network if generated.network else network
+        network = None
+        if coin in COIN_NETWORKS:
+          network = COIN_NETWORKS[coin]
+          for checkcoin in COIN_NETWORKS[coin]:
+            testwallet = self.get_coinwallet(COIN_NETWORKS[coin][checkcoin], user)
+        else:
+          generated = blockchain.generate_wallet(new_wallet)
+          if generated:
+            address=generated.address
+            private_key=generated.private_key
+
           
-        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey,network) VALUES ('%s','%s','%s','0','%s','%s')" % (user.email,coin,address,private_key,network if network else '')
+        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey) VALUES ('%s','%s','%s','0','%s')" % (user.email,coin,address,private_key)
         db = DataBase(DB_NAME)
         lastrowid = db.execute(sql, return_id=True)
         return Wallet(
