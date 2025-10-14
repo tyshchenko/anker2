@@ -222,11 +222,31 @@ export default function SendPage() {
   const [copied, setCopied] = useState(false);
   const [addressType, setAddressType] = useState<'self-hosted' | 'on-exchange'>('self-hosted');
   const [selectedProvider, setSelectedProvider] = useState('');
+  const [providerSearchTerm, setProviderSearchTerm] = useState('');
 
   const numAmount = parseFloat(amount) || 0;
   const fee = wallet?.fee || 0.001;
   const totalWithFee = numAmount + fee;
   const isValidAmount = numAmount > 0 && totalWithFee <= wallet.balance;
+
+  // Sort and filter providers
+  const filteredProviders = useMemo(() => {
+    if (!providersData?.providers) return [];
+    
+    // Sort by name
+    const sorted = [...providersData.providers].sort((a, b) => 
+      a.name.localeCompare(b.name)
+    );
+    
+    // Filter by search term
+    if (!providerSearchTerm) return sorted;
+    
+    const searchLower = providerSearchTerm.toLowerCase();
+    return sorted.filter(provider => 
+      provider.name.toLowerCase().includes(searchLower) ||
+      provider.description.toLowerCase().includes(searchLower)
+    );
+  }, [providersData, providerSearchTerm]);
 
   // Mutation for creating send transactions
   const createSendTransactionMutation = useMutation({
@@ -870,30 +890,51 @@ export default function SendPage() {
                           <SelectValue placeholder="Choose an exchange..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {providersData?.providers?.map((provider: any) => (
-                            <SelectItem key={provider.id} value={provider.id}>
-                              <div className="flex flex-col text-left">
-                                <span>{provider.name}</span>
-                                <span className="text-xs text-muted-foreground">{provider.description}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          <div className="px-2 pb-2 sticky top-0 bg-popover z-10">
+                            <Input
+                              placeholder="Search exchanges..."
+                              value={providerSearchTerm}
+                              onChange={(e) => setProviderSearchTerm(e.target.value)}
+                              className="h-8"
+                              data-testid="input-provider-search"
+                            />
+                          </div>
+                          {filteredProviders.length > 0 ? (
+                            filteredProviders.map((provider: any) => (
+                              <SelectItem key={provider.id} value={provider.id}>
+                                <div className="flex flex-col text-left">
+                                  <span>{provider.name}</span>
+                                  <span className="text-xs text-muted-foreground">{provider.description}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              No exchanges found
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
                   )}
 
                   <div>
-                    <Label htmlFor="address">Recipient Address</Label>
+                    <Label htmlFor="address">
+                      {addressType === 'on-exchange' ? 'Recipient Username/Email' : 'Recipient Address'}
+                    </Label>
                     <Input
                       id="address"
                       type="text"
-                      placeholder={`Enter ${wallet ? wallet.symbol : '' } wallet address...`}
+                      placeholder={
+                        addressType === 'on-exchange' 
+                          ? `Enter ${selectedProvider ? filteredProviders.find((p: any) => p.id === selectedProvider)?.name : 'exchange'} username or email...`
+                          : `Enter ${wallet ? wallet.symbol : '' } wallet address...`
+                      }
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
                       data-testid="input-address"
                     />
-                    {recipientAddress && !isValidAddress && (
+                    {recipientAddress && !isValidAddress && addressType === 'self-hosted' && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
                         {addressValidation.errorMessage}
