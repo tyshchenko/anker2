@@ -105,6 +105,7 @@ class Application(tornado.web.Application):
             (r"/api/cryptocurrencies", CryptocurrenciesHandler),
             (r"/api/tokens/search", TokenSearchHandler),
             (r"/api/wallets/popular", PopularWalletsHandler),
+            (r"/api/providers", ProvidersHandler),
             
             # Authentication routes
             (r"/api/auth/register", RegisterHandler),
@@ -1665,6 +1666,49 @@ class CryptocurrenciesHandler(BaseHandler):
             print(f"Error getting cryptocurrencies: {e}")
             self.set_status(500)
             self.write({"error": "Failed to get cryptocurrency metadata"})
+
+class ProvidersHandler(BaseHandler):
+    def get(self):
+        """Get list of exchange providers"""
+        try:
+            providers = [
+                {
+                    "id": "binance",
+                    "name": "Binance",
+                    "description": "Global cryptocurrency exchange",
+                    "supported_coins": ["BTC", "ETH", "USDT", "BNB", "SOL", "XRP", "DOGE", "MATIC", "ADA", "TRX"]
+                },
+                {
+                    "id": "coinbase",
+                    "name": "Coinbase",
+                    "description": "US-based cryptocurrency exchange",
+                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE", "MATIC", "ADA"]
+                },
+                {
+                    "id": "kraken",
+                    "name": "Kraken",
+                    "description": "Secure cryptocurrency exchange",
+                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE", "ADA"]
+                },
+                {
+                    "id": "luno",
+                    "name": "Luno",
+                    "description": "South African cryptocurrency exchange",
+                    "supported_coins": ["BTC", "ETH", "USDT", "XRP"]
+                },
+                {
+                    "id": "valr",
+                    "name": "VALR",
+                    "description": "South African crypto exchange platform",
+                    "supported_coins": ["BTC", "ETH", "USDT", "SOL", "XRP", "DOGE"]
+                }
+            ]
+            
+            self.write({"providers": providers})
+        except Exception as e:
+            print(f"Error getting providers: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get providers"})
 
 class TokenSearchHandler(BaseHandler):
     def get(self):

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Send, AlertTriangle, CheckCircle, Copy, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, fetchWithAuth } from "@/lib/queryClient";
@@ -131,6 +132,16 @@ export default function SendPage() {
   const { data: walletsData } = useWallets();
   const { data: cryptoMetadata } = useCryptocurrencies();
   
+  // Fetch providers for on-exchange transfers
+  const { data: providersData } = useQuery({
+    queryKey: ['/api/providers'],
+    queryFn: async () => {
+      const response = await fetchWithAuth('/api/providers');
+      if (!response.ok) throw new Error('Failed to fetch providers');
+      return response.json();
+    },
+  });
+  
   // Fetch market data for accurate rate calculations
   const { data: marketData = [] } = useQuery({
     queryKey: ['/api/market'],
@@ -209,6 +220,8 @@ export default function SendPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [transactionId, setTransactionId] = useState('');
   const [copied, setCopied] = useState(false);
+  const [addressType, setAddressType] = useState<'self-hosted' | 'on-exchange'>('self-hosted');
+  const [selectedProvider, setSelectedProvider] = useState('');
 
   const numAmount = parseFloat(amount) || 0;
   const fee = wallet?.fee || 0.001;
@@ -822,17 +835,72 @@ export default function SendPage() {
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Transaction Details</h3>
                 <div className="space-y-4">
+                  {/* Address Type Selection */}
                   <div>
-                    <Label htmlFor="address">Recipient Address</Label>
+                    <Label>Recipient Type</Label>
+                    <RadioGroup 
+                      value={addressType} 
+                      onValueChange={(value) => {
+                        setAddressType(value as 'self-hosted' | 'on-exchange');
+                        setRecipientAddress('');
+                        setSelectedProvider('');
+                      }}
+                      className="flex flex-col space-y-2 mt-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="self-hosted" id="self-hosted" data-testid="radio-self-hosted" />
+                        <Label htmlFor="self-hosted" className="font-normal cursor-pointer">
+                          Self-Hosted Wallet
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="on-exchange" id="on-exchange" data-testid="radio-on-exchange" />
+                        <Label htmlFor="on-exchange" className="font-normal cursor-pointer">
+                          On Exchange
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Provider Selection - shown only for on-exchange */}
+                  {addressType === 'on-exchange' && (
+                    <div>
+                      <Label htmlFor="provider">Select Exchange</Label>
+                      <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                        <SelectTrigger data-testid="select-provider">
+                          <SelectValue placeholder="Choose an exchange..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {providersData?.providers?.map((provider: any) => (
+                            <SelectItem key={provider.id} value={provider.id}>
+                              <div className="flex flex-col">
+                                <span>{provider.name}</span>
+                                <span className="text-xs text-muted-foreground">{provider.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="address">
+                      {addressType === 'on-exchange' ? 'Recipient Username/Email' : 'Recipient Address'}
+                    </Label>
                     <Input
                       id="address"
                       type="text"
-                      placeholder={`Enter ${wallet ? wallet.symbol : '' } wallet address...`}
+                      placeholder={
+                        addressType === 'on-exchange' 
+                          ? `Enter ${selectedProvider ? providersData?.providers?.find((p: any) => p.id === selectedProvider)?.name : 'exchange'} username or email...`
+                          : `Enter ${wallet ? wallet.symbol : '' } wallet address...`
+                      }
                       value={recipientAddress}
                       onChange={(e) => setRecipientAddress(e.target.value)}
                       data-testid="input-address"
                     />
-                    {recipientAddress && !isValidAddress && (
+                    {recipientAddress && !isValidAddress && addressType === 'self-hosted' && (
                       <p className="text-sm text-destructive mt-1 flex items-center">
                         <AlertTriangle className="w-4 h-4 mr-1" />
                         {addressValidation.errorMessage}
