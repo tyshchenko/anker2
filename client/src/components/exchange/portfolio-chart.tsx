@@ -354,8 +354,34 @@ export function PortfolioChart({ wallets }: PortfolioChartProps) {
 
     lineSeries.setData(portfolioData);
     
-    // Fit all content in the visible window
-    chart.timeScale().fitContent();
+    // Intelligent content fitting with 48-unit limit per timeframe
+    if (portfolioData.length > 0) {
+      const firstTime = portfolioData[0].time;
+      const lastTime = portfolioData[portfolioData.length - 1].time;
+      const dataSpan = lastTime - firstTime; // in seconds
+      
+      // Calculate max time span based on timeframe (48 units)
+      const maxSpanByTimeframe: Record<string, number> = {
+        '1H': 48 * 60 * 60,           // 48 hours
+        '1D': 48 * 24 * 60 * 60,       // 48 days
+        '1W': 48 * 7 * 24 * 60 * 60,   // 48 weeks
+        '1M': 48 * 30 * 24 * 60 * 60   // 48 months (approximate)
+      };
+      
+      const maxSpan = maxSpanByTimeframe[selectedTimeframe] || maxSpanByTimeframe['1D'];
+      
+      if (dataSpan <= maxSpan) {
+        // Content fits within limit, show all
+        chart.timeScale().fitContent();
+      } else {
+        // Content exceeds limit, scale to show last 48 units
+        const visibleFrom = lastTime - maxSpan;
+        chart.timeScale().setVisibleRange({
+          from: visibleFrom as any,
+          to: lastTime as any,
+        });
+      }
+    }
 
     chartInstanceRef.current = chart;
     lineSeriesRef.current = lineSeries;
