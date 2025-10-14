@@ -933,13 +933,7 @@ class MySqlStorage:
         formatedamount =  COIN_FORMATS[wallet.coin]['format'] % (float(send_data.amount))
         client.post_internal_transfer_subaccounts(SUBACCOUNT,'0',send_data.fromAsset,formatedamount)
         
-        # For multi-network coins like USDT, determine which network wallet to use
-        actual_coin = send_data.fromAsset
-        if send_data.fromAsset in COIN_NETWORKS and send_data.network:
-            # Use the base coin for the selected network (e.g., ETH for ERC20, TRX for TRC20)
-            actual_coin = COIN_NETWORKS[send_data.fromAsset].get(send_data.network, send_data.fromAsset)
-        
-        blockchain.sendcrypto(send_data.recipientAddress, user.email, send_data.amount, send_data.fromAsset, actual_coin, send_data.network)
+        blockchain.sendcrypto(send_data.recipientAddress, user.email, send_data.amount, send_data.fromAsset)
         return True
 
     def fillfield(self,value, size):
