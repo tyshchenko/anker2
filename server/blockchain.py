@@ -899,15 +899,13 @@ class Blockchain:
             if data['status'] == '1' and data['message'] == 'OK':
                 transactions = []
                 for tx in data['result']:
+                    # Determine side: if from matches address, it's sent; otherwise it's a deposit
+                    side = 'Sent to' if tx['from'].lower() == address.lower() else 'Deposit'
+                    
                     transactions.append({
                         'hash': tx['hash'],
-                        'from': tx['from'],
-                        'to': tx['to'],
-                        'value': tx['value'],
-                        'timestamp': tx['timeStamp'],
-                        'blockNumber': tx['blockNumber'],
-                        'tokenSymbol': tx['tokenSymbol'],
-                        'tokenDecimal': tx['tokenDecimal']
+                        'side': side,
+                        'amount': tx['value']
                     })
                 return transactions
             return []
@@ -1102,14 +1100,13 @@ class Blockchain:
             if data.get('success'):
                 transactions = []
                 for tx in data.get('data', []):
+                    # Determine side: if from matches address, it's sent; otherwise it's a deposit
+                    side = 'Sent to' if tx.get('from', '').lower() == address.lower() else 'Deposit'
+                    
                     transactions.append({
                         'hash': tx.get('transaction_id'),
-                        'from': tx.get('from'),
-                        'to': tx.get('to'),
-                        'value': tx.get('value'),
-                        'timestamp': tx.get('block_timestamp'),
-                        'tokenSymbol': tx.get('token_info', {}).get('symbol'),
-                        'tokenDecimal': tx.get('token_info', {}).get('decimals')
+                        'side': side,
+                        'amount': tx.get('value')
                     })
                 return transactions
             return []
