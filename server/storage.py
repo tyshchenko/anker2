@@ -421,8 +421,9 @@ class MySqlStorage:
         client = self.get_valr()
         fees = {'ZAR':0}
         for coin in COIN_SETTINGS:
-          winfo = client.get_crypto_withdrawal_info(coin)
-          fees[coin] = float(winfo['withdrawCost'])
+          if coin not in ['ERC20','TRC20']:
+            winfo = client.get_crypto_withdrawal_info(coin)
+            fees[coin] = float(winfo['withdrawCost'])
 
         jblock = {'time':int(round(time.time())), 'data':fees}
         self.cache[key] = jblock
@@ -526,7 +527,7 @@ class MySqlStorage:
         return self.fill_user(users)
         
     def get_wallets(self, user: User) -> Optional[List[Wallet]]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s'" % user.email
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where  email='%s'" % user.email
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
@@ -548,16 +549,16 @@ class MySqlStorage:
         else:
           return None
 
-    def get_coinwallet(self, coin, user: User) -> Optional[Wallet]:
-        sql = "select id,email,coin,address,balance,is_active,created,updated,pending from wallets where email='%s' and coin='%s'" % (user.email, coin)
+    def get_coinwallet(self, coin, user: User) -> Optional[FullWallet]:
+        sql = "select id,email,coin,address,balance,is_active,created,updated,pending,hotwalet,privatekey from wallets where email='%s' and coin='%s'" % (user.email, coin)
         db = DataBase(DB_NAME)
         wallets = db.query(sql)
         if not wallets:
           new_coin_wallet = NewWallet(coin=coin)
-          self.create_wallet(new_coin_wallet,user)
+          self.create_wallet(new_coin_wallet,user,0)
           wallets = db.query(sql)
         if wallets:
-          return self.to_wallet(wallets[0])
+          return self.to_full_wallet(wallets[0])
         else:
           return None
 
@@ -578,9 +579,26 @@ class MySqlStorage:
         return wallet
 
 
+    def to_full_wallet(self, walletdata) -> Optional[FullWallet]:
+        wallet = FullWallet(
+                        email = walletdata[1],
+                        coin = walletdata[2],
+                        hotwalet = walletdata[9],
+                        address = walletdata[3],
+                        balance = str(walletdata[4]),
+                        pending = str(walletdata[8]),
+                        network = COIN_NETWORKS[walletdata[2]] if walletdata[2] in COIN_NETWORKS else None,
+                        is_active = walletdata[5],
+                        privatekey  = walletdata[10],
+                        created = walletdata[6].isoformat() if walletdata[6] else None,
+                        updated = walletdata[7].isoformat() if walletdata[7] else None
+                    )
+        return wallet
+
     def get_all_wallets(self, coins) -> Optional[List[FullWallet]]:
-        sql = "select id,email,coin,address,balance,is_active,privatekey,created,updated,hotwalet,pending from wallets where is_active=1 and privatekey>'' and coin IN('%s')" % ("','".join(coins))
+        sql = "select id,email,coin,address,balance,is_active,privatekey,created,updated,hotwalet,pending from wallets where is_active=1 and coin IN('%s')" % ("','".join(coins))
         db = DataBase(DB_NAME)
+        #print(sql)
         wallets = db.query(sql)
         allwallets = []
         for wallet in wallets:
@@ -651,7 +669,7 @@ class MySqlStorage:
 
     def get_bankaccount(self, user: User, bankAccountId) -> Optional[BankAccount]:
         sql = "select id,email,account_name,account_number,branch_code,created_at,updated_at from bank_accounts where email='%s' and id='%s'" % (user.email, bankAccountId)
-        print(sql)
+        #print(sql)
         db = DataBase(DB_NAME)
         bankaccounts = db.query(sql)
         if bankaccounts:
@@ -719,7 +737,7 @@ class MySqlStorage:
         user = self.get_user_by_email(insert_user.email)
         return user
 
-    def create_wallet(self, new_wallet: NewWallet, user: User) -> Wallet:
+    def create_wallet(self, new_wallet: NewWallet, user: User, active=1) -> Wallet:
         coin=new_wallet.coin
         address=''
         private_key=''
@@ -727,7 +745,7 @@ class MySqlStorage:
         if coin in COIN_NETWORKS:
           network = COIN_NETWORKS[coin]
           for checkcoin in COIN_NETWORKS[coin]:
-            testwallet = self.get_coinwallet(COIN_NETWORKS[coin][checkcoin], user)
+            testwallet = self.get_coinwallet(checkcoin, user)
         else:
           generated = blockchain.generate_wallet(new_wallet)
           if generated:
@@ -735,7 +753,7 @@ class MySqlStorage:
             private_key=generated.private_key
 
           
-        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey) VALUES ('%s','%s','%s','0','%s')" % (user.email,coin,address,private_key)
+        sql = "INSERT INTO wallets (email,coin,address,balance,privatekey,is_active) VALUES ('%s','%s','%s','0','%s',%s)" % (user.email,coin,address,private_key,active)
         db = DataBase(DB_NAME)
         lastrowid = db.execute(sql, return_id=True)
         return Wallet(

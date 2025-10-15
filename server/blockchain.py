@@ -37,11 +37,7 @@ import ssl
 import bit
 
 from models import GeneratedWallet, NewWallet, FullWallet
-from config import COIN_SETTINGS, POLL_INTERVAL,PRKEY,ETHAPIKEY,BSCAPIKEY,TRONAPIKEY,VALRDEPOSIT, COIN_NETWORKS, DATABASE_TYPE
-if DATABASE_TYPE == 'postgresql':
-    from postgres_storage import storage
-elif DATABASE_TYPE == 'mysql':
-    from storage import storage
+from config import COIN_SETTINGS, POLL_INTERVAL,PRKEY,ETHAPIKEY,BSCAPIKEY,TRONAPIKEY,VALRDEPOSIT, COIN_NETWORKS, DATABASE_TYPE, COIN_CONTRACTS
 
 # ERC20 Token ABI (Standard Interface)
 ERC20_ABI = [
@@ -254,7 +250,8 @@ class Blockchain:
             balance = 0
             for netcoin in COIN_NETWORKS[coin]:
               basecoin = coin + netcoin
-              balance += self.get_token_balance(self, netcoin, coin, wallet)
+              #print(basecoin)
+              balance += self.get_token_balance(netcoin, coin, wallet)
             return str(balance)
           else:
             return '0'
@@ -342,15 +339,19 @@ class Blockchain:
             transactions = self.get_sol_transactions(wallet.address)
             return transactions
           elif coin in COIN_NETWORKS:
+            if DATABASE_TYPE == 'postgresql':
+                from postgres_storage import storage
+            elif DATABASE_TYPE == 'mysql':
+                from storage import storage
             transactions = []
             user = storage.get_user_by_email(wallet.email)
             for netcoin in COIN_NETWORKS[coin]:
               basecoin = coin + netcoin
-              networkwallet  = storage.get_coinwallet(COIN_NETWORKS[coin][netcoin], user)
+              networkwallet  = storage.get_coinwallet(netcoin, user)
               if netcoin == "TRC20":
-                transactions.append(self.get_trc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin]))
+                transactions += self.get_trc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin])
               elif netcoin == "ERC20":
-                transactions.append(self.get_erc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin]))
+                transactions += self.get_erc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin])
             return transactions
           else:
             return []
@@ -372,10 +373,14 @@ class Blockchain:
             elif coin == "SOL":
               self.send_sol_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             elif coin in COIN_NETWORKS:
+              if DATABASE_TYPE == 'postgresql':
+                  from postgres_storage import storage
+              elif DATABASE_TYPE == 'mysql':
+                  from storage import storage
               user = storage.get_user_by_email(wallet.email)
               for netcoin in COIN_NETWORKS[coin]:
                 basecoin = coin + netcoin
-                networkwallet  = storage.get_coinwallet(COIN_NETWORKS[coin][netcoin], user)
+                networkwallet  = storage.get_coinwallet(netcoin, user)
                 if netcoin == "TRC20":
                   self.send_trc20_all(networkwallet.address, networkwallet.privatekey, COIN_SETTINGS[COIN_NETWORKS[coin][netcoin]]['central_wallet'], COIN_CONTRACTS[coin][netcoin])
                 elif netcoin == "ERC20":
@@ -416,7 +421,7 @@ class Blockchain:
                 address=address,
                 private_key=private_key.hex()
               )
-          elif coin == "ETH":
+          elif coin == "ETH" or coin == "ERC20":
             address = self.generate_eth_address(private_key)
             print(f"ETH Address: {address}")
             return GeneratedWallet(
@@ -440,7 +445,7 @@ class Blockchain:
                 address=address,
                 private_key=private_key.hex()
               )
-          elif coin == "TRX":
+          elif coin == "TRX" or coin == "TRC20":
             address = self.generate_trx_address(private_key)
             print(f"TRX Address: {address}")
             return GeneratedWallet(
@@ -778,12 +783,16 @@ class Blockchain:
 
 
     def get_token_balance(self, network, token, wallet):
+        if DATABASE_TYPE == 'postgresql':
+            from postgres_storage import storage
+        elif DATABASE_TYPE == 'mysql':
+            from storage import storage
         user = storage.get_user_by_email(wallet.email)
-        networkwallet  = storage.get_coinwallet(COIN_NETWORKS[token][network], user)
+        networkwallet  = storage.get_coinwallet(network, user)
         if network == 'ERC20':
-          return get_erc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
+          return self.get_erc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
         elif  network == 'TRC20':
-          return get_trc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
+          return self.get_trc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
         return 0
 
     def get_bnb_balance(self, address):
@@ -884,6 +893,7 @@ class Blockchain:
             balance = contract.functions.balanceOf(
                 self.eth_client.to_checksum_address(address)
             ).call()
+            #print("Detting ERC20 balance: " + str(balance) + " " + address)
             return balance
         except Exception as e:
             print(f"Error getting ERC20 balance: {e}")
@@ -892,10 +902,11 @@ class Blockchain:
     def get_erc20_transactions(self, address, token_contract):
         """Get ERC20 token transactions for an address using Etherscan API"""
         try:
-            url = f"https://api.etherscan.io/api?module=account&action=tokentx&contractaddress={token_contract}&address={address}&sort=desc&apikey={ETHAPIKEY}"
+            url = f"https://api.etherscan.io/v2/api?chainid=1&module=account&action=tokentx&contractaddress={token_contract}&address={address}&sort=desc&apikey={ETHAPIKEY}"
+
             response = requests.get(url)
             data = response.json()
-            
+            #print(data)
             if data['status'] == '1' and data['message'] == 'OK':
                 transactions = []
                 for tx in data['result']:
@@ -1079,6 +1090,8 @@ class Blockchain:
             
             # Call balanceOf function
             balance = contract.functions.balanceOf(address)
+            #print("Getting TRC20 balance: " + str(balance) + " " + address)
+
             return balance
         except Exception as e:
             print(f"Error getting TRC20 balance: {e}")
@@ -1096,6 +1109,7 @@ class Blockchain:
             
             response = requests.get(url, params=params, headers=headers)
             data = response.json()
+            #print(data)
             
             if data.get('success'):
                 transactions = []

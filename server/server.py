@@ -169,12 +169,13 @@ class Application(tornado.web.Application):
           allwallets = storage.get_all_wallets([coin])
           txhashes = storage.get_tx_hashes()
           for onewallet in allwallets:
+            #print(coin + " " + onewallet.address) 
             walletbalance = blockchain.get_balance(onewallet)
             if int(float(walletbalance)) > COIN_SETTINGS[onewallet.coin]['min_send_amount']:
               print("%i FORWARDING: %s %s" % (int(float(walletbalance)), coin, onewallet.address)) 
               blockchain.forward_to_hot(onewallet)
               
-            if float(walletbalance) != float(onewallet.hotwalet) or step == 7 or coin=='SOL':
+            if float(walletbalance) != float(onewallet.hotwalet) or step == 1:
               print("%s BALANCE changed %s    %s = %s" % (coin, onewallet.address, str(walletbalance), str(onewallet.hotwalet) ))
               txhashes = storage.update_wallet_balance(onewallet, walletbalance, txhashes)
             if coin == 'ETH' or coin == 'BNB':
@@ -284,13 +285,13 @@ class Application(tornado.web.Application):
         page += 100
         s = requests.Session()
         response = s.send(resp, timeout=REQUEST_TIMEOUT)
-        print(response)
-        print(url)
+        #print(response)
+        #print(url)
   #      print(response.text)
         provlist = (response.json())
         #print(provlist)
         if 'list' in provlist:
-          print(provlist['list']['totalItems'])
+          #print(provlist['list']['totalItems'])
           for provider in provlist['list']['items']:
             if not ('testOnly' in provider and provider['testOnly']) and 'url' in provider:
                 self.providers.append({
