@@ -1608,6 +1608,42 @@ class MySqlStorage:
             print(f"Error claiming reward: {e}")
             return False
 
+    def get_trading_leaderboard(self, limit: int = 10):
+        """Get top traders by trading volume"""
+        try:
+            db = DataBase(DB_NAME)
+            
+            # Get top traders by total trading volume
+            sql = """
+            SELECT 
+                u.email as username,
+                COALESCE(SUM(t.from_amount), 0) as total_volume,
+                COUNT(t.id) as trade_count
+            FROM users u
+            LEFT JOIN trades t ON u.email = t.userId
+            WHERE t.createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            GROUP BY u.email
+            HAVING total_volume > 0
+            ORDER BY total_volume DESC
+            LIMIT %s
+            """ % limit
+            
+            results = db.query(sql)
+            
+            leaderboard = []
+            for idx, row in enumerate(results, 1):
+                leaderboard.append({
+                    'rank': idx,
+                    'username': row['username'].split('@')[0] if row['username'] else 'Anonymous',  # Use email prefix for privacy
+                    'total_volume': str(row['total_volume']),
+                    'trade_count': row['trade_count']
+                })
+            
+            return leaderboard
+        except Exception as e:
+            print(f"Error getting leaderboard: {e}")
+            return []
+
 
 # Global storage instance
 storage = MySqlStorage()

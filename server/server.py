@@ -141,6 +141,9 @@ class Application(tornado.web.Application):
             (r"/api/rewards", RewardsHandler),
             (r"/api/rewards/claim", RewardsClaimHandler),
             
+            # Leaderboard route
+            (r"/api/leaderboard", LeaderboardHandler),
+            
             # File upload/download routes (must be before catch-all)
             (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
             
@@ -1876,6 +1879,18 @@ class RewardsClaimHandler(BaseHandler):
             print(f"Error claiming reward: {e}")
             self.set_status(500)
             self.write({"error": "Failed to claim reward"})
+
+class LeaderboardHandler(BaseHandler):
+    def get(self):
+        """Get trading leaderboard"""
+        try:
+            limit = int(self.get_argument('limit', 10))
+            leaderboard = self.application.storage.get_trading_leaderboard(limit)
+            self.write({"leaderboard": leaderboard})
+        except Exception as e:
+            print(f"Error getting leaderboard: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get leaderboard"})
 
 class PopularWalletsHandler(BaseHandler):
     def get(self):
