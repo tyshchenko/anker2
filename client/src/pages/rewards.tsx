@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Gift, CheckCircle2, Clock, TrendingUp, Shield, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { Sidebar } from "@/components/exchange/sidebar";
+import { MobileHeader } from "@/components/exchange/mobile-header";
 
 interface Reward {
   id: string;
@@ -25,6 +28,19 @@ interface Reward {
 
 export default function RewardsPage() {
   const { toast } = useToast();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when clicking outside or on navigation
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const { data: rewardsData, isLoading } = useQuery<{ rewards: Reward[] }>({
     queryKey: ['/api/rewards'],
@@ -32,10 +48,7 @@ export default function RewardsPage() {
 
   const claimMutation = useMutation({
     mutationFn: async (rewardId: string) => {
-      return await apiRequest('/api/rewards/claim', {
-        method: 'POST',
-        body: JSON.stringify({ reward_id: rewardId }),
-      });
+      return await apiRequest('POST', '/api/rewards/claim', { reward_id: rewardId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/rewards'] });
@@ -78,17 +91,62 @@ export default function RewardsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64" data-testid="loading-rewards">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading rewards...</p>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="flex min-h-screen">
+          {/* Desktop Sidebar */}
+          <div className="hidden lg:block">
+            <Sidebar />
+          </div>
+
+          {/* Mobile Sidebar */}
+          <Sidebar
+            isMobile
+            isOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col min-h-screen">
+            <MobileHeader
+              isMobileMenuOpen={isMobileMenuOpen}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
+            
+            <div className="flex items-center justify-center h-64" data-testid="loading-rewards">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                <p className="mt-4 text-muted-foreground">Loading rewards...</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6" data-testid="rewards-page">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="flex min-h-screen">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+
+        {/* Mobile Sidebar */}
+        <Sidebar
+          isMobile
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-h-screen">
+          <MobileHeader
+            isMobileMenuOpen={isMobileMenuOpen}
+            setIsMobileMenuOpen={setIsMobileMenuOpen}
+          />
+          
+          <div className="space-y-6 p-6" data-testid="rewards-page">
       <div>
         <h1 className="text-3xl font-bold" data-testid="page-title">Rewards Center</h1>
         <p className="text-muted-foreground mt-2" data-testid="page-description">
@@ -278,6 +336,9 @@ export default function RewardsPage() {
           </div>
         </CardContent>
       </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
