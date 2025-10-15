@@ -217,7 +217,7 @@ export default function ReceivePage() {
     let address = wallet.address;
     if (wallet.network && selectedNetwork) {
       const networkWallet = wallet.network[selectedNetwork];
-      const networkWalletData = walletsData?.wallets?.find(w => w.coin === networkWallet);
+      const networkWalletData = walletsData?.wallets?.find(w => w.coin === selectedNetwork);
       if (networkWalletData?.address) {
         address = networkWalletData.address;
       }
@@ -237,7 +237,7 @@ export default function ReceivePage() {
     let address = wallet.address;
     if (wallet.network && selectedNetwork) {
       const networkWallet = wallet.network[selectedNetwork];
-      const networkWalletData = walletsData?.wallets?.find(w => w.coin === networkWallet);
+      const networkWalletData = walletsData?.wallets?.find(w => w.coin === selectedNetwork);
       if (networkWalletData?.address) {
         address = networkWalletData.address;
       }

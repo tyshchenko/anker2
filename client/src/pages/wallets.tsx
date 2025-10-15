@@ -452,7 +452,7 @@ export default function WalletsPage() {
     if (params.symbol) {
       return wallet.symbol.toLowerCase() === params.symbol?.toLowerCase();
     }
-    return wallet.symbol !== 'ZAR';
+    return wallet.symbol !== 'ZAR' && wallet.is_active;
   });
 
   // Calculate total balance from real wallets using real ZAR prices
