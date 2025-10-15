@@ -250,11 +250,11 @@ class Blockchain:
           elif coin == "SOL":
             balance = self.get_sol_balance(wallet.address)
             return str(balance)
-          elif coin == "USDTTRC20":
-            balance = self.get_token_balance(self, "TRC20", "USDT", wallet)
-            return str(balance)
-          elif coin == "USDTERC20":
-            balance = self.get_token_balance(self, "ERC20", "USDT", wallet)
+          elif coin in COIN_NETWORKS:
+            balance = 0
+            for netcoin in COIN_NETWORKS[coin]:
+              basecoin = coin + netcoin
+              balance += self.get_token_balance(self, netcoin, coin, wallet)
             return str(balance)
           else:
             return '0'
@@ -310,10 +310,13 @@ class Blockchain:
               print(str(balance))
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_sol_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
-            elif coin == "USDTTRC20":
-              self.send_trc20_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'], coin)
-            elif coin == "USDTERC20":
-              self.send_erc20_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'], coin)
+            elif coin in COIN_NETWORKS:
+              for netcoin in COIN_NETWORKS[coin]:
+                basecoin = coin + netcoin
+                if netcoin == "TRC20":
+                  self.send_trc20_all(COIN_SETTINGS[COIN_NETWORKS[coin][netcoin]]['central_wallet'], PRKEY, VALRDEPOSIT[basecoin]['address'], COIN_CONTRACTS[coin][netcoin])
+                elif netcoin == "ERC20":
+                  self.send_erc20_all(COIN_SETTINGS[COIN_NETWORKS[coin][netcoin]]['central_wallet'], PRKEY, VALRDEPOSIT[basecoin]['address'], COIN_CONTRACTS[coin][netcoin])
           except Exception as e: print(e)
 
 
@@ -338,11 +341,16 @@ class Blockchain:
           elif coin == "SOL":
             transactions = self.get_sol_transactions(wallet.address)
             return transactions
-          elif coin == "USDTTRC20":
-            transactions = self.get_trc20_transactions(wallet.address, COIN_CONTRACTS['USDT']['TRC20'])
-            return transactions
-          elif coin == "USDTERC20":
-            transactions = self.get_erc20_transactions(wallet.address, COIN_CONTRACTS['USDT']['ERC20'])
+          elif coin in COIN_NETWORKS:
+            transactions = []
+            user = storage.get_user_by_email(wallet.email)
+            for netcoin in COIN_NETWORKS[coin]:
+              basecoin = coin + netcoin
+              networkwallet  = storage.get_coinwallet(COIN_NETWORKS[coin][netcoin], user)
+              if netcoin == "TRC20":
+                transactions.append(self.get_trc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin]))
+              elif netcoin == "ERC20":
+                transactions.append(self.get_erc20_transactions(networkwallet.address, COIN_CONTRACTS[coin][netcoin]))
             return transactions
           else:
             return []
@@ -363,10 +371,16 @@ class Blockchain:
               self.send_trx_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             elif coin == "SOL":
               self.send_sol_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-            elif coin == "USDTTRC20":
-              self.send_trc20_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
-            elif coin == "USDTERC20":
-              self.send_erc20_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
+            elif coin in COIN_NETWORKS:
+              user = storage.get_user_by_email(wallet.email)
+              for netcoin in COIN_NETWORKS[coin]:
+                basecoin = coin + netcoin
+                networkwallet  = storage.get_coinwallet(COIN_NETWORKS[coin][netcoin], user)
+                if netcoin == "TRC20":
+                  self.send_trc20_all(networkwallet.address, networkwallet.privatekey, COIN_SETTINGS[COIN_NETWORKS[coin][netcoin]]['central_wallet'], COIN_CONTRACTS[coin][netcoin])
+                elif netcoin == "ERC20":
+                  self.send_erc20_all(networkwallet.address, networkwallet.privatekey, COIN_SETTINGS[COIN_NETWORKS[coin][netcoin]]['central_wallet'], COIN_CONTRACTS[coin][netcoin])
+
             else:
               return []
           else:
@@ -614,11 +628,6 @@ class Blockchain:
             return transactions
         return []
 
-    def get_trc20_transactions(self, address, token):
-        return []
-      
-    def get_erc20_transactions(self, address, token):
-        return []
       
     def get_sol_transactions(self, address):
         try:
@@ -779,14 +788,6 @@ class Blockchain:
 
     def get_bnb_balance(self, address):
         return self.bnb_client.eth.get_balance(address)
-
-    def get_erc20_balance(self, address, token):
-        # self.eth_client
-        return 0
-
-    def get_trc20_balance(self, address, token):
-        # self.trx_client
-        return 0
 
     def get_sol_balance(self, address):
         pubkey = Pubkey.from_string(address)
