@@ -37,7 +37,11 @@ import ssl
 import bit
 
 from models import GeneratedWallet, NewWallet, FullWallet
-from config import COIN_SETTINGS, POLL_INTERVAL,PRKEY,ETHAPIKEY,BSCAPIKEY,TRONAPIKEY,VALRDEPOSIT
+from config import COIN_SETTINGS, POLL_INTERVAL,PRKEY,ETHAPIKEY,BSCAPIKEY,TRONAPIKEY,VALRDEPOSIT, COIN_NETWORKS, DATABASE_TYPE
+if DATABASE_TYPE == 'postgresql':
+    from postgres_storage import storage
+elif DATABASE_TYPE == 'mysql':
+    from storage import storage
 
 # Note: Install required libraries:
 # pip3 install ecdsa web3 solana base58 tronpy requests
@@ -218,6 +222,12 @@ class Blockchain:
           elif coin == "SOL":
             balance = self.get_sol_balance(wallet.address)
             return str(balance)
+          elif coin == "USDTTRC20":
+            balance = self.get_token_balance(self, "TRC20", "USDT", wallet)
+            return str(balance)
+          elif coin == "USDTERC20":
+            balance = self.get_token_balance(self, "ERC20", "USDT", wallet)
+            return str(balance)
           else:
             return '0'
         else:
@@ -272,6 +282,10 @@ class Blockchain:
               print(str(balance))
               if int(balance) > COIN_SETTINGS[coin]['min_send_amount']:
                 self.send_sol_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'])
+            elif coin == "USDTTRC20":
+              self.send_trc20_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'], coin)
+            elif coin == "USDTERC20":
+              self.send_erc20_all(COIN_SETTINGS[coin]['central_wallet'], PRKEY, VALRDEPOSIT[coin]['address'], coin)
           except Exception as e: print(e)
 
 
@@ -296,6 +310,12 @@ class Blockchain:
           elif coin == "SOL":
             transactions = self.get_sol_transactions(wallet.address)
             return transactions
+          elif coin == "USDTTRC20":
+            transactions = self.get_trc20_transactions(wallet.address, COIN_CONTRACTS['USDT']['TRC20'])
+            return transactions
+          elif coin == "USDTERC20":
+            transactions = self.get_erc20_transactions(wallet.address, COIN_CONTRACTS['USDT']['ERC20'])
+            return transactions
           else:
             return []
         else:
@@ -315,6 +335,10 @@ class Blockchain:
               self.send_trx_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             elif coin == "SOL":
               self.send_sol_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
+            elif coin == "USDTTRC20":
+              self.send_trc20_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
+            elif coin == "USDTERC20":
+              self.send_erc20_all(wallet.address, wallet.privatekey, COIN_SETTINGS[coin]['central_wallet'])
             else:
               return []
           else:
@@ -561,6 +585,12 @@ class Blockchain:
                 })
             return transactions
         return []
+
+    def get_trc20_transactions(self, address, token):
+        return []
+      
+    def get_erc20_transactions(self, address, token):
+        return []
       
     def get_sol_transactions(self, address):
         try:
@@ -709,8 +739,26 @@ class Blockchain:
     def get_eth_balance(self, address):
         return self.eth_client.eth.get_balance(address)
 
+
+    def get_token_balance(self, network, token, wallet):
+        user = storage.get_user_by_email(wallet.email)
+        networkwallet  = storage.get_coinwallet(COIN_NETWORKS[token][network], user)
+        if network == 'ERC20':
+          return get_erc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
+        elif  network == 'TRC20':
+          return get_trc20_balance(networkwallet.address, COIN_CONTRACTS[token][network])
+        return 0
+
     def get_bnb_balance(self, address):
         return self.bnb_client.eth.get_balance(address)
+
+    def get_erc20_balance(self, address, token):
+        # self.eth_client
+        return 0
+
+    def get_trc20_balance(self, address, token):
+        # self.trx_client
+        return 0
 
     def get_sol_balance(self, address):
         pubkey = Pubkey.from_string(address)

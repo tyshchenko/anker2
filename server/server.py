@@ -74,7 +74,9 @@ class Application(tornado.web.Application):
           threading.Timer(70.0, self.deposit_wathcher, args=('ETH',77,)).start()
           threading.Timer(90.0, self.deposit_wathcher, args=('BNB',77,)).start()
           threading.Timer(140.0, self.deposit_wathcher, args=('TRX',77,)).start()
-          threading.Timer(1.0, self.deposit_wathcher, args=('SOL',77,)).start()
+          threading.Timer(210.0, self.deposit_wathcher, args=('SOL',77,)).start()
+        else:
+          threading.Timer(1.0, self.deposit_wathcher, args=('USDT',77,)).start()
 
         blockchain.generate_main_wallet()
         self.getproviders()
