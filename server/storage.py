@@ -13,7 +13,6 @@ from valr_python import Client
 from models import User, InsertUser, Trade, InsertTrade, MarketData, Session, Wallet, BankAccount, NewWallet, FullWallet, NewBankAccount, OhlcvMarketData, Error, Transaction, VerificationCode, InsertVerificationCode, VerificationStatus, InsertVerificationStatus, UserProfile, InsertUserProfile
 
 from config import COIN_NETWORKS, TESTNET, DB_USER, DB_PASSWORD, DB_NAME, DB_HOST, VALR_KEY, VALR_SECRET, COIN_SETTINGS, SUBACCOUNT, COIN_FORMATS, ACTIVEPAIRS
-from blockchain import blockchain
 
 class DataBase(object):
     def __init__(self, database):
@@ -600,6 +599,7 @@ class MySqlStorage:
         return allwallets
 
     def update_wallet_balance(self, wallet: FullWallet, walletbalance, hasheslist):
+        from blockchain import blockchain
         txhashes = hasheslist
         transactions = blockchain.get_transactions(wallet)
         #print(transactions)
@@ -720,6 +720,7 @@ class MySqlStorage:
         return user
 
     def create_wallet(self, new_wallet: NewWallet, user: User) -> Wallet:
+        from blockchain import blockchain
         coin=new_wallet.coin
         address=''
         private_key=''
