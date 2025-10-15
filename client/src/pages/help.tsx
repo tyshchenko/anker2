@@ -25,7 +25,8 @@ import {
   TrendingUp,
   Users,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Gift
 } from "lucide-react";
 
 interface HelpCategory {
@@ -67,6 +68,38 @@ const HELP_CATEGORIES: HelpCategory[] = [
         title: 'Making your first trade',
         content: 'Navigate to the Exchange page, select your trading pair, enter the amount you want to buy or sell, and confirm your order.',
         category: 'getting-started'
+      }
+    ]
+  },
+  {
+    id: 'rewards',
+    title: 'Rewards & Bonuses',
+    icon: Gift,
+    description: 'Earn rewards by completing welcome tasks',
+    articles: [
+      {
+        id: 'how-rewards-work',
+        title: 'How rewards work',
+        content: 'New users can earn various rewards by completing welcome tasks like identity verification, making their first deposit of at least R1,000, and trading. Total potential rewards can reach up to R1,000 or higher, depending on active campaigns.',
+        category: 'rewards'
+      },
+      {
+        id: 'earning-rewards',
+        title: 'How to earn rewards',
+        content: 'Complete identity verification (KYC) as the first step to unlock rewards. Make a first-time deposit of at least R1,000 to receive your welcome bonus. Complete R1,000 worth of trading to earn your trading bonus.',
+        category: 'rewards'
+      },
+      {
+        id: 'claiming-rewards',
+        title: 'Claiming your rewards',
+        content: 'All rewards must be claimed via the Rewards Page before the task expires, typically within 2 weeks after signing up. Check your progress and task validity period on the Rewards Page.',
+        category: 'rewards'
+      },
+      {
+        id: 'reward-types',
+        title: 'Types of rewards',
+        content: 'Rewards can include BNB bonuses, ZAR credits, airdrops, and other cryptocurrency bonuses. Reward types and amounts may vary based on active campaigns and promotions.',
+        category: 'rewards'
       }
     ]
   },

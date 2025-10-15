@@ -123,6 +123,42 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   updated_at: true,
 });
 
+export const rewardTasks = pgTable("reward_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  task_type: text("task_type", { enum: ["kyc_verification", "first_deposit", "trading_volume"] }).notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  reward_amount: decimal("reward_amount", { precision: 20, scale: 2 }).notNull(),
+  reward_coin: text("reward_coin").notNull(),
+  required_amount: decimal("required_amount", { precision: 20, scale: 2 }),
+  expiration_days: varchar("expiration_days").notNull(),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const userRewards = pgTable("user_rewards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  task_id: varchar("task_id").notNull().references(() => rewardTasks.id, { onDelete: "cascade" }),
+  progress: decimal("progress", { precision: 20, scale: 2 }).default("0").notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  claimed: boolean("claimed").default(false).notNull(),
+  completion_date: timestamp("completion_date"),
+  claim_date: timestamp("claim_date"),
+  expires_at: timestamp("expires_at").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertRewardTaskSchema = createInsertSchema(rewardTasks).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertUserRewardSchema = createInsertSchema(userRewards).omit({
+  id: true,
+  created_at: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertTrade = z.infer<typeof insertTradeSchema>;
@@ -135,3 +171,7 @@ export type InsertVerificationStatus = z.infer<typeof insertVerificationStatusSc
 export type VerificationStatus = typeof verificationStatus.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertRewardTask = z.infer<typeof insertRewardTaskSchema>;
+export type RewardTask = typeof rewardTasks.$inferSelect;
+export type InsertUserReward = z.infer<typeof insertUserRewardSchema>;
+export type UserReward = typeof userRewards.$inferSelect;

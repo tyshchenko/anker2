@@ -80,6 +80,9 @@ class Application(tornado.web.Application):
 
         blockchain.generate_main_wallet()
         self.getproviders()
+        
+        # Initialize rewards system
+        storage.initialize_rewards()
     
 
         handlers = [
@@ -133,6 +136,10 @@ class Application(tornado.web.Application):
             (r"/api/sof", SOFHandler),
             
             (r"/api/providers", ProvidersHandler),
+            
+            # Rewards routes
+            (r"/api/rewards", RewardsHandler),
+            (r"/api/rewards/claim", RewardsClaimHandler),
             
             # File upload/download routes (must be before catch-all)
             (r"/api/upload/([^/]+)/([^/]+)", FileDownloadHandler),
@@ -1819,6 +1826,56 @@ class ProvidersHandler(BaseHandler):
             print(f"Error getting providers: {e}")
             self.set_status(500)
             self.write({"error": "Failed to get providers"})
+
+class RewardsHandler(BaseHandler):
+    def get(self):
+        """Get user's rewards and progress"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+
+            # Get user's rewards with progress
+            user_rewards = self.application.storage.get_user_rewards(user)
+            
+            self.write({"rewards": user_rewards})
+        except Exception as e:
+            print(f"Error getting rewards: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to get rewards"})
+
+class RewardsClaimHandler(BaseHandler):
+    def post(self):
+        """Claim a reward"""
+        try:
+            user = self.get_current_user_from_session()
+            if not user:
+                self.set_status(401)
+                self.write({"error": "Not authenticated"})
+                return
+
+            data = tornado.escape.json_decode(self.request.body)
+            reward_id = data.get('reward_id')
+            
+            if not reward_id:
+                self.set_status(400)
+                self.write({"error": "reward_id is required"})
+                return
+
+            # Claim the reward
+            success = self.application.storage.claim_reward(user, reward_id)
+            
+            if success:
+                self.write({"success": True, "message": "Reward claimed successfully"})
+            else:
+                self.set_status(400)
+                self.write({"error": "Failed to claim reward. Task may not be completed or already claimed."})
+        except Exception as e:
+            print(f"Error claiming reward: {e}")
+            self.set_status(500)
+            self.write({"error": "Failed to claim reward"})
 
 class PopularWalletsHandler(BaseHandler):
     def get(self):

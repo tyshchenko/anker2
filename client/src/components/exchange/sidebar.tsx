@@ -1,4 +1,4 @@
-import { Home, Compass, Search, BarChart3, Wallet, Zap, Users, HelpCircle, User, LogIn, LogOut, ChartCandlestick } from "lucide-react";
+import { Home, Compass, Search, BarChart3, Wallet, Zap, Users, HelpCircle, User, LogIn, LogOut, ChartCandlestick, Gift } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -33,6 +33,7 @@ const navigationItems = [
   { icon: Compass, label: "Explore", href: "/explore" },
   { icon: Zap, label: "Shitcoins", href: "/shitcoins", comingSoon: true },
   { icon: BarChart3, label: "Activity", href: "/activity" },
+  { icon: Gift, label: "Rewards", href: "/rewards" },
 ];
 
 const portfolioItems = [

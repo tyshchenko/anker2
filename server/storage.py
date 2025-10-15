@@ -1378,6 +1378,236 @@ class MySqlStorage:
             print(f"Error updating user password: {e}")
             return False
 
+    def initialize_rewards(self):
+        """Initialize default reward tasks"""
+        try:
+            db = DataBase(DB_NAME)
+            
+            # Create rewards table if not exists
+            sql = """
+            CREATE TABLE IF NOT EXISTS reward_tasks (
+                id VARCHAR(50) PRIMARY KEY,
+                task_type VARCHAR(50) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                description TEXT NOT NULL,
+                reward_amount DECIMAL(20, 2) NOT NULL,
+                reward_coin VARCHAR(10) NOT NULL,
+                required_amount DECIMAL(20, 2),
+                expiration_days INT NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            db.execute(sql)
+            
+            sql = """
+            CREATE TABLE IF NOT EXISTS user_rewards (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(50) NOT NULL,
+                task_id VARCHAR(50) NOT NULL,
+                progress DECIMAL(20, 2) DEFAULT 0,
+                completed BOOLEAN DEFAULT FALSE,
+                claimed BOOLEAN DEFAULT FALSE,
+                completion_date TIMESTAMP,
+                claim_date TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(email),
+                FOREIGN KEY (task_id) REFERENCES reward_tasks(id)
+            )
+            """
+            db.execute(sql)
+            
+            # Insert default reward tasks
+            import uuid
+            tasks = [
+                (str(uuid.uuid4()), 'kyc_verification', 'Complete Identity Verification', 'Verify your identity (KYC) to unlock rewards and full platform access', '100.00', 'ZAR', None, 14),
+                (str(uuid.uuid4()), 'first_deposit', 'Make Your First Deposit', 'Deposit at least R1,000 to receive your welcome bonus', '200.00', 'BNB', '1000.00', 14),
+                (str(uuid.uuid4()), 'trading_volume', 'Trade R1,000', 'Complete R1,000 worth of trading to earn your trading bonus', '700.00', 'ZAR', '1000.00', 14)
+            ]
+            
+            for task in tasks:
+                check_sql = "SELECT id FROM reward_tasks WHERE task_type = '%s'" % task[1]
+                existing = db.get(check_sql)
+                if not existing:
+                    sql = """
+                    INSERT INTO reward_tasks (id, task_type, title, description, reward_amount, reward_coin, required_amount, expiration_days)
+                    VALUES ('%s', '%s', '%s', '%s', %s, '%s', %s, %d)
+                    """ % task
+                    db.execute(sql)
+                    
+            return True
+        except Exception as e:
+            print(f"Error initializing rewards: {e}")
+            return False
+
+    def get_user_rewards(self, user: User):
+        """Get all rewards for a user with progress"""
+        try:
+            db = DataBase(DB_NAME)
+            
+            # Get all active reward tasks
+            sql = "SELECT * FROM reward_tasks WHERE is_active = TRUE"
+            tasks = db.get_all(sql)
+            
+            rewards = []
+            for task in tasks:
+                # Check if user has a record for this task
+                sql = "SELECT * FROM user_rewards WHERE user_id = '%s' AND task_id = '%s'" % (user.email, task['id'])
+                user_reward = db.get(sql)
+                
+                if not user_reward:
+                    # Create new user reward record
+                    import uuid
+                    from datetime import timedelta
+                    reward_id = str(uuid.uuid4())
+                    expires_at = datetime.now() + timedelta(days=int(task['expiration_days']))
+                    
+                    sql = """
+                    INSERT INTO user_rewards (id, user_id, task_id, expires_at)
+                    VALUES ('%s', '%s', '%s', '%s')
+                    """ % (reward_id, user.email, task['id'], expires_at.strftime('%Y-%m-%d %H:%M:%S'))
+                    db.execute(sql)
+                    
+                    user_reward = {
+                        'id': reward_id,
+                        'user_id': user.email,
+                        'task_id': task['id'],
+                        'progress': 0,
+                        'completed': False,
+                        'claimed': False,
+                        'completion_date': None,
+                        'claim_date': None,
+                        'expires_at': expires_at
+                    }
+                
+                # Calculate actual progress based on task type
+                progress = float(user_reward.get('progress', 0))
+                completed = user_reward.get('completed', False)
+                
+                if task['task_type'] == 'kyc_verification' and not completed:
+                    # Check verification status
+                    sql = "SELECT identity_status FROM verification_status WHERE user_id = '%s'" % user.email
+                    verification = db.get(sql)
+                    if verification and verification.get('identity_status') == 'verified':
+                        progress = 100
+                        completed = True
+                        # Update user reward
+                        sql = "UPDATE user_rewards SET progress = 100, completed = TRUE, completion_date = NOW() WHERE id = '%s'" % user_reward['id']
+                        db.execute(sql)
+                        
+                elif task['task_type'] == 'first_deposit' and not completed:
+                    # Check if user has made a deposit >= required amount
+                    sql = "SELECT SUM(amount) as total FROM transactions WHERE email = '%s' AND side = 'Deposit' AND coin = 'ZAR'" % user.email
+                    result = db.get(sql)
+                    if result and result.get('total'):
+                        total_deposit = float(result['total'])
+                        required = float(task.get('required_amount', 0))
+                        if total_deposit >= required:
+                            progress = 100
+                            completed = True
+                            sql = "UPDATE user_rewards SET progress = 100, completed = TRUE, completion_date = NOW() WHERE id = '%s'" % user_reward['id']
+                            db.execute(sql)
+                        else:
+                            progress = min((total_deposit / required) * 100, 100)
+                            sql = "UPDATE user_rewards SET progress = %s WHERE id = '%s'" % (progress, user_reward['id'])
+                            db.execute(sql)
+                            
+                elif task['task_type'] == 'trading_volume' and not completed:
+                    # Calculate total trading volume
+                    sql = "SELECT SUM(from_amount) as total FROM trades WHERE userId = '%s'" % user.email
+                    result = db.get(sql)
+                    if result and result.get('total'):
+                        total_volume = float(result['total'])
+                        required = float(task.get('required_amount', 0))
+                        if total_volume >= required:
+                            progress = 100
+                            completed = True
+                            sql = "UPDATE user_rewards SET progress = 100, completed = TRUE, completion_date = NOW() WHERE id = '%s'" % user_reward['id']
+                            db.execute(sql)
+                        else:
+                            progress = min((total_volume / required) * 100, 100)
+                            sql = "UPDATE user_rewards SET progress = %s WHERE id = '%s'" % (progress, user_reward['id'])
+                            db.execute(sql)
+                
+                rewards.append({
+                    'id': user_reward['id'],
+                    'task_id': task['id'],
+                    'task_type': task['task_type'],
+                    'title': task['title'],
+                    'description': task['description'],
+                    'reward_amount': str(task['reward_amount']),
+                    'reward_coin': task['reward_coin'],
+                    'required_amount': str(task.get('required_amount', 0)) if task.get('required_amount') else None,
+                    'progress': progress,
+                    'completed': completed,
+                    'claimed': user_reward.get('claimed', False),
+                    'expires_at': user_reward['expires_at'].isoformat() if isinstance(user_reward['expires_at'], datetime) else user_reward['expires_at']
+                })
+                
+            return rewards
+        except Exception as e:
+            print(f"Error getting user rewards: {e}")
+            return []
+
+    def claim_reward(self, user: User, reward_id: str) -> bool:
+        """Claim a reward"""
+        try:
+            db = DataBase(DB_NAME)
+            
+            # Get user reward
+            sql = "SELECT * FROM user_rewards WHERE id = '%s' AND user_id = '%s'" % (reward_id, user.email)
+            user_reward = db.get(sql)
+            
+            if not user_reward:
+                return False
+                
+            # Check if already claimed
+            if user_reward.get('claimed'):
+                return False
+                
+            # Check if completed
+            if not user_reward.get('completed'):
+                return False
+                
+            # Check if expired
+            expires_at = user_reward['expires_at']
+            if isinstance(expires_at, str):
+                expires_at = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S')
+            if expires_at < datetime.now():
+                return False
+            
+            # Get task details
+            sql = "SELECT * FROM reward_tasks WHERE id = '%s'" % user_reward['task_id']
+            task = db.get(sql)
+            
+            if not task:
+                return False
+            
+            # Add reward to user's wallet
+            reward_coin = task['reward_coin']
+            reward_amount = float(task['reward_amount'])
+            
+            # Update wallet balance
+            sql = "UPDATE wallets SET balance = balance + %s WHERE email = '%s' AND coin = '%s'" % (reward_amount, user.email, reward_coin)
+            db.execute(sql)
+            
+            # Create transaction record
+            sql = """
+            INSERT INTO transactions (email, coin, side, amount, price, status, txhash, txtype)
+            VALUES ('%s', '%s', 'Deposit', '%s', '0', 'completed', 'REWARD_%s', 'reward')
+            """ % (user.email, reward_coin, reward_amount, reward_id[:8])
+            db.execute(sql)
+            
+            # Mark reward as claimed
+            sql = "UPDATE user_rewards SET claimed = TRUE, claim_date = NOW() WHERE id = '%s'" % reward_id
+            db.execute(sql)
+            
+            return True
+        except Exception as e:
+            print(f"Error claiming reward: {e}")
+            return False
+
 
 # Global storage instance
 storage = MySqlStorage()

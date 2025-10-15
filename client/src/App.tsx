@@ -22,6 +22,7 @@ import ProfilePage from "@/pages/profile";
 import SignInPage from "@/pages/signin";
 import RegisterPage from "@/pages/register";
 import CreateWalletPage from "@/pages/create-wallet";
+import RewardsPage from "@/pages/rewards";
 
 // Declare social login objects for TypeScript
 declare global {
@@ -68,6 +69,7 @@ function Router() {
         <Route path="/receive" component={() => handleProtectedRoute(<ReceivePage />)} />
         <Route path="/shitcoins" component={ShitcoinsPage} />
         <Route path="/activity" component={() => handleProtectedRoute(<ActivityPage />)} />
+        <Route path="/rewards" component={() => handleProtectedRoute(<RewardsPage />)} />
         <Route path="/help" component={HelpPage} />
         <Route path="/profile" component={() => handleProtectedRoute(<ProfilePage />)} />
         <Route path="/signin" component={SignInPage} />
