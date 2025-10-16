@@ -438,13 +438,28 @@ export default function RewardsPage() {
                     <span className="text-muted-foreground" data-testid={`text-progress-label-${reward.task_type}`}>
                       Progress
                     </span>
-                    <span className="font-medium text-yellow-600" data-testid={`text-progress-value-${reward.task_type}`}>
+                    <span 
+                      className={`font-medium ${
+                        reward.progress === 0 
+                          ? 'text-red-600' 
+                          : reward.progress === 100 
+                          ? 'text-green-600' 
+                          : 'text-yellow-600'
+                      }`} 
+                      data-testid={`text-progress-value-${reward.task_type}`}
+                    >
                       {reward.progress.toFixed(0)}%
                     </span>
                   </div>
                   <Progress 
                     value={reward.progress} 
-                    className="h-2 [&>div]:bg-gradient-to-r [&>div]:from-yellow-500 [&>div]:to-amber-500" 
+                    className={`h-2 ${
+                      reward.progress === 0
+                        ? '[&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-red-600'
+                        : reward.progress === 100
+                        ? '[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-500'
+                        : '[&>div]:bg-gradient-to-r [&>div]:from-yellow-500 [&>div]:to-amber-500'
+                    }`}
                     data-testid={`progress-${reward.task_type}`} 
                   />
                   {reward.required_amount && (
