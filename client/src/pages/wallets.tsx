@@ -367,7 +367,7 @@ function WalletCard({ wallet, isBalanceVisible, isComingSoon = false }: WalletCa
             size="sm" 
             className="w-full" 
             data-testid={`button-receive-${wallet.id}`}
-            disabled={isComingSoon}
+            disabled={isComingSoon || wallet.symbol === 'USDT'}
           >
             <Download className="w-4 h-4 mr-2" />
             Receive

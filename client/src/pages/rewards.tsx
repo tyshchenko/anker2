@@ -340,10 +340,21 @@ export default function RewardsPage() {
         <p className="text-sm text-muted-foreground">
           You must complete all steps below to qualify for mystery box rewards
         </p>
-        
+        { IF ALL rewards completed && (
+          <Button
+            onClick={() => claimMutation.mutate(reward.id)}
+            disabled={claimMutation.isPending}
+            className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 border-0"
+            data-testid={`button-claim-${reward.task_type}`}
+          >
+            <Gift className="h-4 w-4 mr-2" />
+            {claimMutation.isPending ? "Claiming..." : "Claim Reward"}
+          </Button>
+        )}
         {rewardsData?.rewards.map((reward) => {
           const isExpired = new Date(reward.expires_at) < new Date();
           const expiresIn = formatDistanceToNow(new Date(reward.expires_at), { addSuffix: true });
+          const hideIt = Number(reward.reward_amount) == 0
 
           return (
             <Card key={reward.id} className="border-yellow-500/20 hover:border-yellow-500/40 transition-colors" data-testid={`card-reward-${reward.task_type}`}>
@@ -366,10 +377,10 @@ export default function RewardsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent" data-testid={`text-amount-${reward.task_type}`}>
+                    <div className={`text-2xl font-bold bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent ${hideIt ? "hidden" : ""}`} data-testid={`text-amount-${reward.task_type}`}>
                       {reward.reward_amount} {reward.reward_coin}
                     </div>
-                    {reward.completed ? (
+                    {hideIt ? <></> : reward.completed ? (
                       reward.claimed ? (
                         <Badge variant="outline" className="mt-2 bg-green-500/20 text-green-600 border-green-500/50" data-testid={`badge-claimed-${reward.task_type}`}>
                           <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -420,17 +431,7 @@ export default function RewardsPage() {
                     </span>
                   </div>
                   
-                  {reward.completed && !reward.claimed && !isExpired && (
-                    <Button
-                      onClick={() => claimMutation.mutate(reward.id)}
-                      disabled={claimMutation.isPending}
-                      className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 border-0"
-                      data-testid={`button-claim-${reward.task_type}`}
-                    >
-                      <Gift className="h-4 w-4 mr-2" />
-                      {claimMutation.isPending ? "Claiming..." : "Claim Reward"}
-                    </Button>
-                  )}
+
                 </div>
               </CardContent>
             </Card>
