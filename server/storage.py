@@ -1550,8 +1550,44 @@ class MySqlStorage:
             print(f"Error getting user rewards: {e}")
             return []
 
+    def check_qualification_status(self, user: User) -> Dict:
+        """Check if user has completed all qualification steps"""
+        try:
+            db = DataBase(DB_NAME)
+            
+            sql = """
+            SELECT ur.*, rt.task_type 
+            FROM user_rewards ur
+            JOIN reward_tasks rt ON ur.task_id = rt.id
+            WHERE ur.user_id = '%s'
+            """ % user.email
+            
+            all_user_rewards = db.query(sql)
+            
+            required_tasks = {
+                'kyc_verification': False,
+                'first_deposit': False,
+                'trading_volume': False
+            }
+            
+            for ur in all_user_rewards:
+                if ur['task_type'] in required_tasks and ur.get('completed'):
+                    required_tasks[ur['task_type']] = True
+            
+            all_completed = all(required_tasks.values())
+            
+            return {
+                'qualified': all_completed,
+                'kyc_completed': required_tasks['kyc_verification'],
+                'deposit_completed': required_tasks['first_deposit'],
+                'trading_completed': required_tasks['trading_volume']
+            }
+        except Exception as e:
+            print(f"Error checking qualification: {e}")
+            return {'qualified': False, 'kyc_completed': False, 'deposit_completed': False, 'trading_completed': False}
+
     def claim_reward(self, user: User, reward_id: str) -> bool:
-        """Claim a reward"""
+        """Claim a reward - requires ALL qualification steps to be completed"""
         try:
             db = DataBase(DB_NAME)
             
@@ -1575,6 +1611,30 @@ class MySqlStorage:
             if isinstance(expires_at, str):
                 expires_at = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S')
             if expires_at < datetime.now():
+                return False
+            
+            # QUALIFICATION CHECK: Verify ALL tasks are completed
+            # User must complete: KYC verification, first deposit (R1000+), and trading volume (R1000)
+            sql = """
+            SELECT ur.*, rt.task_type 
+            FROM user_rewards ur
+            JOIN reward_tasks rt ON ur.task_id = rt.id
+            WHERE ur.user_id = '%s'
+            """ % user.email
+            
+            all_user_rewards = db.query(sql)
+            
+            # Check that all required tasks exist and are completed
+            required_tasks = ['kyc_verification', 'first_deposit', 'trading_volume']
+            completed_tasks = []
+            
+            for ur in all_user_rewards:
+                if ur['task_type'] in required_tasks and ur.get('completed'):
+                    completed_tasks.append(ur['task_type'])
+            
+            # Ensure ALL required tasks are completed
+            if set(completed_tasks) != set(required_tasks):
+                print(f"Qualification incomplete. Completed: {completed_tasks}, Required: {required_tasks}")
                 return False
             
             # Get task details

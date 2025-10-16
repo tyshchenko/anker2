@@ -1851,7 +1851,7 @@ class RewardsHandler(BaseHandler):
 
 class RewardsClaimHandler(BaseHandler):
     def post(self):
-        """Claim a reward"""
+        """Claim a reward - requires ALL qualification steps completed"""
         try:
             user = self.get_current_user_from_session()
             if not user:
@@ -1865,6 +1865,27 @@ class RewardsClaimHandler(BaseHandler):
             if not reward_id:
                 self.set_status(400)
                 self.write({"error": "reward_id is required"})
+                return
+
+            # Check qualification status
+            qualification = self.application.storage.check_qualification_status(user)
+            
+            if not qualification['qualified']:
+                # Build detailed error message
+                missing_steps = []
+                if not qualification['kyc_completed']:
+                    missing_steps.append("Complete KYC verification")
+                if not qualification['deposit_completed']:
+                    missing_steps.append("Deposit R1,000 or more")
+                if not qualification['trading_completed']:
+                    missing_steps.append("Trade R1,000 worth of crypto")
+                
+                self.set_status(400)
+                self.write({
+                    "error": "You must complete ALL qualification steps before claiming rewards",
+                    "missing_steps": missing_steps,
+                    "qualification": qualification
+                })
                 return
 
             # Claim the reward

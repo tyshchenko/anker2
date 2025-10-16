@@ -70,11 +70,29 @@ export default function RewardsPage() {
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to claim reward",
-        variant: "destructive",
-      });
+      // Check if error has qualification details
+      if (error.missing_steps && error.missing_steps.length > 0) {
+        toast({
+          title: "Qualification Required",
+          description: (
+            <div className="space-y-2">
+              <p className="font-medium">Complete all steps to unlock rewards:</p>
+              <ul className="list-disc list-inside text-sm">
+                {error.missing_steps.map((step: string, idx: number) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.error || error.message || "Failed to claim reward",
+          variant: "destructive",
+        });
+      }
     },
   });
 

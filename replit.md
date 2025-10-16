@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a cryptocurrency exchange web application built with React, Express.js, and PostgreSQL. The application provides a trading platform with real-time market data, multi-currency support (including South African Rand), and a modern dark-themed UI. It features a sidebar navigation, price charts, market tickers, and trading functionality for buying, selling, and converting between cryptocurrencies and fiat currencies.
+This is a cryptocurrency exchange web application built with React/TypeScript frontend and Python/Tornado backend with MySQL database. The application provides a trading platform with real-time market data, multi-currency support (including South African Rand), and a modern dark-themed UI. It features OAuth authentication, Two-Factor Authentication, KYC verification, wallet management, mystery box rewards system, and a trading competition.
 
 ## User Preferences
 
@@ -18,25 +18,30 @@ Preferred communication style: Simple, everyday language.
 - **Charts**: Recharts library for financial data visualization
 - **Form Handling**: React Hook Form with Zod validation
 - **Responsive Design**: Mobile-first approach with responsive sidebar and adaptive layouts
+- **Theme**: Golden mystery box theme with yellow/amber gradients and glowing effects
 
 ### Backend Architecture
-- **Framework**: Express.js with TypeScript running on Node.js
-- **Database ORM**: Drizzle ORM with PostgreSQL dialect for type-safe database operations
+- **Framework**: Python Tornado asynchronous web framework
+- **Database**: MySQL with pymysql-pool for connection pooling
 - **Real-time Communication**: WebSocket server integration for live price updates
-- **Data Storage**: In-memory storage with interface design allowing easy database migration
-- **API Design**: RESTful endpoints with structured error handling and request logging
-- **Build System**: ESBuild for server compilation with external package bundling
+- **Data Storage**: MySQL database with custom storage layer (server/storage.py)
+- **API Design**: RESTful endpoints with JSON responses and error handling
+- **Blockchain Integration**: Multi-network cryptocurrency support (BTC, ETH, TRX, BNB, etc.)
 
 ### Database Schema
-- **Users Table**: User authentication with username/password storage
+- **Users Table**: OAuth authentication, 2FA, KYC status, profile data
+- **Wallets Table**: Multi-coin wallet balances with network support
 - **Trades Table**: Complete trade history with asset pairs, amounts, rates, and fees
-- **Market Data Table**: Historical price data with 24h change and volume metrics
+- **Transactions Table**: Deposit/withdrawal history with blockchain transaction hashes
+- **Reward Tasks Table**: Task definitions (KYC, deposit, trading volume)
+- **User Rewards Table**: Individual user progress on tasks, completion status, claim status
 - **Data Types**: Decimal precision for financial calculations to avoid floating-point errors
 
 ### Authentication and Session Management
-- **Session Storage**: PostgreSQL session store with connect-pg-simple
-- **User Management**: Basic username/password authentication system
-- **Trade Authorization**: User-specific trade history and portfolio tracking
+- **OAuth Integration**: Google OAuth for user authentication
+- **Two-Factor Authentication**: TOTP-based 2FA with QR code generation
+- **User Verification**: KYC/identity verification system with status tracking
+- **Session Management**: Secure session handling with user context
 
 ### Real-time Features
 - **WebSocket Integration**: Live price updates and market data streaming
@@ -54,6 +59,30 @@ Preferred communication style: Simple, everyday language.
 - **Fee Structure**: Configurable transaction fees (0.1% default)
 - **Trade Types**: Buy, sell, and convert operations with validation
 - **Price Discovery**: Mock price feeds with volatility simulation for development
+
+### Mystery Box Rewards System
+- **Qualification Process**: Users must complete ALL steps to unlock rewards (not individual claims)
+  1. Register and complete KYC verification → 100 ZAR reward
+  2. Deposit R1,000+ (crypto or ZAR) → 200 BNB reward
+  3. Complete R1,000 trading volume → 700 ZAR reward
+- **Total Reward Value**: R1,000+ worth of mystery box rewards
+- **Backend Enforcement**: `claim_reward()` method validates all tasks completed before allowing claims
+- **Qualification Check**: `check_qualification_status()` returns detailed completion status
+- **Frontend UX**: Golden theme with mystery box icons, progress tracking, and detailed error messages
+- **Expiration**: Rewards expire 14 days after user registration
+- **API Endpoints**:
+  - `GET /api/rewards` - Get user rewards with progress
+  - `POST /api/rewards/claim` - Claim reward (requires full qualification)
+
+### Trading Competition
+- **Prize Pool**: R10,000 worth of BNB
+- **Winners**: Top 3 traders by 30-day trading volume
+- **Leaderboard**: 
+  - Real-time rankings with crown/medal icons (🥇🥈🥉)
+  - Privacy-friendly display (email prefix only)
+  - Shows trading volume and trade count
+- **API Endpoint**: `GET /api/leaderboard` - Get top traders
+- **Competition Period**: Monthly 30-day rolling competitions
 
 ## External Dependencies
 
