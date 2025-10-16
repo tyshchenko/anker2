@@ -1863,7 +1863,7 @@ class RewardsClaimHandler(BaseHandler):
             reward_id = data.get('reward_id')
             
             if not reward_id:
-                self.set_status(400)
+                self.set_status(407)
                 self.write({"error": "reward_id is required"})
                 return
 
@@ -1889,12 +1889,12 @@ class RewardsClaimHandler(BaseHandler):
                 return
 
             # Claim the reward
-            success = self.application.storage.claim_reward(user, reward_id)
+            success = storage.claim_reward(user, reward_id)
             
             if success:
                 self.write({"success": True, "message": "Reward claimed successfully"})
             else:
-                self.set_status(400)
+                self.set_status(403)
                 self.write({"error": "Failed to claim reward. Task may not be completed or already claimed."})
         except Exception as e:
             print(f"Error claiming reward: {e}")
@@ -1906,7 +1906,7 @@ class LeaderboardHandler(BaseHandler):
         """Get trading leaderboard"""
         try:
             limit = int(self.get_argument('limit', 10))
-            leaderboard = self.application.storage.get_trading_leaderboard(limit)
+            leaderboard = storage.get_trading_leaderboard(limit)
             self.write({"leaderboard": leaderboard})
         except Exception as e:
             print(f"Error getting leaderboard: {e}")

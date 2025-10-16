@@ -122,6 +122,33 @@ CREATE TABLE user_profiles (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE TABLE IF NOT EXISTS reward_tasks (
+  id SERIAL PRIMARY KEY,
+  task_type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  reward_amount VARCHAR(200) NOT NULL,
+  reward_coin VARCHAR(10) NOT NULL,
+  required_amount VARCHAR(200),
+  expiration_days INT NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_rewards (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(50) NOT NULL,
+    task_id INT NOT NULL,
+    progress DECIMAL(20, 2) DEFAULT 0,
+    completed BOOLEAN DEFAULT FALSE,
+    claimed BOOLEAN DEFAULT FALSE,
+    completion_date TIMESTAMP  NULL DEFAULT NULL,
+    claim_date TIMESTAMP  NULL DEFAULT NULL,
+    expires_at TIMESTAMP  NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
