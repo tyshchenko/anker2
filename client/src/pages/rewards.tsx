@@ -333,24 +333,55 @@ export default function RewardsPage() {
 
       {/* Task List */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold flex items-center gap-2" data-testid="section-tasks">
-          <Gift className="h-6 w-6 text-yellow-500" />
-          Complete All Steps to Unlock Rewards
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          You must complete all steps below to qualify for mystery box rewards
-        </p>
-        { IF ALL rewards completed && (
-          <Button
-            onClick={() => claimMutation.mutate(reward.id)}
-            disabled={claimMutation.isPending}
-            className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 border-0"
-            data-testid={`button-claim-${reward.task_type}`}
-          >
-            <Gift className="h-4 w-4 mr-2" />
-            {claimMutation.isPending ? "Claiming..." : "Claim Reward"}
-          </Button>
-        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold flex items-center gap-2" data-testid="section-tasks">
+              <Gift className="h-6 w-6 text-yellow-500" />
+              Complete All Steps to Unlock Rewards
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              You must complete all steps below to qualify for mystery box rewards
+            </p>
+          </div>
+          
+          {/* Claim All Rewards Button - Show when ALL tasks completed, not expired, not claimed */}
+          {(() => {
+            if (!rewardsData?.rewards || rewardsData.rewards.length === 0) return null;
+            
+            const allCompleted = rewardsData.rewards.every(r => r.completed);
+            const anyExpired = rewardsData.rewards.some(r => new Date(r.expires_at) < new Date());
+            const allClaimed = rewardsData.rewards.every(r => r.claimed);
+            const anyClaimed = rewardsData.rewards.some(r => r.claimed);
+            const allProgress100 = rewardsData.rewards.every(r => r.progress === 100);
+            
+            // Show button only if all completed, not expired, and not all claimed
+            if (allCompleted && !anyExpired && !allClaimed) {
+              return (
+                <Button
+                  onClick={() => {
+                    // Claim all unclaimed rewards
+                    rewardsData.rewards
+                      .filter(r => !r.claimed)
+                      .forEach(r => claimMutation.mutate(r.id));
+                  }}
+                  disabled={claimMutation.isPending}
+                  className={`${
+                    allProgress100
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                      : 'bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600'
+                  } border-0 shadow-lg`}
+                  data-testid="button-claim-all-rewards"
+                >
+                  <Gift className="h-4 w-4 mr-2" />
+                  {claimMutation.isPending ? "Claiming..." : "Claim All Rewards"}
+                </Button>
+              );
+            }
+            
+            return null;
+          })()}
+        </div>
+        
         {rewardsData?.rewards.map((reward) => {
           const isExpired = new Date(reward.expires_at) < new Date();
           const expiresIn = formatDistanceToNow(new Date(reward.expires_at), { addSuffix: true });
