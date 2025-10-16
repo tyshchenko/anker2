@@ -317,8 +317,11 @@ export default function RewardsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold flex items-center gap-2" data-testid="section-tasks">
           <Gift className="h-6 w-6 text-yellow-500" />
-          Mystery Box Tasks
+          Complete All Steps to Unlock Rewards
         </h2>
+        <p className="text-sm text-muted-foreground">
+          You must complete all steps below to qualify for mystery box rewards
+        </p>
         
         {rewardsData?.rewards.map((reward) => {
           const isExpired = new Date(reward.expires_at) < new Date();
@@ -422,48 +425,79 @@ export default function RewardsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2" data-testid="text-info-title">
             <Sparkles className="h-5 w-5 text-yellow-500" />
-            How to Unlock Mystery Boxes
+            How to Qualify for Mystery Box Rewards
           </CardTitle>
+          <CardDescription className="mt-2">
+            Complete all requirements below to unlock your chance at mystery box rewards
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <h3 className="font-semibold flex items-center gap-2" data-testid="text-info-verify">
-              <Gift className="h-5 w-5 text-yellow-500" />
-              Sign up and verify your identity
-            </h3>
-            <p className="text-sm text-muted-foreground pl-7" data-testid="text-info-verify-desc">
-              Complete identity verification (KYC) to unlock your first mystery box and full platform access.
-            </p>
-          </div>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <span className="text-sm font-bold text-yellow-600">1</span>
+              </div>
+              <div>
+                <h3 className="font-semibold" data-testid="text-info-verify">
+                  Register & Verify Your Identity
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-info-verify-desc">
+                  Sign up for an account and complete identity verification (KYC) to get started
+                </p>
+              </div>
+            </div>
 
-          <div className="space-y-2">
-            <h3 className="font-semibold flex items-center gap-2" data-testid="text-info-deposit">
-              <Gift className="h-5 w-5 text-amber-500" />
-              Complete your first deposit
-            </h3>
-            <p className="text-sm text-muted-foreground pl-7" data-testid="text-info-deposit-desc">
-              Make a first-time deposit of at least R1,000 to unlock a premium mystery box with BNB rewards.
-            </p>
-          </div>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <span className="text-sm font-bold text-amber-600">2</span>
+              </div>
+              <div>
+                <h3 className="font-semibold" data-testid="text-info-deposit">
+                  Deposit R1,000 or More
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-info-deposit-desc">
+                  Make your first deposit of at least R1,000 in crypto (BTC, ETH, USDT, etc.) or ZAR
+                </p>
+              </div>
+            </div>
 
-          <div className="space-y-2">
-            <h3 className="font-semibold flex items-center gap-2" data-testid="text-info-trade">
-              <Gift className="h-5 w-5 text-yellow-600" />
-              Trade for R1,000
-            </h3>
-            <p className="text-sm text-muted-foreground pl-7" data-testid="text-info-trade-desc">
-              Complete R1,000 worth of trading to unlock your final mystery box with ZAR rewards.
-            </p>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center">
+                <span className="text-sm font-bold text-yellow-700">3</span>
+              </div>
+              <div>
+                <h3 className="font-semibold" data-testid="text-info-trade">
+                  Complete R1,000 in Trading Volume
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-info-trade-desc">
+                  Trade at least R1,000 worth of any cryptocurrency on the exchange
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Gift className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-green-600">
+                  Unlock Your Mystery Box Rewards!
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Once all steps are completed, you'll qualify to claim your mystery box rewards
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 p-4 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 rounded-lg border border-yellow-500/30">
             <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-2" data-testid="text-info-reminder">
-              ✨ Important Reminders:
+              ✨ Important:
             </p>
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-              <li data-testid="text-reminder-claim">All mystery boxes must be claimed via this Rewards Page</li>
-              <li data-testid="text-reminder-expiry">Mystery boxes expire within 2 weeks after signing up</li>
-              <li data-testid="text-reminder-check">Check your progress regularly to not miss out</li>
+              <li data-testid="text-reminder-claim">You must complete ALL steps above to qualify for rewards</li>
+              <li data-testid="text-reminder-expiry">Rewards expire within 2 weeks after registration</li>
+              <li data-testid="text-reminder-check">Track your progress on this page and claim rewards before they expire</li>
             </ul>
           </div>
         </CardContent>
