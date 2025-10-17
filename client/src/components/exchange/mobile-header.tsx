@@ -1,6 +1,10 @@
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BalanceDisplay } from "./balance-display";
+import { useAuth } from "@/lib/auth";
+import { LoginDialog } from "@/components/auth/login-dialog";
+import { RegisterDialog } from "@/components/auth/register-dialog";
+import { useState } from "react";
 
 interface MobileHeaderProps {
   isMobileMenuOpen: boolean;
@@ -9,6 +13,10 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({ isMobileMenuOpen, setIsMobileMenuOpen, onDepositClick }: MobileHeaderProps) {
+  const { isAuthenticated } = useAuth();
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showRegisterDialog, setShowRegisterDialog] = useState(false);
+
   return (
     <div className="lg:hidden">
       <header className="flex items-center justify-between p-4 border-b border-border bg-card">
@@ -34,7 +42,31 @@ export function MobileHeader({ isMobileMenuOpen, setIsMobileMenuOpen, onDepositC
           <span className="font-semibold" data-testid="text-brand">Exchange</span>
         </div>
         
-        <div className="w-6" />
+        {/* Signin/Signup Buttons for unauthenticated users */}
+        {!isAuthenticated ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowLoginDialog(true)}
+              data-testid="button-mobile-signin"
+              className="h-8 px-2"
+            >
+              <LogIn className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowRegisterDialog(true)}
+              data-testid="button-mobile-signup"
+              className="h-8 px-2"
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="w-6" />
+        )}
       </header>
       
       {/* Mobile Balance Display */}
@@ -44,6 +76,25 @@ export function MobileHeader({ isMobileMenuOpen, setIsMobileMenuOpen, onDepositC
           onDepositClick={onDepositClick}
         />
       </div>
+
+      {/* Auth Dialogs */}
+      <LoginDialog
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        onSwitchToRegister={() => {
+          setShowLoginDialog(false);
+          setShowRegisterDialog(true);
+        }}
+      />
+
+      <RegisterDialog
+        open={showRegisterDialog}
+        onOpenChange={setShowRegisterDialog}
+        onSwitchToLogin={() => {
+          setShowRegisterDialog(false);
+          setShowLoginDialog(true);
+        }}
+      />
     </div>
   );
 }
