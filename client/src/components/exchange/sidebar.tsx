@@ -51,7 +51,6 @@ const portfolioItems = [
 ];
 
 const bottomItems = [
-  { icon: Users, label: "Referrals" },
   { icon: HelpCircle, label: "Help", href: "/help" },
   { icon: User, label: "Profile", href: "/profile" },
 ];
