@@ -229,6 +229,34 @@ export function Sidebar({ className, isMobile, isOpen, onClose }: SidebarProps) 
           <div className="h-px bg-border" />
         </div>
 
+        {/* Registration Bonus Banner */}
+        <Link href="/rewards">
+          <div
+            className="relative overflow-hidden rounded-lg bg-gradient-to-br from-yellow-500/20 via-amber-500/20 to-yellow-600/20 p-4 border border-yellow-500/30 cursor-pointer hover:border-yellow-500/50 transition-all group mb-4"
+            onClick={isMobile ? onClose : undefined}
+            data-testid="banner-registration-bonus"
+          >
+            <div className="absolute top-0 right-0 opacity-10">
+              <Gift className="h-20 w-20 text-yellow-500" />
+            </div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-2">
+                <Gift className="h-5 w-5 text-yellow-500" />
+                <span className="text-sm font-bold bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent">
+                  Registration Bonus
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Get up to <span className="font-bold text-yellow-600">R1,000+</span> in mystery box rewards!
+              </p>
+              <div className="flex items-center gap-1 text-xs text-yellow-600 font-medium group-hover:gap-2 transition-all">
+                <span>Claim now</span>
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </div>
+            </div>
+          </div>
+        </Link>
+
         {isAuthenticated ? (
           <>
             <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
